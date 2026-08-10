@@ -1,0 +1,28 @@
+[project]
+name = "wpm-mcp-server"
+version = "0.1.0"
+description = "Confidence-weighted, vector+graph hybrid persistent memory MCP server"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp==1.9.4",
+    "sqlite-vec>=0.1.9",
+]
+
+[project.optional-dependencies]
+semantic-embeddings = [
+    "sentence-transformers>=3.0.0",
+]
+
+[project.scripts]
+wpm-mcp-server = "wpm_mcp_server.server:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["test_*.py"]

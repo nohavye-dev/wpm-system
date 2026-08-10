@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+node_modules/
+.wpm/
+*.db
+.env

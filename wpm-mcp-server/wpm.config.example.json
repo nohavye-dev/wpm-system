@@ -1,0 +1,60 @@
+{
+  "db_path": ".wpm/wpm.db",
+  "confidence_threshold": 0.5,
+  "embedding": {
+    "provider": null,
+    "model": "all-MiniLM-L6-v2"
+  },
+  "domain": {
+    "provenance": {
+      "base_confidence": {
+        "official_doc": 0.9,
+        "observed_code": 0.75,
+        "tool_execution": 0.7,
+        "agent_inference": 0.35
+      },
+      "default": 0.5
+    },
+    "decay": {
+      "lambda_per_type": {
+        "archi_decision": 0.002,
+        "convention": 0.003,
+        "doc": 0.004,
+        "learning": 0.008,
+        "bug_pattern": 0.015
+      },
+      "default_lambda": 0.01
+    },
+    "evidence": {
+      "confirm_weight": {
+        "execution_verified": 0.25,
+        "cross_reference": 0.15,
+        "reuse_without_failure": 0.05,
+        "agent_reasoning": 0.0
+      },
+      "contradict_weight": {
+        "execution_verified": 0.4,
+        "cross_reference": 0.25,
+        "reuse_without_failure": 0.1,
+        "agent_reasoning": 0.0
+      }
+    },
+    "validation": {
+      "score_min": 0.0,
+      "score_max": 1.0,
+      "dedup_window_seconds": 1800
+    },
+    "retrieval": {
+      "weight_similarity": 0.5,
+      "weight_confidence": 0.35,
+      "weight_centrality": 0.15,
+      "min_similarity": 0.1
+    },
+    "expansion": {
+      "hop_decay": 0.5,
+      "min_confidence": 0.3,
+      "top_n_candidates": 20,
+      "auto_link_similarity_threshold": 0.82
+    }
+  }
+}
