@@ -26,15 +26,15 @@ if not data.get("db_path"):
     data["db_path"] = ".wpm/wpm.db"
 db_path = data["db_path"]
 if db_path.endswith(os.sep):
-    sys.stderr.write("wpm: erreur : db_path doit être un fichier (pas de séparateur final)\n")
+    sys.stderr.write("wpm: error: db_path must be a file (no trailing separator)\n")
     sys.exit(1)
 resolved = os.path.realpath(os.path.join(project, db_path))
 root = os.path.realpath(project)
 if resolved == root:
-    sys.stderr.write("wpm: erreur : db_path doit être un fichier, pas la racine du projet\n")
+    sys.stderr.write("wpm: error: db_path must be a file, not the project root directory\n")
     sys.exit(1)
 if not resolved.startswith(root + os.sep):
-    sys.stderr.write("wpm: erreur : db_path doit se trouver dans le répertoire du projet\n")
+    sys.stderr.write("wpm: error: db_path must live inside the project directory\n")
     sys.exit(1)
 with open(path, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2)

@@ -25,6 +25,7 @@ export interface MemoryServerConfig {
 
 export class MemoryClient {
   private client: Client | null = null
+  private transport: StdioClientTransport | null = null
   private connecting: Promise<Client> | null = null
 
   constructor(private readonly config: MemoryServerConfig) {}
@@ -49,10 +50,9 @@ export class MemoryClient {
       try {
         await client.connect(transport)
         this.client = client
+        this.transport = transport
         return client
       } catch (err) {
-        // Reset the cached promise so a failed (or died) server is retried on
-        // the next call instead of making every future call fail forever.
         this.connecting = null
         await client.close().catch(() => {})
         throw err
@@ -94,7 +94,7 @@ export class MemoryClient {
 
   async validateEntry(input: {
     entry_id: string
-    evidence_type: "execution_verified" | "cross_reference" | "reuse_without_failure"
+    evidence_type: "execution_verified" | "cross_reference" | "reuse_without_failure" | "agent_reasoning"
     evidence_ref: string
     session_id: string
   }): Promise<unknown> {
@@ -106,6 +106,20 @@ export class MemoryClient {
       await this.client.close()
       this.client = null
     }
+    this.transport = null
+    this.connecting = null
+  }
+
+  closeSync(): void {
+    if (!this.transport) return
+    try {
+      const child = (this.transport as unknown as { _process?: { kill(signal?: string): boolean } })._process
+      child?.kill("SIGTERM")
+    } catch {
+      // Best-effort sync cleanup on exit; the OS will reap the process anyway.
+    }
+    this.transport = null
+    this.client = null
     this.connecting = null
   }
 }

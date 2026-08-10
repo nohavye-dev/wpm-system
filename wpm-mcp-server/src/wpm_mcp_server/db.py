@@ -62,6 +62,7 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     conn.enable_load_extension(False)
 
     conn.execute("PRAGMA foreign_keys=ON")
+    conn.execute("PRAGMA journal_mode=WAL")
 
     conn.executescript(SCHEMA_SQL)
     conn.execute(VEC_TABLE_SQL_TEMPLATE.format(dim=EMBEDDING_DIM))

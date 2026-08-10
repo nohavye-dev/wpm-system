@@ -43,13 +43,20 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
   const config = loadMemoryServerConfig(directory)
   const memory = new MemoryClient(config)
 
-  // OpenCode's plugin API has no teardown hook, so the best-effort cleanup
-  // point is process exit: close() tears down the stdio transport and kills
-  // the Python subprocess, which would otherwise leak. The async close may
-  // not fully flush on exit, but calling it is strictly better than never
-  // closing the subprocess.
-  process.once("exit", () => {
+  // OpenCode's plugin API has no teardown hook. beforeExit fires before
+  // the event loop drains and supports the async close() for a clean stdio
+  // transport shutdown. The exit fallback handles explicit process.exit()
+  // calls where beforeExit may not fire — it does a best-effort sync kill
+  // of the Python subprocess.
+  let cleanedUp = false
+  const cleanup = () => {
+    if (cleanedUp) return
+    cleanedUp = true
     void memory.close()
+  }
+  process.once("beforeExit", cleanup)
+  process.once("exit", () => {
+    if (!cleanedUp) memory.closeSync()
   })
 
   const confidenceThreshold = getConfidenceThreshold(directory)

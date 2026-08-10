@@ -5,4 +5,7 @@ dist/
 node_modules/
 .wpm/
 *.db
+*.db-*
 .env
+.venv/
+.pytest_cache/
