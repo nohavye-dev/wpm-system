@@ -10,8 +10,20 @@ import {
   getConfidenceThreshold,
 } from "./config.js"
 import { IDLE_NUDGE_TEXT, MEMORY_USAGE_RULES } from "./rules.js"
+import {
+  COMPACTION_QUERY_MAX_CHARS,
+  COMPACTION_WIDE_WINDOW,
+  DEFAULT_COMPACTION_QUERY,
+  MAX_RULES_CHARS,
+  PROJECT_RULES_QUERY,
+  buildProjectRulesBlock,
+  deriveCompactionQuery,
+  extractUserTexts,
+} from "./project-context.js"
 
-const VERIFICATION_COMMAND_PATTERNS = [
+const MAX_PROJECT_RULES_CACHE = 50
+
+export const VERIFICATION_COMMAND_PATTERNS: RegExp[] = [
   /\bpytest\b/,
   /\bnpm\s+(run\s+)?test\b/,
   /\bnpm\s+run\s+build\b/,
@@ -51,9 +63,18 @@ const VERIFICATION_COMMAND_PATTERNS = [
 
 // Tools that mutate the project — used to detect whether a session did real
 // work before allowing an idle nudge.
-const WORK_TOOLS = new Set(["edit", "write", "apply_patch", "bash", "task"])
+export const WORK_TOOLS = new Set(["edit", "write", "apply_patch", "bash", "task"])
 
-function looksLikeVerificationCommand(
+// Memory tools that change the stored state — invalidating the project-rules
+// cache so freshly persisted rules reach the system prompt promptly.
+export const MEMORY_MUTATION_TOOLS = new Set([
+  "store_entry",
+  "validate_entry",
+  "contradict_entry",
+  "link_entries",
+])
+
+export function looksLikeVerificationCommand(
   command: string | undefined,
   patterns: (RegExp | null)[],
 ): boolean {
@@ -122,6 +143,32 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
   ]
   const activeSessions = new Set<string>()
   const nudgedSessions = new Map<string, number>()
+  const projectRulesCache = new Map<string, string>()
+
+  const cacheKey = (sessionID: string | undefined) => sessionID ?? "default"
+
+  const resolveProjectRules = async (
+    sessionID: string | undefined,
+  ): Promise<string> => {
+    const key = cacheKey(sessionID)
+    const cached = projectRulesCache.get(key)
+    if (cached !== undefined) return cached
+
+    const result = await memory.queryContext({
+      query: PROJECT_RULES_QUERY,
+      min_confidence: confidenceThreshold,
+      token_budget: 800,
+    })
+    const text = extractTextFromToolResult(result)
+    const rules = text ? text.slice(0, MAX_RULES_CHARS) : ""
+
+    if (projectRulesCache.size >= MAX_PROJECT_RULES_CACHE) {
+      const oldest = projectRulesCache.keys().next().value
+      if (oldest !== undefined) projectRulesCache.delete(oldest)
+    }
+    projectRulesCache.set(key, rules)
+    return rules
+  }
 
   return {
     tool: {
@@ -235,14 +282,43 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
       }),
     },
 
-    "experimental.chat.system.transform": async (_input, output) => {
+    "experimental.chat.system.transform": async (input, output) => {
       output.system.push(MEMORY_USAGE_RULES)
+      try {
+        const rules = await resolveProjectRules(input.sessionID)
+        const block = buildProjectRulesBlock(rules)
+        if (block) output.system.push(block)
+      } catch (err) {
+        await client.app.log({
+          body: {
+            service: "wpm-opencode-plugin",
+            level: "error",
+            message: `project rules injection failed: ${String(err)}`,
+          },
+        })
+      }
     },
 
     "experimental.session.compacting": async (input, output) => {
       try {
+        let query = DEFAULT_COMPACTION_QUERY
+        try {
+          const res = await client.session.messages({
+            path: { id: input.sessionID },
+            query: { limit: 20 },
+          })
+          const texts = extractUserTexts(res.data, COMPACTION_WIDE_WINDOW)
+          query = deriveCompactionQuery(
+            texts.slice(-2),
+            texts,
+            COMPACTION_QUERY_MAX_CHARS,
+          )
+        } catch {
+          // Session message retrieval is best-effort — keep the generic query.
+        }
+
         const result = await memory.queryContext({
-          query: "current task relevant decisions and conventions",
+          query,
           min_confidence: confidenceThreshold,
         })
 
@@ -273,6 +349,9 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
     "tool.execute.after": async (input, output) => {
       if (WORK_TOOLS.has(input.tool)) {
         activeSessions.add(input.sessionID)
+      }
+      if (MEMORY_MUTATION_TOOLS.has(input.tool)) {
+        projectRulesCache.delete(cacheKey(input.sessionID))
       }
       if (input.tool !== "bash") return
 

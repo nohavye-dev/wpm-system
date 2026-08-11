@@ -174,15 +174,28 @@ Même force de preuve, sans polluer l'auto-capture.
 
 ### Autres points réglables
 
+- **Règles projet injectées** — le hook `experimental.chat.system.transform`
+  injecte dans le prompt système les conventions/décisions à haute confiance
+  (`≥ confidence_threshold`) récupérées en mémoire (`query_context`), dans
+  un bloc `<project-rules>`. Résultat **déterministe** : les règles vivent
+  en mémoire (évolutives) mais sont **garanties présentes à chaque tour**,
+  sans que l'agent ait à penser à les requêter. Cache par session
+  (budget borné, 800 tokens par requête, bloc plafonné) ; rafraîchi dès
+  qu'une mutation mémoire (`store_entry`, `validate_entry`,
+  `contradict_entry`, `link_entries`) a lieu dans la session.
+- **Requête de compaction contextuelle** — le hook
+  `experimental.session.compacting` dérive sa requête des **2 derniers
+  messages utilisateur** de la session (signal topical) ; s'ils n'en
+  portent pas (ex. « continue »), il élargit aux 5 derniers, puis retombe
+  sur la requête générique `"current task relevant decisions and
+  conventions"`. La récupération du contexte préservé est ainsi alignée sur
+  le travail réel de la session.
 - `MEMORY_USAGE_RULES` dans `src/rules.ts` — les règles injectées dans le
   prompt système ; `IDLE_NUDGE_TEXT` y vit aussi, gardé volontairement
   court pour ne pas polluer le contexte.
 - `idle_nudge` est une fonctionnalité **opt-in** (`wpm.config.json` ou
   `WPM_IDLE_NUDGE`). Sans activation, `session.idle` reste une simple
   entrée de journal passive.
-- La requête de compaction (`"current task relevant decisions and
-  conventions"`) est volontairement générique — réglez-la une fois que vous
-  verrez de vraies charges utiles de compaction.
 
 ## Note d'architecture
 
