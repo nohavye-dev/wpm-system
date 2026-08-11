@@ -116,6 +116,11 @@ class Repository:
         ).fetchall()
 
         direct_ids = {row["entry_id"]: (1.0 - row["distance"]) for row in candidates}
+        qualified_direct = {
+            eid
+            for eid, sim in direct_ids.items()
+            if sim >= self.settings.retrieval.min_similarity
+        }
 
         # --- expansion: 1 hop via entry_links (section 6) ---
         expanded: dict[str, float] = {}
@@ -129,7 +134,7 @@ class Repository:
                 (entry_id, entry_id),
             ).fetchall():
                 other_id = link["target_id"] if "target_id" in link.keys() else link[0]
-                if other_id in direct_ids or other_id == entry_id:
+                if other_id in qualified_direct or other_id == entry_id:
                     continue
                 hop_score = similarity * self.settings.expansion.hop_decay * link["weight"]
                 expanded[other_id] = max(expanded.get(other_id, 0.0), hop_score)
