@@ -52,6 +52,18 @@ python3 -m venv "$DATA_DIR/venv"
 "$DATA_DIR/venv/bin/python" -m pip install --upgrade pip
 "$DATA_DIR/venv/bin/python" -m pip install "$BUNDLE_DIR/wpm-mcp-server"
 
+printf 'pre-downloading embedding model (~80 MB)...\n'
+"$DATA_DIR/venv/bin/python" -c "
+from huggingface_hub import hf_hub_download
+repo = 'sentence-transformers/all-MiniLM-L6-v2'
+for f in ['tokenizer.json', 'onnx/model.onnx']:
+    try:
+        p = hf_hub_download(repo, f)
+        print(f'cached: {p}')
+    except Exception as e:
+        print(f'warning: could not cache {f}: {e}')
+" || printf 'warning: model pre-download failed (will download on first use)\n'
+
 printf 'installing global commands...\n'
 mkdir -p "$GLOBAL_CONFIG_DIR/commands"
 cp "$BUNDLE_DIR/wpm-commands"/wpm-doc.md "$BUNDLE_DIR/wpm-commands"/wpm-code.md "$GLOBAL_CONFIG_DIR/commands/"
