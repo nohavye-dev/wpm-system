@@ -11,7 +11,7 @@ import os
 from mcp.server.fastmcp import FastMCP
 
 from wpm_mcp_server import db
-from wpm_mcp_server.embeddings import build_provider
+from wpm_mcp_server.embeddings import get_provider
 from wpm_mcp_server.repository import WpmError, Repository
 from wpm_mcp_server.settings import load_settings
 
@@ -45,10 +45,8 @@ def get_repo() -> Repository:
     global _repo
     if _repo is None:
         conn = db.connect(DB_PATH)
-        embedder = build_provider(
-            provider=os.environ.get("WPM_EMBEDDING_PROVIDER") or _settings.embedding.provider,
-            model=os.environ.get("WPM_EMBEDDING_MODEL") or _settings.embedding.model,
-        )
+        model = os.environ.get("WPM_EMBEDDING_MODEL")
+        embedder = get_provider(model)
         _repo = Repository(conn=conn, embedder=embedder, settings=_settings.domain)
     return _repo
 

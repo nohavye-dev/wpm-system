@@ -34,7 +34,10 @@ Chemin vers le fichier SQLite. Un chemin **relatif est résolu par rapport à la
 Clé **top-level** optionnelle (défaut `0.5`), validée par le serveur mais
 utilisée par le plugin OpenCode : c'est le seuil de confiance sous lequel le
 hook `experimental.session.compacting` n'injecte pas une entrée dans le
-contexte préservé avant compaction.
+contexte préservé avant compaction. Il pilote aussi l'**injection des règles
+projet** dans le prompt système (`experimental.chat.system.transform`) : seules
+les conventions/décisions `≥ confidence_threshold` y sont injectées de façon
+déterministe.
 
 ```json
 "confidence_threshold": 0.6
@@ -110,30 +113,21 @@ polluer l'auto-capture.
 
 ---
 
-## `embedding` — provider/modèle d'embeddings [optionnel]
+## Embeddings [intégré, non configurable]
 
-Section **optionnelle** — provider et modèle utilisés pour calculer les
-embeddings des entrées. Uniquement lue par le serveur Python (le plugin
-l'ignore). Par défaut, aucun fournisseur externe n'est requis : `provider`
-vaut `null` (équivalent à `"hashing"`), les embeddings sont calculés par
-hachage, et `model` n'est pas utilisé. Pour de vrais embeddings sémantiques,
-mettre `"sentence_transformers"` (nécessite l'extra `[semantic-embeddings]`).
+Les embeddings sémantiques sont inclus par défaut via ONNX Runtime +
+tokenizers HuggingFace (~100 MB de dépendances obligatoires). Le modèle
+`all-MiniLM-L6-v2` (384 dimensions) est téléchargé automatiquement depuis
+HuggingFace Hub au premier démarrage et mis en cache localement. Aucune
+section `embedding` dans `wpm.config.json` — le fournisseur et le modèle
+sont fixes côté serveur.
 
-```json
-"embedding": {
-  "provider": null,
-  "model": "all-MiniLM-L6-v2"
-}
-```
-
-| Clé | Type | Défaut | Rôle |
-|---|---|---|---|
-| `provider` | string ou `null` | `null` (→ hashing) | Fournisseur d'embeddings : `null`/`"hashing"` = défaut sans dépendance ; `"sentence_transformers"` = embeddings sémantiques. |
-| `model` | string | `all-MiniLM-L6-v2` | Modèle utilisé uniquement si `provider` = `"sentence_transformers"`. Changer de modèle impose de ré-embedder la base. |
-
-Précédence : `WPM_EMBEDDING_PROVIDER` et `WPM_EMBEDDING_MODEL` (variables
-d'env) > fichier JSON. La section est optionnelle : absente, les valeurs
-par défaut ci-dessus s'appliquent.
+Pour changer de modèle : positionnez `WPM_EMBEDDING_MODEL` dans
+l'environnement (ex. `WPM_EMBEDDING_MODEL=all-mpnet-base-v2`). Le modèle
+doit être disponible sur HuggingFace Hub sous `sentence-transformers/` et
+avoir une exportation ONNX (`onnx/model.onnx`). Changer de modèle après
+avoir déjà inséré des entrées nécessite de ré-embedder la base (supprimez
+`.wpm/wpm.db` et recommencez).
 
 ---
 

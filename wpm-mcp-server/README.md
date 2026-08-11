@@ -15,13 +15,6 @@ source .venv/bin/activate   # or .venv\Scripts\activate on Windows
 pip install -e .
 ```
 
-Pour de vrais embeddings sémantiques (recommandé au-delà des tests locaux —
-voir « Embeddings » ci-dessous) :
-
-```bash
-pip install -e ".[semantic-embeddings]"
-```
-
 `install.sh` à la racine du dépôt effectue une installation globale non
 éditable dans un environnement virtuel géré
 (`~/.local/share/wpm-system/venv`) ; l'installation manuelle ci-dessus
@@ -96,38 +89,24 @@ uniquement sur AGENTS.md.
 
 ## Embeddings
 
-`embeddings.py` définit une interface `EmbeddingProvider`. Le défaut
-(`HashingEmbeddingProvider`) est un **repli déterministe, hors ligne et sans
-dépendance** — idéal pour exercer les rouages de stockage/récupération de
-bout en bout, mais il n'a aucune véritable compréhension sémantique (c'est
-du feature hashing, pas un modèle entraîné).
+Les embeddings sémantiques sont inclus par défaut via ONNX Runtime +
+tokenizers HuggingFace (~100 MB de dépendances, contre ~1 GB pour
+l'ancien pipeline torch/sentence-transformers). Aucune configuration
+n'est nécessaire — le modèle `all-MiniLM-L6-v2` (384 dimensions) est
+téléchargé automatiquement depuis HuggingFace Hub au premier démarrage
+et mis en cache localement.
 
-Pour une vraie recherche de similarité, activez `SentenceTransformerProvider`
-via `wpm.config.json` — aucune modification de code nécessaire :
+Pour changer de modèle : positionnez `WPM_EMBEDDING_MODEL` dans
+l'environnement (ex. `WPM_EMBEDDING_MODEL=all-mpnet-base-v2`). Le modèle
+doit être disponible sur HuggingFace Hub sous `sentence-transformers/` et
+avoir une exportation ONNX (`onnx/model.onnx`). Changer de modèle après
+avoir déjà inséré des entrées nécessite de ré-embedder la base
+(supprimez le fichier `.wpm/wpm.db` et recommencez).
 
-```json
-{
-  "embedding": {
-    "provider": "sentence_transformers",
-    "model": "all-MiniLM-L6-v2"
-  }
-}
-```
-
-`provider` accepte `null` / `"hashing"` (défaut, aucune dépendance
-supplémentaire) ou `"sentence_transformers"`. `model` n'est utilisé que pour
-ce dernier. Une valeur de `provider` inconnue lève une erreur au démarrage
-au lieu de retomber silencieusement sur un repli.
-
-Cela nécessite `pip install -e ".[semantic-embeddings]"` et un téléchargement
-unique du modèle (accès réseau vers huggingface.co). `EMBEDDING_DIM` dans
-`domain.py` doit correspondre à la dimension de sortie du modèle (384 pour
-all-MiniLM-L6-v2, déjà le défaut) — le serveur le valide au démarrage et
-échoue rapidement avec un message clair en cas de discordance.
-
-Substitutions par variables d'environnement : `WPM_EMBEDDING_PROVIDER` et
-`WPM_EMBEDDING_MODEL` remplacent le fichier JSON lorsqu'elles sont
-définies.
+`EMBEDDING_DIM` dans `domain.py` doit correspondre à la dimension de
+sortie du modèle (384 pour all-MiniLM-L6-v2, déjà le défaut) — le
+serveur le valide au démarrage et échoue rapidement avec un message
+clair en cas de discordance.
 
 ## Configuration — `wpm.config.json` à la racine du projet
 
@@ -212,8 +191,7 @@ silence.
 |---|---|---|
 | `WPM_DB_PATH` | `db_path` | aucune — obligatoire |
 | `WPM_CONFIG_PATH` | quel fichier JSON lire | `wpm.config.json` (cwd) |
-| `WPM_EMBEDDING_PROVIDER` | `embedding.provider` | (unset → hashing) |
-| `WPM_EMBEDDING_MODEL` | `embedding.model` | `all-MiniLM-L6-v2` |
+| `WPM_EMBEDDING_MODEL` | modèle d'embedding | `all-MiniLM-L6-v2` |
 
 ## Tests
 

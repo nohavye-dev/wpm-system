@@ -24,22 +24,6 @@ from typing import Any
 from wpm_mcp_server.domain import EntryType, EvidenceType
 
 
-# --- Section: embedding ------------------------------------------------
-@dataclass
-class EmbeddingSettings:
-    """Which embedding provider to use for vector similarity.
-
-    provider is None/"hashing" for the dependency-free default, or
-    "sentence_transformers" for real semantic embeddings (requires the
-    `[semantic-embeddings]` extra). model is only used when
-    provider="sentence_transformers". Changing model/EMBEDDING_DIM requires
-    re-embedding the database.
-    """
-
-    provider: str | None = None
-    model: str = "all-MiniLM-L6-v2"
-
-
 # --- Section: domain (advanced) ------------------------------------------------
 @dataclass
 class ProvenanceSettings:
@@ -143,9 +127,6 @@ class Settings:
     # here by the server (unknown keys raise) but USED by the OpenCode
     # plugin's tool.execute.after hook; the server itself does not read it.
     verification_command_patterns: list[str] | None = None
-
-    # Server-side only — the plugin ignores the embedding section.
-    embedding: EmbeddingSettings = field(default_factory=EmbeddingSettings)
 
     # Advanced — see DomainSettings docstring.
     domain: DomainSettings = field(default_factory=DomainSettings)

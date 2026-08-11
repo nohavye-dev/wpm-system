@@ -5,10 +5,6 @@
   "verification_command_patterns": [
     "\\bmy-custom-runner\\b"
   ],
-  "embedding": {
-    "provider": null,
-    "model": "all-MiniLM-L6-v2"
-  },
   "domain": {
     "provenance": {
       "base_confidence": {

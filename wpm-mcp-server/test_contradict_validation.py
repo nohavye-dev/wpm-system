@@ -3,12 +3,25 @@ sys.path.insert(0, "src")
 
 import tempfile, os
 from wpm_mcp_server import db
-from wpm_mcp_server.embeddings import get_default_provider
 from wpm_mcp_server.repository import Repository, WpmError
+from wpm_mcp_server.embeddings import EmbeddingProvider
+
+import hashlib
+
+class _StubEmbedder(EmbeddingProvider):
+    dim = 384
+    def embed(self, text: str) -> list[float]:
+        import math
+        vec = [0.0] * self.dim
+        for i in range(self.dim):
+            digest = hashlib.sha256(f"{text}:{i}".encode()).digest()
+            vec[i] = (int.from_bytes(digest[:4], "big") % 1000 - 500) / 500.0
+        norm = math.sqrt(sum(v * v for v in vec))
+        return [v / norm for v in vec] if norm > 0 else vec
 
 tmp = tempfile.mktemp(suffix=".db")
 conn = db.connect(tmp)
-repo = Repository(conn=conn, embedder=get_default_provider())
+repo = Repository(conn=conn, embedder=_StubEmbedder())
 
 # 1. bogus conflicting_entry_id -> WpmError
 e1 = repo.store_entry(type_="learning", content="SQLite virtual tables support TEXT primary keys", source="agent_inference")

@@ -57,5 +57,4 @@ La documentation détaillée vit dans [`docs/fr/`](docs/fr/index.md) :
 
 ## Limitations
 
-- Pas d'embeddings sémantiques réels (défaut : repli de hachage hors ligne sans dépendance — voir « Embeddings » dans le README du serveur).
 - Le document de spécification complet (modèle de poids, formules de récupération, working-scope) reste à conserver à côté du bundle ; les commentaires du code renvoient à ses sections.

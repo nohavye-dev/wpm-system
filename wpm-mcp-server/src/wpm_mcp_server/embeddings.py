@@ -1,29 +1,19 @@
-"""Embedding provider abstraction.
+"""Embedding via ONNX runtime + HuggingFace tokenizers.
 
-The spec deliberately leaves the embedding model open ("local or a light
-model, depending on the offline constraint" — spec section 10). This module
-defines a minimal interface plus a dependency-free default implementation
-so the server is usable and testable without a network call or a model
-download.
+No torch — onnxruntime (~5 MB) + tokenizers (~15 MB) + model ONNX
+(~80 MB cached once) replace the ~1 GB sentence-transformers/torch stack.
 
-The default `HashingEmbeddingProvider` is NOT semantically meaningful — it
-is a deterministic bag-of-tokens hashing scheme, good enough to exercise
-storage, retrieval plumbing, and sqlite-vec wiring end-to-end, but it will
-not produce good semantic similarity. Swap in `SentenceTransformerProvider`
-(or any other implementation of `EmbeddingProvider`) for real use; see
-README.
+The default model is all-MiniLM-L6-v2 (384-dim vectors), matching the
+EMBEDDING_DIM constant in domain.py. Set WPM_EMBEDDING_MODEL to override.
 """
 
 from __future__ import annotations
 
-import hashlib
-import math
-import re
 from abc import ABC, abstractmethod
 
 from wpm_mcp_server.domain import EMBEDDING_DIM
 
-_TOKEN_RE = re.compile(r"[a-zA-Z0-9_]+")
+_DEFAULT_MODEL = "all-MiniLM-L6-v2"
 
 
 class EmbeddingProvider(ABC):
@@ -34,102 +24,72 @@ class EmbeddingProvider(ABC):
         """Return a fixed-length float vector for the given text."""
 
 
-class HashingEmbeddingProvider(EmbeddingProvider):
-    """Deterministic, offline, dependency-free fallback.
+class ONNXRuntimeProvider(EmbeddingProvider):
+    """Semantic embeddings via ONNX runtime.
 
-    Each token is hashed into a bucket of the output vector (with a sign
-    derived from a second hash), then the vector is L2-normalized. This is
-    a standard "feature hashing" trick — cheap and stable, but it has no
-    real semantic structure. Replace it for anything beyond local testing.
+    Downloads the ONNX model and tokenizer from the HuggingFace Hub on
+    first use (cached locally). No torch required.
     """
 
-    def __init__(self, dim: int = EMBEDDING_DIM) -> None:
-        self.dim = dim
+    def __init__(self, model: str = _DEFAULT_MODEL) -> None:
+        import onnxruntime as ort
+        from huggingface_hub import hf_hub_download
+        from tokenizers import Tokenizer
+
+        repo = f"sentence-transformers/{model}"
+
+        tokenizer_path = hf_hub_download(repo, "tokenizer.json")
+        onnx_path = hf_hub_download(repo, "onnx/model.onnx")
+
+        self._tokenizer = Tokenizer.from_file(tokenizer_path)
+        self._session = ort.InferenceSession(
+            onnx_path, providers=["CPUExecutionProvider"]
+        )
+        self.dim = EMBEDDING_DIM
+
+        output_info = self._session.get_outputs()[0]
+        output_shape = output_info.shape
+        if output_shape and len(output_shape) == 3 and output_shape[2] != EMBEDDING_DIM:
+            raise ValueError(
+                f"ONNX model produces {output_shape[2]}-dim token vectors "
+                f"but EMBEDDING_DIM is {EMBEDDING_DIM}. Change EMBEDDING_DIM "
+                f"in domain.py to match the model's output dimension."
+            )
 
     def embed(self, text: str) -> list[float]:
-        vector = [0.0] * self.dim
-        tokens = _TOKEN_RE.findall(text.lower())
-        for token in tokens:
-            digest = hashlib.sha256(token.encode("utf-8")).digest()
-            index = int.from_bytes(digest[:4], "big") % self.dim
-            sign = 1.0 if digest[4] % 2 == 0 else -1.0
-            vector[index] += sign
+        import numpy as np
 
-        norm = math.sqrt(sum(v * v for v in vector))
-        if norm > 0:
-            vector = [v / norm for v in vector]
-        return vector
+        encoded = self._tokenizer.encode(text)
+        input_names = [i.name for i in self._session.get_inputs()]
 
+        feed = {}
+        input_ids = np.array([encoded.ids], dtype=np.int64)
+        attention_mask = np.array([encoded.attention_mask], dtype=np.int64)
 
-class SentenceTransformerProvider(EmbeddingProvider):
-    """Real semantic embeddings via sentence-transformers.
+        if "input_ids" in input_names:
+            feed["input_ids"] = input_ids
+        if "attention_mask" in input_names:
+            feed["attention_mask"] = attention_mask
+        if "token_type_ids" in input_names:
+            feed["token_type_ids"] = np.zeros(
+                (1, len(encoded.ids)), dtype=np.int64
+            )
 
-    Not wired in by default because it requires downloading model weights
-    (network access + disk space) and an extra dependency. To use it:
+        outputs = self._session.run(None, feed)
+        token_embeddings = outputs[0]  # [batch, seq_len, dim]
 
-        pip install sentence-transformers
-        provider = SentenceTransformerProvider("all-MiniLM-L6-v2")
+        # Mean pooling with attention mask
+        mask = attention_mask[:, :, None].astype(np.float64)  # [batch, seq_len, 1]
+        summed = (token_embeddings.astype(np.float64) * mask).sum(axis=1)
+        counts = mask.sum(axis=1)
+        counts = np.clip(counts, a_min=1e-9, a_max=None)
+        vec = summed / counts  # [batch, dim]
 
-    all-MiniLM-L6-v2 produces 384-dim vectors, matching EMBEDDING_DIM.
-    Change EMBEDDING_DIM in domain.py if you use a different model.
-    """
-
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
-        from sentence_transformers import SentenceTransformer  # type: ignore
-
-        self._model = SentenceTransformer(model_name)
-        self.dim = self._model.get_sentence_embedding_dimension()
-
-    def embed(self, text: str) -> list[float]:
-        return self._model.encode(text, normalize_embeddings=True).tolist()
+        vec = vec[0]  # [dim]
+        vec = vec / (np.linalg.norm(vec) or 1.0)
+        return vec.tolist()
 
 
-PROVIDER_HASHING = "hashing"
-PROVIDER_SENTENCE_TRANSFORMERS = "sentence_transformers"
-
-
-def validate_embedding_dim(provider: EmbeddingProvider, expected: int) -> None:
-    """Fail fast when the provider's vector dimension mismatches the schema."""
-    if provider.dim != expected:
-        raise ValueError(
-            f"embedding provider '{provider.__class__.__name__}' produces "
-            f"{provider.dim}-dim vectors but EMBEDDING_DIM is {expected}. "
-            f"Change EMBEDDING_DIM in domain.py to match the model's output "
-            f"dimension, then re-embed the database (existing vectors cannot "
-            f"change dimension in place)."
-        )
-
-
-def build_provider(
-    provider: str | None = None, model: str = "all-MiniLM-L6-v2"
-) -> EmbeddingProvider:
-    """Build the configured embedding provider.
-
-    provider is None/""/"hashing" for the dependency-free default, or
-    "sentence_transformers" for real semantic embeddings (requires the
-    `[semantic-embeddings]` extra). Unknown values raise so a typo in
-    wpm.config.json fails at startup instead of silently falling back.
-    """
-    name = (provider or PROVIDER_HASHING).strip().lower()
-    if name == PROVIDER_HASHING:
-        instance: EmbeddingProvider = HashingEmbeddingProvider()
-    elif name == PROVIDER_SENTENCE_TRANSFORMERS:
-        try:
-            instance = SentenceTransformerProvider(model)
-        except ImportError as exc:
-            raise ImportError(
-                "sentence-transformers is not installed. Run "
-                "`pip install -e \".[semantic-embeddings]\"` to enable "
-                "SentenceTransformerProvider."
-            ) from exc
-    else:
-        raise ValueError(
-            f"unknown embedding provider '{provider}'. Expected one of "
-            f"null, '{PROVIDER_HASHING}', or '{PROVIDER_SENTENCE_TRANSFORMERS}'."
-        )
-    validate_embedding_dim(instance, EMBEDDING_DIM)
-    return instance
-
-
-def get_default_provider() -> EmbeddingProvider:
-    return build_provider()
+def get_provider(model: str | None = None) -> EmbeddingProvider:
+    """Build the embedding provider (ONNX runtime, no config needed)."""
+    return ONNXRuntimeProvider(model or _DEFAULT_MODEL)

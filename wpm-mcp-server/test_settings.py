@@ -95,8 +95,21 @@ os.remove(tmp3)
 
 # 6. End-to-end: repository actually uses overridden settings
 from wpm_mcp_server import db
-from wpm_mcp_server.embeddings import get_default_provider
 from wpm_mcp_server.repository import Repository
+
+import hashlib
+
+class _StubEmbedder:
+    dim = 384
+
+    def embed(self, text: str) -> list[float]:
+        import math
+        vec = [0.0] * self.dim
+        for i in range(self.dim):
+            digest = hashlib.sha256(f"{text}:{i}".encode()).digest()
+            vec[i] = (int.from_bytes(digest[:4], "big") % 1000 - 500) / 500.0
+        norm = math.sqrt(sum(v * v for v in vec))
+        return [v / norm for v in vec] if norm > 0 else vec
 
 tmp_db = tempfile.mktemp(suffix=".db")
 conn = db.connect(tmp_db)
@@ -107,7 +120,7 @@ with open(tmp4, "w") as f:
     json.dump(custom, f)
 settings = load_settings(tmp4).domain
 
-repo = Repository(conn=conn, embedder=get_default_provider(), settings=settings)
+repo = Repository(conn=conn, embedder=_StubEmbedder(), settings=settings)
 result = repo.store_entry(type_="learning", content="test with custom default provenance", source="unknown_source_not_in_table")
 assert result["provenance_score"] == 0.99, result
 print("OK: repository actually applies overridden settings, got provenance_score =", result["provenance_score"])
@@ -139,30 +152,7 @@ except ValueError as exc:
     print("OK: old top-level 'plugin' key raised:", exc)
 os.remove(tmp5b)
 
-# 8. New structure: embedding section (server-side)
-config8 = {"embedding": {"provider": "sentence_transformers"}}
-tmp6 = tempfile.mktemp(suffix=".json")
-with open(tmp6, "w") as f:
-    json.dump(config8, f)
-s6 = load_settings(tmp6)
-assert s6.embedding.provider == "sentence_transformers"
-assert s6.embedding.model == "all-MiniLM-L6-v2"  # untouched default
-print("OK: embedding section loads, model defaults when omitted")
-os.remove(tmp6)
-
-# 9. Unknown key inside embedding section -> raises
-bad3 = {"embedding": {"typo_key": "x"}}
-tmp7 = tempfile.mktemp(suffix=".json")
-with open(tmp7, "w") as f:
-    json.dump(bad3, f)
-try:
-    load_settings(tmp7)
-    raise AssertionError("should have raised")
-except ValueError as exc:
-    print("OK: unknown embedding key raised:", exc)
-os.remove(tmp7)
-
-# 10. idle_nudge: default False, loads True, non-bool raises
+# 8. idle_nudge: default False, loads True, non-bool raises
 s10 = load_settings("/tmp/does_not_exist.json")
 assert s10.idle_nudge is False
 print("OK: idle_nudge defaults to False")
@@ -186,7 +176,7 @@ for bad_idle in ("yes", 1, 0, None):
         print(f"OK: non-bool idle_nudge {bad_idle!r} raised:", exc)
     os.remove(tmp_idle_bad)
 
-# 11. verification_command_patterns: default None, loads a list, non-list or
+# 9. verification_command_patterns: default None, loads a list, non-list or
 # non-string elements raise
 s11 = load_settings("/tmp/does_not_exist.json")
 assert s11.verification_command_patterns is None
@@ -211,5 +201,17 @@ for bad_pat in (["pytest", 3], [""], ["  "], "pytest", {"re": "x"}):
     except ValueError as exc:
         print(f"OK: bad verification_command_patterns {bad_pat!r} raised:", exc)
     os.remove(tmp_pat_bad)
+
+# 10. old "embedding" section now raises (unknown top-level key)
+bad_embedding = {"embedding": {"provider": "sentence_transformers"}}
+tmp_emb = tempfile.mktemp(suffix=".json")
+with open(tmp_emb, "w") as f:
+    json.dump(bad_embedding, f)
+try:
+    load_settings(tmp_emb)
+    raise AssertionError("should have raised")
+except ValueError as exc:
+    print("OK: removed 'embedding' section raised:", exc)
+os.remove(tmp_emb)
 
 print("ALL SETTINGS TESTS OK")
