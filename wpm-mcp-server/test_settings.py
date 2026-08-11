@@ -186,4 +186,30 @@ for bad_idle in ("yes", 1, 0, None):
         print(f"OK: non-bool idle_nudge {bad_idle!r} raised:", exc)
     os.remove(tmp_idle_bad)
 
+# 11. verification_command_patterns: default None, loads a list, non-list or
+# non-string elements raise
+s11 = load_settings("/tmp/does_not_exist.json")
+assert s11.verification_command_patterns is None
+print("OK: verification_command_patterns defaults to None (no additions)")
+
+patterns = [r"\bmy-custom-runner\b", r"\bpytest\b"]
+tmp_pat = tempfile.mktemp(suffix=".json")
+with open(tmp_pat, "w") as f:
+    json.dump({"db_path": ".wpm/wpm.db", "verification_command_patterns": patterns}, f)
+s11b = load_settings(tmp_pat)
+assert s11b.verification_command_patterns == patterns
+print("OK: verification_command_patterns list loads")
+os.remove(tmp_pat)
+
+for bad_pat in (["pytest", 3], [""], ["  "], "pytest", {"re": "x"}):
+    tmp_pat_bad = tempfile.mktemp(suffix=".json")
+    with open(tmp_pat_bad, "w") as f:
+        json.dump({"verification_command_patterns": bad_pat}, f)
+    try:
+        load_settings(tmp_pat_bad)
+        raise AssertionError(f"should have raised for {bad_pat!r}")
+    except ValueError as exc:
+        print(f"OK: bad verification_command_patterns {bad_pat!r} raised:", exc)
+    os.remove(tmp_pat_bad)
+
 print("ALL SETTINGS TESTS OK")

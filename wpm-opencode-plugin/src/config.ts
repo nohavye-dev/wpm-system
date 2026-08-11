@@ -63,6 +63,28 @@ export function getIdleNudgeEnabled(directory: string): boolean {
   return false
 }
 
+function isPatternList(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.every((v) => typeof v === "string" && v.trim().length > 0)
+  )
+}
+
+export function getVerificationCommandPatterns(directory: string): string[] {
+  try {
+    const config = JSON.parse(
+      readFileSync(join(directory, "wpm.config.json"), "utf-8"),
+    ) as { verification_command_patterns?: unknown }
+    if (isPatternList(config.verification_command_patterns)) {
+      return config.verification_command_patterns
+    }
+  } catch {
+    // Same contract as the other getters: never crash on a bad file.
+  }
+
+  return []
+}
+
 function parseBoolean(raw: string): boolean | undefined {
   switch (raw.trim().toLowerCase()) {
     case "true":

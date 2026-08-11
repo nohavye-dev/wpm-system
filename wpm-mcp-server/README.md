@@ -156,6 +156,13 @@ Réglages de base, quotidiens, au niveau supérieur :
   (validée comme telle), mais **utilisée par le plugin OpenCode** : relance
   opt-in de l'agent quand une session qui a réellement travaillé devient
   inactive.
+- `verification_command_patterns` — **optionnel**, défaut `[]` (aucun
+  ajout). Clé connue du serveur (validée comme telle), mais **utilisée par
+  le plugin OpenCode** : liste de regex **ajoutées** à la liste en dur
+  `VERIFICATION_COMMAND_PATTERNS` du plugin, pour désigner les commandes
+  shell supplémentaires dont le succès compte comme preuve forte
+  (`execution_verified`) — voir la section « Personnalisation » du
+  `README.md` du plugin pour le critère (pas de `ls`/`grep`/`cat`).
 
 `wpm enable` (voir le `README.md` racine du bundle) écrit ce fichier
 automatiquement pour vous lors de l'activation d'un projet.

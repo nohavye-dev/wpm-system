@@ -73,6 +73,43 @@ Précédence : `WPM_IDLE_NUDGE` (variable d'env, `"true"`/`"false"`) >
 
 ---
 
+## `verification_command_patterns` — ajouts de commandes de preuve forte [optionnel]
+
+Clé **top-level** optionnelle (défaut `[]` : aucun ajout), validée par le
+serveur comme clé connue mais **utilisée par le plugin OpenCode**. C'est
+une liste de regex **ajoutée** à la liste en dur `VERIFICATION_COMMAND_PATTERNS`
+du plugin (`src/index.ts`) qui désigne les commandes shell dont le succès
+compte comme preuve forte (`execution_verified`) dans le hook
+`tool.execute.after`. **Sémantique = addition, pas remplacement** : on ne
+peut pas retirer une commande de la liste en dur.
+
+```json
+"verification_command_patterns": [
+  "\\bmy-custom-runner\\b"
+]
+```
+
+| | |
+|---|---|
+| Type | liste de strings (regex JavaScript valides) |
+| Défaut si absent | `[]` — aucune commande ajoutée à la liste en dur |
+| Sémantique | addition aux built-ins ; une liste vide n'ajoute rien |
+
+**Critère** : un pattern ne doit compter que si `exit 0` prouve que quelque
+chose de *correct* est vérifié (les tests passent, le build compile, le
+typecheck/lint passe). Chaque commande matchée déclenche `store_entry` +
+validation : un pattern trop laxiste inonde la mémoire de bruit.
+
+**Anti-patterns — à ne pas ajouter** : `ls`, `cat`, `echo` (`exit 0`
+toujours vrai, aucun signal de correction) ; `grep` (observation, pas
+vérification) ; `git status` / `git diff` (observation d'état). Pour une
+preuve ponctuelle qui a de la valeur, ne pas l'ajouter à la liste : faire
+`validate_entry` avec `evidence_type: "execution_verified"` et un
+`evidence_ref` pointant le log/la commande — même force de preuve, sans
+polluer l'auto-capture.
+
+---
+
 ## `embedding` — provider/modèle d'embeddings [optionnel]
 
 Section **optionnelle** — provider et modèle utilisés pour calculer les

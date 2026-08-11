@@ -137,6 +137,12 @@ class Settings:
     # raise) but USED by the OpenCode plugin's session.idle hook, which reads
     # WPM_IDLE_NUDGE; the server itself does not read that env var.
     idle_nudge: bool = False
+    # Optional, default [] (no additions). List of extra regex patterns
+    # ADDED to the plugin's built-in VERIFICATION_COMMAND_PATTERNS for which
+    # shell commands count as strong proof (execution_verified). Validated
+    # here by the server (unknown keys raise) but USED by the OpenCode
+    # plugin's tool.execute.after hook; the server itself does not read it.
+    verification_command_patterns: list[str] | None = None
 
     # Server-side only — the plugin ignores the embedding section.
     embedding: EmbeddingSettings = field(default_factory=EmbeddingSettings)
@@ -238,3 +244,13 @@ def _validate_settings(settings: Settings) -> None:
         raise ValueError(
             f"idle_nudge: expected a boolean (true/false), got {settings.idle_nudge!r}"
         )
+
+    patterns = settings.verification_command_patterns
+    if patterns is not None:
+        if not isinstance(patterns, list) or not all(
+            isinstance(p, str) and p.strip() for p in patterns
+        ):
+            raise ValueError(
+                "verification_command_patterns: expected a list of non-empty "
+                f"strings, got {patterns!r}"
+            )

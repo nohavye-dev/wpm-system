@@ -2,6 +2,9 @@
   "db_path": ".wpm/wpm.db",
   "confidence_threshold": 0.5,
   "idle_nudge": false,
+  "verification_command_patterns": [
+    "\\bmy-custom-runner\\b"
+  ],
   "embedding": {
     "provider": null,
     "model": "all-MiniLM-L6-v2"

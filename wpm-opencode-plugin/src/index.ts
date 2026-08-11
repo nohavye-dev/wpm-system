@@ -4,6 +4,7 @@ import type { Plugin } from "@opencode-ai/plugin"
 import { tool } from "@opencode-ai/plugin"
 import { MemoryClient } from "./mcp-client.js"
 import {
+  getVerificationCommandPatterns,
   getIdleNudgeEnabled,
   loadMemoryServerConfig,
   getConfidenceThreshold,
@@ -12,20 +13,52 @@ import { IDLE_NUDGE_TEXT, MEMORY_USAGE_RULES } from "./rules.js"
 
 const VERIFICATION_COMMAND_PATTERNS = [
   /\bpytest\b/,
-  /\bdotnet\s+test\b/,
   /\bnpm\s+(run\s+)?test\b/,
   /\bnpm\s+run\s+build\b/,
+  /\bpnpm\s+(run\s+)?test\b/,
+  /\bpnpm\s+(run\s+)?build\b/,
+  /\byarn\s+test\b/,
+  /\byarn\s+build\b/,
+  /\bbun\s+(run\s+)?test\b/,
+  /\bbun\s+run\s+build\b/,
+  /\bdotnet\s+test\b/,
+  /\bdotnet\s+build\b/,
   /\bcargo\s+test\b/,
+  /\bcargo\s+build\b/,
   /\bgo\s+test\b/,
+  /\bgo\s+build\b/,
+  /\bmake\s+test\b/,
+  /\bmix\s+test\b/,
+  /\bflutter\s+test\b/,
+  /\bmvn\s+test\b/,
+  /\bgradle\s+test\b/,
+  /\bsbt\s+test\b/,
+  /\bvitest\b/,
+  /\bjest\b/,
+  /\bdeno\s+test\b/,
+  /\btox\b/,
+  /\bphpunit\b/,
+  /\brake\s+test\b/,
+  /\bcompileall\b/,
+  /\bpy_compile\b/,
+  /\bbash\s+-n\b/,
+  /\bshellcheck\b/,
+  /\btsc\s+--noEmit\b/,
+  /\bruff\s+check\b/,
+  /\bmypy\b/,
+  /\beslint\b/,
 ]
 
 // Tools that mutate the project — used to detect whether a session did real
 // work before allowing an idle nudge.
 const WORK_TOOLS = new Set(["edit", "write", "apply_patch", "bash", "task"])
 
-function looksLikeVerificationCommand(command: string | undefined): boolean {
+function looksLikeVerificationCommand(
+  command: string | undefined,
+  patterns: (RegExp | null)[],
+): boolean {
   if (!command) return false
-  return VERIFICATION_COMMAND_PATTERNS.some((re) => re.test(command))
+  return patterns.some((re) => re !== null && re.test(command))
 }
 
 export const WpmPlugin: Plugin = async ({ client, directory }) => {
@@ -70,6 +103,23 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
 
   const confidenceThreshold = getConfidenceThreshold(directory)
   const idleNudgeEnabled = getIdleNudgeEnabled(directory)
+  const verificationPatterns = [
+    ...VERIFICATION_COMMAND_PATTERNS,
+    ...getVerificationCommandPatterns(directory).map((pattern) => {
+      try {
+        return new RegExp(pattern)
+      } catch (err) {
+        void client.app.log({
+          body: {
+            service: "wpm-opencode-plugin",
+            level: "error",
+            message: `invalid verification_command_pattern regex ${JSON.stringify(pattern)}: ${String(err)}`,
+          },
+        })
+        return null
+      }
+    }),
+  ]
   const activeSessions = new Set<string>()
   const nudgedSessions = new Map<string, number>()
 
@@ -227,7 +277,7 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
       if (input.tool !== "bash") return
 
       const command = (input.args as { command?: string } | undefined)?.command
-      if (!looksLikeVerificationCommand(command)) return
+      if (!looksLikeVerificationCommand(command, verificationPatterns)) return
 
       const succeeded = !output.metadata?.error
       const sessionId = input.sessionID ?? "unknown-session"

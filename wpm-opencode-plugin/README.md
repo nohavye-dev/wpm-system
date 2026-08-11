@@ -128,10 +128,52 @@ configuration est lue une seule fois au démarrage.
 
 ## Personnalisation
 
-- `VERIFICATION_COMMAND_PATTERNS` dans `src/index.ts` — ajustez quelles
-  commandes shell comptent comme preuve forte (`execution_verified`) pour
-  votre pile (actuellement pytest, dotnet test, npm test/build, cargo test,
-  go test).
+### Commandes de preuve forte (`VERIFICATION_COMMAND_PATTERNS` + `verification_command_patterns`)
+
+Les commandes shell dont le succès compte comme preuve `execution_verified`
+(auto-capturées par le hook `tool.execute.after`, sans dépendre de l'agent)
+sont définies par une liste **en dur, enrichie**, dans `src/index.ts` :
+`VERIFICATION_COMMAND_PATTERNS` couvre les écosystèmes courants — tests
+(pytest, npm/pnpm/yarn/bun test, dotnet/cargo/go test, make/mix/flutter/mvn/
+gradle/sbt test, vitest, jest, deno test, tox, phpunit, rake test), builds
+(npm/pnpm run build, yarn build, bun run build, dotnet/cargo/go build) et
+vérificateurs (compileall, py_compile, bash -n, shellcheck, tsc --noEmit,
+ruff check, mypy, eslint).
+
+Pour votre pile, **ajoutez** des commandes via la clé
+`verification_command_patterns` de `wpm.config.json` (liste de regex
+ajoutées à la liste en dur — on ne peut pas en retirer) :
+
+```json
+{
+  "db_path": ".wpm/wpm.db",
+  "verification_command_patterns": ["\\bmy-custom-runner\\b"]
+}
+```
+
+**Critère** : un pattern ne doit compter que si `exit 0` prouve que quelque
+chose de *correct* est vérifié — les tests passent, le build compile, le
+typecheck/lint passe. Chaque commande matchée déclenche `store_entry` +
+validation : un pattern trop laxiste inonde la mémoire de bruit et
+contredit la règle 1 (« reliability over completeness ») de
+`MEMORY_USAGE_RULES`.
+
+À ne **pas** ajouter :
+
+| Commandes | Pourquoi non |
+|---|---|
+| `ls`, `cat`, `echo` | `exit 0` toujours vrai — aucun signal de correction |
+| `grep` | observation, pas vérification — quasi jamais faux |
+| `git status` / `git diff` | observation d'état, pas preuve de correction |
+
+Pour une preuve ponctuelle qui a de la valeur (ex. un `grep` qui confirme
+l'existence d'une fonction dans un fichier précis) : n'ajoutez **pas** la
+commande à la liste — faites `validate_entry` avec `evidence_type:
+"execution_verified"` et un `evidence_ref` pointant le log/la commande.
+Même force de preuve, sans polluer l'auto-capture.
+
+### Autres points réglables
+
 - `MEMORY_USAGE_RULES` dans `src/rules.ts` — les règles injectées dans le
   prompt système ; `IDLE_NUDGE_TEXT` y vit aussi, gardé volontairement
   court pour ne pas polluer le contexte.

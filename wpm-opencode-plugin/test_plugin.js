@@ -5,7 +5,7 @@ import { join } from "node:path"
 import { tmpdir } from "node:os"
 
 import { IDLE_NUDGE_TEXT, MEMORY_USAGE_RULES } from "./dist/rules.js"
-import { getIdleNudgeEnabled } from "./dist/config.js"
+import { getIdleNudgeEnabled, getVerificationCommandPatterns } from "./dist/config.js"
 
 function withTempDir(fn) {
   const dir = mkdtempSync(join(tmpdir(), "wpm-plugin-test-"))
@@ -151,5 +151,49 @@ test("getIdleNudgeEnabled: non-boolean file value falls back to default", () => 
     withEnv(undefined, () => {
       assert.equal(getIdleNudgeEnabled(dir), false)
     })
+  })
+})
+
+test("getVerificationCommandPatterns: empty without file", () => {
+  withTempDir((dir) => {
+    assert.deepEqual(getVerificationCommandPatterns(dir), [])
+  })
+})
+
+test("getVerificationCommandPatterns: reads additions from wpm.config.json", () => {
+  withTempDir((dir) => {
+    writeConfig(dir, { verification_command_patterns: ["\\bmy-runner\\b", "\\bpytest\\b"] })
+    assert.deepEqual(getVerificationCommandPatterns(dir), [
+      "\\bmy-runner\\b",
+      "\\bpytest\\b",
+    ])
+  })
+})
+
+test("getVerificationCommandPatterns: empty list adds nothing", () => {
+  withTempDir((dir) => {
+    writeConfig(dir, { verification_command_patterns: [] })
+    assert.deepEqual(getVerificationCommandPatterns(dir), [])
+  })
+})
+
+test("getVerificationCommandPatterns: invalid config never throws", () => {
+  withTempDir((dir) => {
+    writeConfig(dir, "not json")
+    assert.deepEqual(getVerificationCommandPatterns(dir), [])
+  })
+})
+
+test("getVerificationCommandPatterns: non-list file value falls back to empty", () => {
+  withTempDir((dir) => {
+    writeConfig(dir, { verification_command_patterns: "\\bpytest\\b" })
+    assert.deepEqual(getVerificationCommandPatterns(dir), [])
+  })
+})
+
+test("getVerificationCommandPatterns: invalid elements fall back to empty", () => {
+  withTempDir((dir) => {
+    writeConfig(dir, { verification_command_patterns: ["\\bpytest\\b", 3, ""] })
+    assert.deepEqual(getVerificationCommandPatterns(dir), [])
   })
 })
