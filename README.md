@@ -50,8 +50,8 @@ La documentation détaillée vit dans [`docs/fr/`](docs/fr/index.md) :
 
 - [`docs/fr/setup.md`](docs/fr/setup.md) — guide d'activation complet (installation, `wpm`, redémarrage).
 - [`docs/fr/wpm-config-reference.md`](docs/fr/wpm-config-reference.md) — schéma `wpm.config.json` et constantes du serveur (substituables par variables d'environnement).
-- [`docs/fr/wpm-doc.md`](docs/fr/wpm-doc.md) — commande `/wpm-doc`.
-- [`docs/fr/wpm-code.md`](docs/fr/wpm-code.md) — commande `/wpm-code`.
+- [`docs/fr/memory-behavior-spec.md`](docs/fr/memory-behavior-spec.md) — comportement de l'agent : quand/comment écrire, valider, contredire, lire la mémoire.
+- [`docs/fr/commands.md`](docs/fr/commands.md) — commandes `/wpm-doc` et `/wpm-code`.
 - [`wpm-mcp-server/README.md`](wpm-mcp-server/README.md) — le serveur.
 - [`wpm-opencode-plugin/README.md`](wpm-opencode-plugin/README.md) — le plugin.
 

@@ -44,6 +44,35 @@ Précédence : `WPM_CONFIDENCE_THRESHOLD` (variable d'env) > `confidence_thresho
 
 ---
 
+## `idle_nudge` — relance en session inactive [optionnel]
+
+Clé **top-level** optionnelle (défaut `false`), validée par le serveur
+comme clé connue mais **utilisée par le plugin OpenCode**. Quand elle est
+active, le plugin envoie une seule relance à l'agent (`promptAsync`) quand
+une session qui a **réellement travaillé** (édition de fichier, outil
+exécuté) devient inactive, pour lui rappeler de persister ce qui n'a pas
+encore été stocké. Sans elle, le hook `session.idle` se contente d'une
+entrée de journal passive.
+
+```json
+"idle_nudge": true
+```
+
+Conditions et limites :
+- **Opt-in explicite** : défaut `false`, on n'embête jamais l'agent sans
+  demande.
+- Une seule relance **par session** (même si la session redevient
+  inactive plusieurs fois).
+- Uniquement pour une session ayant montré de l'activité (édition,
+  outil de travail) — une session en simple lecture n'est jamais relancée.
+- En cas d'échec d'envoi, la relance est simplement journalisée (pas de
+  nouvelle tentative dans la même session).
+
+Précédence : `WPM_IDLE_NUDGE` (variable d'env, `"true"`/`"false"`) >
+`idle_nudge` (fichier) > `false`.
+
+---
+
 ## `embedding` — provider/modèle d'embeddings [optionnel]
 
 Section **optionnelle** — provider et modèle utilisés pour calculer les
@@ -306,6 +335,7 @@ Avec une section `domain` optionnelle :
 | `WPM_DB_PATH` | `db_path` |
 | `WPM_MCP_COMMAND` | surcharge l'interpréteur du plugin |
 | `WPM_CONFIDENCE_THRESHOLD` | `confidence_threshold` |
+| `WPM_IDLE_NUDGE` | `idle_nudge` (parse `"true"`/`"false"`) |
 
 Les clés de `domain` n'ont pas de variable d'env — cette section n'est
 configurable que via le fichier JSON. Les variables d'environnement côté

@@ -41,3 +41,39 @@ export function getConfidenceThreshold(directory: string): number {
 
   return DEFAULT_CONFIDENCE_THRESHOLD
 }
+
+export function getIdleNudgeEnabled(directory: string): boolean {
+  const envRaw = process.env.WPM_IDLE_NUDGE
+  if (envRaw) {
+    const parsed = parseBoolean(envRaw)
+    if (parsed !== undefined) return parsed
+  }
+
+  try {
+    const config = JSON.parse(
+      readFileSync(join(directory, "wpm.config.json"), "utf-8"),
+    ) as { idle_nudge?: unknown }
+    if (typeof config.idle_nudge === "boolean") {
+      return config.idle_nudge
+    }
+  } catch {
+    // Same contract as getConfidenceThreshold: never crash on a bad file.
+  }
+
+  return false
+}
+
+function parseBoolean(raw: string): boolean | undefined {
+  switch (raw.trim().toLowerCase()) {
+    case "true":
+    case "1":
+    case "yes":
+      return true
+    case "false":
+    case "0":
+    case "no":
+      return false
+    default:
+      return undefined
+  }
+}

@@ -5,9 +5,9 @@ Bienvenue dans la documentation française du bundle WPM.
 ## Documentation
 
 - [`setup.md`](setup.md) — guide d'activation : couvre l'installation globale (`install.sh`) et le flux par projet `wpm enable` / `wpm disable` / `wpm uninstall`, ainsi que le redémarrage d'OpenCode après chaque étape.
-- [`wpm-config-reference.md`](wpm-config-reference.md) — référence du schéma `wpm.config.json` : `db_path` obligatoire, section `domain` facultative, constantes de lancement du serveur fixées et leurs substitutions par variables d'environnement.
-- [`wpm-doc.md`](wpm-doc.md) — commande `/wpm-doc` : ingestion d'un document markdown dans la mémoire persistante, découpé par section.
-- [`wpm-code.md`](wpm-code.md) — commande `/wpm-code` : cartographie de la base de code en faits d'architecture et de conventions durables.
+- [`wpm-config-reference.md`](wpm-config-reference.md) — référence du schéma `wpm.config.json` : `db_path` obligatoire, sections optionnelles (`confidence_threshold`, `idle_nudge`, `embedding`, `domain`), constantes de lancement du serveur fixées et leurs substitutions par variables d'environnement.
+- [`memory-behavior-spec.md`](memory-behavior-spec.md) — comportement de l'agent : quand et comment écrire/valider/contredire/lire la mémoire, et le rôle des commandes d'ingestion.
+- [`commands.md`](commands.md) — commandes `/wpm-doc` et `/wpm-code` : ingestion contrôlée d'un document ou d'une cartographie du code dans la mémoire persistante.
 
 ## Liens vers la racine du dépôt
 
@@ -20,8 +20,8 @@ Bienvenue dans la documentation française du bundle WPM.
 
 ## À propos des commandes installées
 
-`project-commands/wpm-doc.md` et `project-commands/wpm-code.md` sont
-les versions fonctionnelles **installées** (copiées par `install.sh` dans
-`~/.config/opencode/commands/` comme commandes slash globales
-`/wpm-doc` et `/wpm-code`) ; les copies présentes dans `docs/fr/`
-sont des traductions/documentation.
+`wpm-commands/wpm-doc.md` et `wpm-commands/wpm-code.md` (à la racine du
+dépôt) sont les versions fonctionnelles **installées** : copiées par
+`install.sh` dans `~/.config/opencode/commands/` comme commandes slash
+globales `/wpm-doc` et `/wpm-code`. Ce sont des commandes **manuelles** :
+elles ne s'exécutent que sur invocation explicite de l'utilisateur.

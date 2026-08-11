@@ -152,6 +152,10 @@ Réglages de base, quotidiens, au niveau supérieur :
   refuse de démarrer si le chemin résolu sort du répertoire de travail.
 - `confidence_threshold` — **optionnel**, défaut `0.5`. Validé par le
   serveur, utilisé par le hook de compaction du plugin.
+- `idle_nudge` — **optionnel**, défaut `false`. Clé connue du serveur
+  (validée comme telle), mais **utilisée par le plugin OpenCode** : relance
+  opt-in de l'agent quand une session qui a réellement travaillé devient
+  inactive.
 
 `wpm enable` (voir le `README.md` racine du bundle) écrit ce fichier
 automatiquement pour vous lors de l'activation d'un projet.

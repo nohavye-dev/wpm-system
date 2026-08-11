@@ -3,7 +3,12 @@ import { join } from "node:path"
 import type { Plugin } from "@opencode-ai/plugin"
 import { tool } from "@opencode-ai/plugin"
 import { MemoryClient } from "./mcp-client.js"
-import { loadMemoryServerConfig, getConfidenceThreshold } from "./config.js"
+import {
+  getIdleNudgeEnabled,
+  loadMemoryServerConfig,
+  getConfidenceThreshold,
+} from "./config.js"
+import { IDLE_NUDGE_TEXT, MEMORY_USAGE_RULES } from "./rules.js"
 
 const VERIFICATION_COMMAND_PATTERNS = [
   /\bpytest\b/,
@@ -13,6 +18,10 @@ const VERIFICATION_COMMAND_PATTERNS = [
   /\bcargo\s+test\b/,
   /\bgo\s+test\b/,
 ]
+
+// Tools that mutate the project — used to detect whether a session did real
+// work before allowing an idle nudge.
+const WORK_TOOLS = new Set(["edit", "write", "apply_patch", "bash", "task"])
 
 function looksLikeVerificationCommand(command: string | undefined): boolean {
   if (!command) return false
@@ -60,6 +69,9 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
   })
 
   const confidenceThreshold = getConfidenceThreshold(directory)
+  const idleNudgeEnabled = getIdleNudgeEnabled(directory)
+  const activeSessions = new Set<string>()
+  const nudgedSessions = new Map<string, number>()
 
   return {
     tool: {
@@ -69,9 +81,12 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
           "or bug_pattern). CONTENT MUST BE IN ENGLISH. " +
           "'source' should be one of: official_doc, observed_code, " +
           "tool_execution, agent_inference (unknown sources get a neutral " +
-          "default confidence). Returns the new entry_id and its initial " +
-          "confidence — this entry starts unvalidated; call validate_entry " +
-          "with real evidence once it is confirmed.",
+          "default confidence). Before storing, run query_context on the " +
+          "topic: if a near-duplicate already exists, call validate_entry on " +
+          "it instead of creating a duplicate. Only store durable facts that " +
+          "will still be true and useful in weeks. Returns the new entry_id " +
+          "and its initial confidence — this entry starts unvalidated; call " +
+          "validate_entry with real evidence once it is confirmed.",
         args: {
           type: tool.schema.string(),
           content: tool.schema.string(),
@@ -114,7 +129,9 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
           "confidence). evidence_ref should point to what proves it (a test " +
           "log, a file path, another entry_id). session_id is required for " +
           "dedup: repeated validation of the same entry within one session " +
-          "only counts once.",
+          "only counts once. Never re-validate repeatedly to inflate a score, " +
+          "and never use agent_reasoning as a way to raise confidence — it " +
+          "has no effect on the score by construction.",
         args: {
           entry_id: tool.schema.string(),
           evidence_type: tool.schema.string(),
@@ -168,6 +185,10 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
       }),
     },
 
+    "experimental.chat.system.transform": async (_input, output) => {
+      output.system.push(MEMORY_USAGE_RULES)
+    },
+
     "experimental.session.compacting": async (input, output) => {
       try {
         const result = await memory.queryContext({
@@ -200,6 +221,9 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
     },
 
     "tool.execute.after": async (input, output) => {
+      if (WORK_TOOLS.has(input.tool)) {
+        activeSessions.add(input.sessionID)
+      }
       if (input.tool !== "bash") return
 
       const command = (input.args as { command?: string } | undefined)?.command
@@ -243,13 +267,43 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
     event: async ({ event }) => {
       if (event.type !== "session.idle") return
 
+      const sessionID = event.properties.sessionID
+
       await client.app.log({
         body: {
           service: "wpm-opencode-plugin",
           level: "info",
-          message: `Session idle (${event.properties.sessionID}). Reminder: verify all decisions/results from this session were persisted via store_entry.`,
+          message: `Session idle (${sessionID}). Reminder: verify all decisions/results from this session were persisted via store_entry.`,
         },
       })
+
+      if (!idleNudgeEnabled) return
+      if (nudgedSessions.has(sessionID)) return
+      if (!activeSessions.has(sessionID)) return
+
+      nudgedSessions.set(sessionID, Date.now())
+      try {
+        await client.session.promptAsync({
+          path: { id: sessionID },
+          body: { parts: [{ type: "text", text: IDLE_NUDGE_TEXT }] },
+        })
+        await client.app.log({
+          body: {
+            service: "wpm-opencode-plugin",
+            level: "info",
+            message: `Idle nudge sent to session ${sessionID}`,
+          },
+        })
+      } catch (err) {
+        nudgedSessions.delete(sessionID)
+        await client.app.log({
+          body: {
+            service: "wpm-opencode-plugin",
+            level: "error",
+            message: `idle nudge failed for session ${sessionID}: ${String(err)}`,
+          },
+        })
+      }
     },
   }
 }

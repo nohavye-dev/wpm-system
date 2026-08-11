@@ -54,7 +54,7 @@ python3 -m venv "$DATA_DIR/venv"
 
 printf 'installing global commands...\n'
 mkdir -p "$GLOBAL_CONFIG_DIR/commands"
-cp "$BUNDLE_DIR/project-commands"/wpm-doc.md "$BUNDLE_DIR/project-commands"/wpm-code.md "$GLOBAL_CONFIG_DIR/commands/"
+cp "$BUNDLE_DIR/wpm-commands"/wpm-doc.md "$BUNDLE_DIR/wpm-commands"/wpm-code.md "$GLOBAL_CONFIG_DIR/commands/"
 
 printf 'installing wpm command...\n'
 mkdir -p "$BIN_DIR"

@@ -133,6 +133,10 @@ class Settings:
     # but USED by the OpenCode plugin's compaction hook, which reads
     # WPM_CONFIDENCE_THRESHOLD; the server itself does not read that env var.
     confidence_threshold: float = 0.5
+    # Optional, default False. Validated here by the server (unknown keys
+    # raise) but USED by the OpenCode plugin's session.idle hook, which reads
+    # WPM_IDLE_NUDGE; the server itself does not read that env var.
+    idle_nudge: bool = False
 
     # Server-side only — the plugin ignores the embedding section.
     embedding: EmbeddingSettings = field(default_factory=EmbeddingSettings)
@@ -228,4 +232,9 @@ def _validate_settings(settings: Settings) -> None:
     if not 0.0 <= ct <= 1.0:
         raise ValueError(
             f"confidence_threshold: expected a value between 0 and 1, got {ct}"
+        )
+
+    if not isinstance(settings.idle_nudge, bool):
+        raise ValueError(
+            f"idle_nudge: expected a boolean (true/false), got {settings.idle_nudge!r}"
         )

@@ -14,7 +14,13 @@ sans état ne peut pas garantir à lui seul :
   commandes de test/build comme preuves `execution_verified`, sans dépendre
   de l'agent pour les signaler.
 - **`event` (`session.idle`)** — journalise un rappel de fin de session pour
-  revoir l'état non persisté.
+  revoir l'état non persisté ; si `idle_nudge` est activé (voir
+  « Activation par projet »), envoie une seule relance à l'agent pour les
+  sessions qui ont réellement travaillé.
+- **`experimental.chat.system.transform`** — injecte les règles d'usage de
+  la mémoire (`MEMORY_USAGE_RULES` dans `src/rules.ts`, traduites de la
+  spec `memory-behavior-spec.md`) dans le prompt système, pour que le
+  comportement de l'agent soit guidé même sans lire le document.
 
 Le plugin lance lui-même le serveur de mémoire Python comme sous-processus
 (constantes fixes, voir « Activation par projet » ci-dessous), donc aucune
@@ -103,6 +109,9 @@ plugin : interpréteur
 `XDG_DATA_HOME`), arguments `["-m", "wpm_mcp_server"]`, répertoire de
 travail = racine du projet. Le seuil de confiance (défaut `0.5`) se règle
 via la clé top-level `confidence_threshold` de `wpm.config.json`.
+La relance en session inactive (`idle_nudge`, défaut `false`) est opt-in
+via la clé top-level `idle_nudge` — le hook `session.idle` reste
+passif (simple journal) tant qu'elle est désactivée.
 
 Les variables d'environnement remplacent ces constantes lorsqu'elles sont
 définies, pour une substitution locale rapide sans modifier le fichier :
@@ -112,6 +121,7 @@ définies, pour une substitution locale rapide sans modifier le fichier :
 | `WPM_DB_PATH` | `db_path` |
 | `WPM_MCP_COMMAND` | l'interpréteur Python |
 | `WPM_CONFIDENCE_THRESHOLD` | le seuil de confiance (passe devant `confidence_threshold` du fichier) |
+| `WPM_IDLE_NUDGE` | `idle_nudge` (parse `"true"`/`"false"`, passe devant la clé du fichier) |
 
 Redémarrez OpenCode après l'activation ou la désactivation — la
 configuration est lue une seule fois au démarrage.
@@ -122,9 +132,12 @@ configuration est lue une seule fois au démarrage.
   commandes shell comptent comme preuve forte (`execution_verified`) pour
   votre pile (actuellement pytest, dotnet test, npm test/build, cargo test,
   go test).
-- `session.idle` ne fait actuellement que journaliser. Branchez-le sur
-  `client.session.prompt(...)` si vous voulez un coup de pouce actif à
-  l'agent au lieu d'une simple entrée de journal passive.
+- `MEMORY_USAGE_RULES` dans `src/rules.ts` — les règles injectées dans le
+  prompt système ; `IDLE_NUDGE_TEXT` y vit aussi, gardé volontairement
+  court pour ne pas polluer le contexte.
+- `idle_nudge` est une fonctionnalité **opt-in** (`wpm.config.json` ou
+  `WPM_IDLE_NUDGE`). Sans activation, `session.idle` reste une simple
+  entrée de journal passive.
 - La requête de compaction (`"current task relevant decisions and
   conventions"`) est volontairement générique — réglez-la une fois que vous
   verrez de vraies charges utiles de compaction.

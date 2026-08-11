@@ -162,4 +162,28 @@ except ValueError as exc:
     print("OK: unknown embedding key raised:", exc)
 os.remove(tmp7)
 
+# 10. idle_nudge: default False, loads True, non-bool raises
+s10 = load_settings("/tmp/does_not_exist.json")
+assert s10.idle_nudge is False
+print("OK: idle_nudge defaults to False")
+
+tmp_idle = tempfile.mktemp(suffix=".json")
+with open(tmp_idle, "w") as f:
+    json.dump({"db_path": ".wpm/wpm.db", "idle_nudge": True}, f)
+s10b = load_settings(tmp_idle)
+assert s10b.idle_nudge is True
+print("OK: idle_nudge=True loads")
+os.remove(tmp_idle)
+
+for bad_idle in ("yes", 1, 0, None):
+    tmp_idle_bad = tempfile.mktemp(suffix=".json")
+    with open(tmp_idle_bad, "w") as f:
+        json.dump({"idle_nudge": bad_idle}, f)
+    try:
+        load_settings(tmp_idle_bad)
+        raise AssertionError(f"should have raised for idle_nudge={bad_idle!r}")
+    except ValueError as exc:
+        print(f"OK: non-bool idle_nudge {bad_idle!r} raised:", exc)
+    os.remove(tmp_idle_bad)
+
 print("ALL SETTINGS TESTS OK")
