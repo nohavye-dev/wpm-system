@@ -1,4 +1,4 @@
-# Commandes `/wpm-doc`, `/wpm-code`, `/wpm-review` et `/wpm-bootstrap`
+# Commandes `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et `/wpm-patterns`
 
 Les deux commandes sont des **commandes slash opencode** exécutées
 manuellement par l'utilisateur. Elles offrent un moyen **contrôlé** d'intégrer
@@ -135,9 +135,40 @@ un résumé groupé par type (`archi_decision`, `convention`, `learning`).
 rapidement la mémoire avec ce qui existe déjà. La mémorisation
 incrémentale au fil du travail continue ensuite normalement.
 
+---
+
+## `/wpm-patterns [type]`
+
+Analyse la mémoire pour détecter des patterns récurrents et proposer
+des améliorations — conventions manquantes, décisions d'architecture
+implicites, contradictions à résoudre.
+
+```
+/wpm-patterns                  # Tous les types
+/wpm-patterns bug_pattern      # Un type spécifique
+```
+
+Utilise `list_entries` pour récupérer toutes les entrées du type ciblé,
+puis les catégorise par thème sémantique (jugement humain, pas similarité
+vectorielle). Pour chaque thème avec 3+ entrées, identifie un pattern
+actionnable :
+
+- Thème de `bug_pattern` récurrent → suggère une `convention` pour les
+  prévenir
+- Convention validée 3+ fois → propose de l'épingler avec `pin_entry`
+- Contradiction non résolue depuis longtemps → propose de trancher et de
+  déprécier l'entrée la plus faible
+- `learning` confirmant un choix structurel → propose de le solidifier
+  en `archi_decision`
+
+Les actions sont exécutées automatiquement (pas de confirmation par
+action). La commande rend un rapport structuré : thèmes trouvés, actions
+prises, et ce qui n'a pas nécessité d'action. Si aucun pattern n'émerge,
+le résultat négatif est valide et signalé clairement.
+
 ## Notes
 
-- Les quatre commandes tournent en **tâche annexe** (`subtask: true`,
+- Les cinq commandes tournent en **tâche annexe** (`subtask: true`,
   `agent: build`) : elles ne polluent pas le contexte de la conversation
   principale et rendent leur résumé à la fin.
 - Lire le résumé renvoyé : des sections/faits écartés volontairement (trop

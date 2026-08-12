@@ -344,6 +344,28 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
           return toolResultToString(result)
         },
       }),
+
+      list_entries: tool({
+        description:
+          "Paginated, filterable list of memory entries with current " +
+          "confidence. Excludes deprecated entries by default. Optional " +
+          "filters: type (doc/archi_decision/learning/convention/bug_pattern), " +
+          "status (active/pinned/deprecated), min_confidence, max_confidence. " +
+          "Sorted by confidence descending. Returns entries + total for " +
+          "pagination.",
+        args: {
+          type: tool.schema.string(),
+          status: tool.schema.string(),
+          min_confidence: tool.schema.number(),
+          max_confidence: tool.schema.number(),
+          limit: tool.schema.number().int().default(50),
+          offset: tool.schema.number().int().default(0),
+        },
+        execute: async (args) => {
+          const result = await memory.callTool("list_entries", args)
+          return toolResultToString(result)
+        },
+      }),
     },
 
     "experimental.chat.system.transform": async (input, output) => {

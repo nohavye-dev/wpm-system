@@ -537,6 +537,71 @@ class Repository:
             "recent_activity": recent,
         }
 
+    def list_entries(
+        self,
+        *,
+        type: str | None = None,
+        status: str | None = None,
+        min_confidence: float | None = None,
+        max_confidence: float | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> dict[str, Any]:
+        """Paginated, filterable listing of entries with current confidence."""
+        limit = max(1, min(limit, 200))
+        offset = max(0, offset)
+
+        where_parts = []
+        params: list[Any] = []
+
+        if status is not None:
+            where_parts.append("status = ?")
+            params.append(status)
+        else:
+            where_parts.append("status != ?")
+            params.append(EntryStatus.DEPRECATED.value)
+
+        if type is not None:
+            where_parts.append("type = ?")
+            params.append(type)
+
+        where_clause = "WHERE " + " AND ".join(where_parts)
+
+        rows = self.conn.execute(
+            f"SELECT id, type, content, source, provenance_score, validation_score, last_validated_at, status, created_at FROM entries {where_clause}",
+            params,
+        ).fetchall()
+
+        entries_with_confidence = []
+        for row in rows:
+            conf = confidence_at(
+                entry_type=EntryType(row["type"]),
+                provenance_score=row["provenance_score"],
+                validation_score=row["validation_score"],
+                last_validated_at=row["last_validated_at"],
+                status=row["status"],
+                settings=self.settings,
+            )
+            if min_confidence is not None and conf < min_confidence:
+                continue
+            if max_confidence is not None and conf > max_confidence:
+                continue
+            entries_with_confidence.append({
+                "entry_id": row["id"],
+                "type": row["type"],
+                "content": row["content"][:200],
+                "source": row["source"],
+                "status": row["status"],
+                "confidence": round(conf, 4),
+                "created_at": row["created_at"],
+            })
+
+        entries_with_confidence.sort(key=lambda e: e["confidence"], reverse=True)
+        total = len(entries_with_confidence)
+        page = entries_with_confidence[offset : offset + limit]
+
+        return {"entries": page, "total": total, "limit": limit, "offset": offset}
+
     def _log_event(
         self,
         entry_id: str,

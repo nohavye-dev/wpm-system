@@ -66,7 +66,7 @@ for f in ['tokenizer.json', 'onnx/model.onnx']:
 
 printf 'installing global commands...\n'
 mkdir -p "$GLOBAL_CONFIG_DIR/commands"
-cp "$BUNDLE_DIR/wpm-commands"/wpm-doc.md "$BUNDLE_DIR/wpm-commands"/wpm-code.md "$BUNDLE_DIR/wpm-commands"/wpm-review.md "$BUNDLE_DIR/wpm-commands"/wpm-bootstrap.md "$GLOBAL_CONFIG_DIR/commands/"
+cp "$BUNDLE_DIR/wpm-commands"/wpm-doc.md "$BUNDLE_DIR/wpm-commands"/wpm-code.md "$BUNDLE_DIR/wpm-commands"/wpm-review.md "$BUNDLE_DIR/wpm-commands"/wpm-bootstrap.md "$BUNDLE_DIR/wpm-commands"/wpm-patterns.md "$GLOBAL_CONFIG_DIR/commands/"
 
 printf 'installing wpm command...\n'
 mkdir -p "$BIN_DIR"

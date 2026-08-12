@@ -198,6 +198,26 @@ def restore_entry(entry_id: str) -> dict:
 
 @mcp.tool(
     description=(
+        "Paginated, filterable list of memory entries with current confidence. "
+        "Excludes deprecated entries by default (set status='deprecated' to "
+        "include them). Optional filters: type (doc/archi_decision/learning/"
+        "convention/bug_pattern), status (active/pinned/deprecated), "
+        "min_confidence, max_confidence. limit max 200, default 50. "
+        "Sorted by confidence descending. Returns entries + total for pagination."
+    )
+)
+def list_entries(type: str | None = None, status: str | None = None,
+                 min_confidence: float | None = None, max_confidence: float | None = None,
+                 limit: int = 50, offset: int = 0) -> dict:
+    return get_repo().list_entries(
+        type=type, status=status,
+        min_confidence=min_confidence, max_confidence=max_confidence,
+        limit=limit, offset=offset,
+    )
+
+
+@mcp.tool(
+    description=(
         "Review memory health: total entries by type, confidence distribution "
         "(low <0.3 / medium 0.3-0.7 / high >0.7), entries never validated, "
         "active contradictions, 5 lowest-confidence entries, and the last 10 "

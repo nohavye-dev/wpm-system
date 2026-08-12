@@ -197,7 +197,7 @@ interchangeables.
   rencontré pendant son travail, via `store_entry`/`validate_entry`... Ce
   canal reste actif en permanence, indépendamment des commandes.
 - **Ingestion contrôlée (utilisateur, manuelle)** — les commandes
-  `/wpm-doc`, `/wpm-code`, `/wpm-review` et `/wpm-bootstrap` couvrent
+  `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et `/wpm-patterns` couvrent
   l'ingestion massive, l'audit et le peuplement initial. Elles ne remplacent pas
   la mémorisation incrémentale, et ne bloquent pas non plus un
   `store_entry` opportun : un fait durable rencontré pendant une tâche est
@@ -220,8 +220,13 @@ interchangeables.
   partir des artefacts existants (README, configs, CI, structure de
   dossiers). À lancer une fois après `wpm enable`, puis laisser la
   mémorisation incrémentale prendre le relais.
+- **`/wpm-patterns [type]`** — analyse métacognitive de la mémoire :
+  catégorise les entrées par thème, détecte les patterns récurrents
+  (bugs similaires, conventions implicites non documentées), et propose
+  des actions concrètes (créer une convention, épingler une entrée
+  validée, déprécier une contradiction non résolue).
 
-Les quatre commandes tournent en tâche annexe et rendent un résumé
+Les cinq commandes tournent en tâche annexe et rendent un résumé
 (stocké / revalidé / ignoré) — lire ce résumé pour savoir si des éléments
 ont été volontairement écartés faute de confiance suffisante.
 

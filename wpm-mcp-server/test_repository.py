@@ -171,5 +171,44 @@ assert e_same["entry_id"] in dup_ids, "storing duplicate content should flag the
 assert e_dup["entry_id"] not in dup_ids, "should not flag itself"
 print("potential_contradictions OK")
 
+# 15. list_entries: all entries, deprecated excluded by default
+all_entries = repo.list_entries()
+assert all_entries["total"] >= 5, f"expected at least 5, got {all_entries['total']}"
+assert len(all_entries["entries"]) <= 50
+
+repo.deprecate_entry(entry_id=e3["entry_id"])
+all2 = repo.list_entries()
+assert e3["entry_id"] not in {e["entry_id"] for e in all2["entries"]}, "deprecated entry excluded by default"
+all3 = repo.list_entries(status="deprecated")
+assert e3["entry_id"] in {e["entry_id"] for e in all3["entries"]}, "deprecated included when requested"
+repo.restore_entry(entry_id=e3["entry_id"])
+
+# 16. list_entries: type filter
+by_type = repo.list_entries(type="convention")
+for e in by_type["entries"]:
+    assert e["type"] == "convention"
+assert by_type["total"] >= 2
+print("list_entries type filter OK")
+
+# 17. list_entries: status filter
+pinned = repo.list_entries(status="pinned")
+assert pinned["total"] >= 1
+for e in pinned["entries"]:
+    assert e["status"] == "pinned"
+print("list_entries status filter OK")
+
+# 18. list_entries: confidence filter
+high = repo.list_entries(min_confidence=0.5)
+for e in high["entries"]:
+    assert e["confidence"] >= 0.5
+print("list_entries confidence filter OK")
+
+# 19. list_entries: pagination
+page1 = repo.list_entries(limit=2, offset=0)
+assert len(page1["entries"]) <= 2
+page2 = repo.list_entries(limit=2, offset=2)
+assert page1["entries"] != page2["entries"] or page1["total"] <= 2
+print("list_entries pagination OK")
+
 os.remove(tmp)
 print("ALL OK")
