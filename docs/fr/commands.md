@@ -1,6 +1,6 @@
 # Commandes `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et `/wpm-patterns`
 
-Les deux commandes sont des **commandes slash opencode** exécutées
+Les cinq commandes sont des **commandes slash opencode** exécutées
 manuellement par l'utilisateur. Elles offrent un moyen **contrôlé** d'intégrer
 de la documentation et du code dans la mémoire persistante du projet.
 
@@ -15,9 +15,10 @@ versions opérationnelles vivent dans `wpm-commands/` à la racine du dépôt.
 >   `validate_entry`…) — c'est le comportement par défaut, décrit dans
 >   [`memory-behavior-spec.md`](memory-behavior-spec.md). Les commandes ne
 >   le remplacent ni ne le bloquent.
-> - **Ingestion contrôlée (utilisateur, manuelle)** : `/wpm-doc` et
->   `/wpm-code` servent à l'apport massif et vérifié d'un document complet
->   ou d'une cartographie du code. On ne les utilise pas pour des faits
+> - **Ingestion contrôlée (utilisateur, manuelle)** : `/wpm-doc`,
+>   `/wpm-code` et `/wpm-bootstrap` servent à l'apport massif et vérifié
+>   d'un document complet, d'une cartographie du code ou d'un peuplement
+>   initial. On ne les utilise pas pour des faits
 >   ponctuels rencontrés pendant une tâche.
 
 ## Garde commune

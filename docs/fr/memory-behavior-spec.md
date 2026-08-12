@@ -27,7 +27,9 @@ peupler la mémoire que la polluer.
 **Tout `content` passé à `store_entry` doit être en anglais**, quelle que
 soit la langue de la conversation avec l'utilisateur. Raison : cohérence
 des embeddings — mélanger les langues dégrade la similarité vectorielle
-et casse le retrieval. Traduire avant de stocker, pas après.
+et casse le retrieval. Traduire avant de stocker, pas après. En revanche,
+vos réponses, résumés et rapports **doivent utiliser la même langue que
+l'utilisateur** — ne basculez pas en anglais pour la sortie.
 
 ---
 
@@ -255,8 +257,9 @@ L'agent doit traiter ce dashboard comme une check-list actionnable :
 
 ## 14. Pin, deprecate et restore — cycle de vie des entrées
 
-En plus des 5 outils de base, trois outils de gestion du cycle de vie sont
-disponibles :
+Les 10 outils de mémoire (store, query, validate, contradict, link,
+get_memory_stats, pin, deprecate, restore, list_entries) sont tous
+disponibles. Cette section couvre les trois outils de cycle de vie :
 
 ### `pin_entry` — épingler une entrée
 
@@ -317,3 +320,5 @@ redevient soumise au decay normal.
 - Déprécier une entrée sans être certain qu'elle est obsolète.
 - Ignorer les problèmes signalés par `/wpm-review` (contradictions non
   résolues, entrées jamais validées).
+- Remettre à plus tard la persistance parce qu'on est en mode plan —
+  un fait non persisté est perdu à la compaction.

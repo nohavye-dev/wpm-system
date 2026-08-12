@@ -1,9 +1,11 @@
 # wpm-opencode-plugin
 
 Plugin OpenCode compagnon pour le serveur MCP de mémoire persistante pondérée
-(voir le document de spécification, section 11). Le plugin expose les 5
+(voir le document de spécification, section 11). Le plugin expose les 10
 outils de mémoire du serveur (`store_entry`, `query_context`,
-`validate_entry`, `contradict_entry`, `link_entries`) directement à l'LLM
+`validate_entry`, `contradict_entry`, `link_entries`, `get_memory_stats`,
+`pin_entry`, `deprecate_entry`, `restore_entry`, `list_entries`)
+directement à l'LLM
 via l'API du plugin, et fournit des hooks déterministes qu'un serveur MCP
 sans état ne peut pas garantir à lui seul :
 
@@ -25,7 +27,7 @@ sans état ne peut pas garantir à lui seul :
 Le plugin lance lui-même le serveur de mémoire Python comme sous-processus
 (constantes fixes, voir « Activation par projet » ci-dessous), donc aucune
 entrée `mcp` dans `opencode.json` n'est nécessaire. N'en ajoutez pas une :
-le plugin expose déjà les 5 outils sous les mêmes noms, et deux expositions
+le plugin expose déjà les 10 outils sous les mêmes noms, et deux expositions
 du même nom entreraient en conflit.
 
 ## Avant de vous y fier en production

@@ -33,10 +33,10 @@ global (avec les constantes fixes ci-dessous).
 
 Aucune entrée `mcp` n'est requise dans `opencode.json`. Le plugin OpenCode
 global (`wpm-opencode-plugin`, installé par `install.sh` dans
-`~/.config/opencode/plugins/wpm-plugin/`) expose les 5 outils de mémoire
+`~/.config/opencode/plugins/wpm-plugin/`) expose les 10 outils de mémoire
 directement à l'LLM via l'API du plugin et lance lui-même ce serveur comme
 sous-processus. N'ajoutez pas aussi ce serveur comme entrée `mcp` dans
-`opencode.json` : le plugin expose déjà les 5 outils sous ces noms, et deux
+`opencode.json` : le plugin expose déjà les 10 outils sous ces noms, et deux
 expositions du même nom entreraient en conflit. Le plugin est inerte par
 projet : il ne s'active que si un `wpm.config.json` existe à la racine du
 projet :
@@ -75,6 +75,11 @@ seule fois au démarrage.
 | `validate_entry(entry_id, evidence_type, evidence_ref, session_id)` | Enregistrer une preuve de confirmation (dédupliquée par session) |
 | `contradict_entry(entry_id, conflicting_entry_id, evidence_type, evidence_ref)` | Enregistrer un conflit — ne supprime jamais, ne fait que réduire le poids et marquer |
 | `link_entries(source_id, target_id, relation_type, weight?)` | Relation explicite (`related`/`contradicts`/`depends_on`/`refines`) |
+| `get_memory_stats()` | Diagnostic de la santé mémoire : totaux, distribution de confiance, entrées jamais validées, contradictions actives, 5 plus faibles |
+| `pin_entry(entry_id)` | Épingler une entrée — sa confiance ne décroît jamais |
+| `deprecate_entry(entry_id)` | Déprécier une entrée — exclue des résultats (réversible) |
+| `restore_entry(entry_id)` | Restaurer une entrée épinglée ou dépréciée en statut actif |
+| `list_entries(type?, status?, min_confidence?, max_confidence?, limit?, offset?)` | Liste paginée et filtrable des entrées avec leur confiance actuelle |
 
 `type` ∈ `doc`, `archi_decision`, `learning`, `convention`, `bug_pattern`.
 `evidence_type` ∈ `execution_verified`, `cross_reference`,
