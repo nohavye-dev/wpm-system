@@ -17,7 +17,8 @@ import logging as _logging
 import os as _os
 import warnings as _warnings
 _logging.root.handlers.clear()
-_logging.root.setLevel(_logging.ERROR)
+_logging.root.addHandler(_logging.NullHandler())
+_logging.root.setLevel(_logging.CRITICAL)
 _warnings.filterwarnings("ignore")
 if "HF_HUB_DISABLE_IMPLICIT_TRUST" not in _os.environ:
     _os.environ["HF_HUB_DISABLE_IMPLICIT_TRUST"] = "1"
@@ -101,4 +102,11 @@ class ONNXRuntimeProvider(EmbeddingProvider):
 
 def get_provider(model: str | None = None) -> EmbeddingProvider:
     """Build the embedding provider (ONNX runtime, no config needed)."""
-    return ONNXRuntimeProvider(model or _DEFAULT_MODEL)
+    import os as _os2
+    _saved = _os2.dup(2)
+    _os2.dup2(_os2.open(_os2.devnull, _os2.O_WRONLY), 2)
+    try:
+        return ONNXRuntimeProvider(model or _DEFAULT_MODEL)
+    finally:
+        _os2.dup2(_saved, 2)
+        _os2.close(_saved)
