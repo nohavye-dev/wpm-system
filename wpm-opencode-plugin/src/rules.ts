@@ -14,8 +14,11 @@ these rules every turn:
    worse than a missing one — it silently misleads future query_context
    calls. Prefer an underpopulated memory to a polluted one.
 
-2. CONTENT MUST BE IN ENGLISH, whatever the conversation language
-   (embedding consistency). Translate before storing, not after.
+2. CONTENT MUST BE IN ENGLISH for stored memory entries (embedding
+    consistency). Translate before storing, not after. However, your
+    conversational responses, summaries, and reports MUST use the same
+    language as the user asking questions — do not switch to English
+    for output.
 
 3. WRITE AS YOU GO, NOT IN BATCH. As soon as a durable fact exists — an
    architecture decision taken, a convention identified, a test result, an
