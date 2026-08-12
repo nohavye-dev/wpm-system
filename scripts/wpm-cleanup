@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# wpm-cleanup — remove every WPM artifact, even from a broken or manual
+# install. Idempotent and safe to run repeatedly. Honors XDG_* variables.
+#
+# Unlike `wpm uninstall` (which needs the venv python via its shebang),
+# this script is pure bash so it works even when the venv is broken or
+# missing. It does NOT touch the shared global dependencies in
+# ~/.config/opencode/package.json (@opencode-ai/plugin,
+# @modelcontextprotocol/sdk) — other plugins may use them.
+
+BIN_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
+CFG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/wpm-system"
+
+DRY_RUN=0
+if [ "${1:-}" = "--dry-run" ]; then
+    DRY_RUN=1
+fi
+
+removed=0
+
+remove() {
+    local label="$1"
+    local path="$2"
+    if [ "$DRY_RUN" -eq 1 ]; then
+        printf 'would remove: %s (%s)\n' "$path" "$label"
+        return
+    fi
+    if [ -e "$path" ] || [ -L "$path" ]; then
+        rm -rf "$path"
+        printf '  removed: %s\n' "$path"
+        removed=$((removed + 1))
+    else
+        printf '  not found: %s\n' "$path"
+    fi
+}
+
+echo "wpm-cleanup: removing WPM artifacts..."
+
+# 1. CLI binary
+remove "binary" "$BIN_DIR/wpm"
+
+# 2. plugin folder
+remove "plugin" "$CFG_DIR/plugins/wpm-plugin"
+
+# 3. plugin shim
+remove "shim" "$CFG_DIR/plugins/wpm-plugin.ts"
+
+# 4. slash commands
+for cmd in wpm-doc wpm-code wpm-review wpm-bootstrap wpm-patterns; do
+    remove "slash command" "$CFG_DIR/commands/$cmd.md"
+done
+
+# 5. venv + server
+remove "venv/server" "$DATA_DIR"
+
+# 6. shared deps — left intact, only warn if present
+if [ -f "$CFG_DIR/package.json" ]; then
+    if grep -qE '"@opencode-ai/plugin"|"@modelcontextprotocol/sdk"' "$CFG_DIR/package.json"; then
+        echo "  note: shared deps (@opencode-ai/plugin, @modelcontextprotocol/sdk)"
+        echo "        remain in $CFG_DIR/package.json — remove manually if no"
+        echo "        other plugin uses them."
+    fi
+fi
+
+if [ "$DRY_RUN" -eq 1 ]; then
+    echo "wpm-cleanup: dry run complete (nothing removed)"
+else
+    echo "wpm-cleanup: done ($removed removed)"
+fi
