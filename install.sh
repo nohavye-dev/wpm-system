@@ -10,8 +10,8 @@ if [ "${1:-}" = "uninstall" ]; then
   if [ -x "$BIN_DIR/wpm" ]; then
     exec "$BIN_DIR/wpm" uninstall
   fi
-  if [ -x "$BUNDLE_DIR/scripts/wpm.sh" ]; then
-    exec "$BUNDLE_DIR/scripts/wpm.sh" uninstall
+  if [ -x "$BUNDLE_DIR/scripts/wpm" ]; then
+    exec "$BUNDLE_DIR/scripts/wpm" uninstall
   fi
   printf 'wpm is not installed\n' >&2
   exit 1
