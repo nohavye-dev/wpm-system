@@ -1,4 +1,4 @@
-# Commandes `/wpm-doc`, `/wpm-code` et `/wpm-review`
+# Commandes `/wpm-doc`, `/wpm-code`, `/wpm-review` et `/wpm-bootstrap`
 
 Les deux commandes sont des **commandes slash opencode** exécutées
 manuellement par l'utilisateur. Elles offrent un moyen **contrôlé** d'intégrer
@@ -102,7 +102,42 @@ Affiche un tableau de bord de la santé de la mémoire persistante.
 
 ---
 
-- Les deux commandes tournent en **tâche annexe** (`subtask: true`,
+## `/wpm-bootstrap`
+
+Peuple la mémoire à partir des artefacts existants du projet — en une seule
+passe. C'est l'équivalent d'un `/wpm-doc` + `/wpm-code` généralisé, mais
+appliqué à tout le projet.
+
+```
+/wpm-bootstrap
+```
+
+Lit automatiquement, dans l'ordre :
+1. **`README.md`** — description du projet, stack technique, architecture
+2. **Documentation** (`docs/` ou `doc/`) — décisions d'architecture et
+   conventions documentées explicitement
+3. **Configuration de lint/style** (`.editorconfig`, `eslint.config.*`,
+   `ruff.toml`, `tsconfig.json`, etc.) — conventions de code imposées
+4. **Dépendances et tooling** (`package.json`, `pyproject.toml`,
+   `Cargo.toml`, `Makefile`, etc.) — framework, gestionnaire de paquets,
+   commandes standard
+5. **CI/CD** (`.github/workflows/`, `.gitlab-ci.yml`) — étapes de pipeline,
+   commandes de validation officielles
+6. **Structure de dossiers** (top 2 niveaux) — couches et modules, avec
+   vérification dans le code (pas de déduction depuis les noms de dossiers
+   seuls)
+
+Pour chaque fait trouvé : déduplication via `query_context`, puis
+`store_entry(type, content, source="observed_code")`. La commande rend
+un résumé groupé par type (`archi_decision`, `convention`, `learning`).
+
+À utiliser une seule fois par projet, après `wpm enable`, pour peupler
+rapidement la mémoire avec ce qui existe déjà. La mémorisation
+incrémentale au fil du travail continue ensuite normalement.
+
+## Notes
+
+- Les quatre commandes tournent en **tâche annexe** (`subtask: true`,
   `agent: build`) : elles ne polluent pas le contexte de la conversation
   principale et rendent leur résumé à la fin.
 - Lire le résumé renvoyé : des sections/faits écartés volontairement (trop

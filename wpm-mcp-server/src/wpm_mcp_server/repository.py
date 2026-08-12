@@ -56,7 +56,7 @@ class Repository:
             (entry_id, json.dumps(embedding)),
         )
 
-        self._auto_link_by_similarity(entry_id, embedding)
+        similar = self._process_similar_entries(entry_id, embedding)
 
         self.conn.commit()
         return {
@@ -64,29 +64,42 @@ class Repository:
             "type": entry_type.value,
             "provenance_score": provenance_score,
             "confidence": provenance_score,
+            "potential_contradictions": [
+                {"entry_id": s["entry_id"], "similarity": s["similarity"],
+                 "type": s["type"], "content": s["content"][:100]}
+                for s in similar
+                if s["entry_id"] != entry_id
+                and s["similarity"] >= self.settings.expansion.contradiction_alert_threshold
+            ],
         }
 
-    def _auto_link_by_similarity(self, entry_id: str, embedding: list[float]) -> None:
-        """Create implicit 'related' links to existing entries above a
-        similarity threshold (spec section 4: implicit links from
-        similarity vs explicit links via link_entries)."""
+    def _process_similar_entries(self, entry_id: str, embedding: list[float]) -> list[dict[str, Any]]:
+        """Query vector index for entries similar to the new embedding.
+        Create implicit 'related' links above auto_link_similarity_threshold.
+        Return the full list (including self) for contradiction detection."""
         threshold = self.settings.expansion.auto_link_similarity_threshold
         rows = self.conn.execute(
             """
-            SELECT entry_id, distance
-            FROM vec_entries
-            WHERE embedding MATCH ? AND k = ?
-            ORDER BY distance
+            SELECT ve.entry_id, e.type, e.content, ve.distance
+            FROM vec_entries ve
+            JOIN entries e ON e.id = ve.entry_id
+            WHERE ve.embedding MATCH ? AND k = ?
+            ORDER BY ve.distance
             """,
             (json.dumps(embedding), self.settings.expansion.top_n_candidates),
         ).fetchall()
 
+        results: list[dict[str, Any]] = []
         for row in rows:
             other_id = row["entry_id"]
-            if other_id == entry_id:
-                continue
-            similarity = 1.0 - row["distance"]  # cosine distance -> similarity
-            if similarity >= threshold:
+            similarity = 1.0 - row["distance"]
+            results.append({
+                "entry_id": other_id,
+                "type": row["type"],
+                "content": row["content"],
+                "similarity": round(similarity, 4),
+            })
+            if other_id != entry_id and similarity >= threshold:
                 self.conn.execute(
                     """
                     INSERT OR IGNORE INTO entry_links (source_id, target_id, relation_type, weight)
@@ -94,6 +107,7 @@ class Repository:
                     """,
                     (entry_id, other_id, RelationType.RELATED.value, similarity),
                 )
+        return results
 
     # --- query_context -----------------------------------------------------
     def query_context(

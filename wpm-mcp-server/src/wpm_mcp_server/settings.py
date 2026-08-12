@@ -93,6 +93,7 @@ class ExpansionSettings:
     min_confidence: float = 0.3
     top_n_candidates: int = 20
     auto_link_similarity_threshold: float = 0.82
+    contradiction_alert_threshold: float = 0.92
 
 
 @dataclass

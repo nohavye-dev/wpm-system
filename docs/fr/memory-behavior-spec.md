@@ -49,6 +49,17 @@ non (détail transitoire, hypothèse non vérifiée, information déjà
 stocké avec trop de confiance est activement trompeur pour une future
 requête — s'abstenir vaut mieux que deviner.
 
+**Traiter les alertes de contradiction.** `store_entry` retourne désormais
+un champ `potential_contradictions` : la liste des entrées existantes dont
+la similarité vectorielle dépasse `contradiction_alert_threshold` (0.92
+par défaut). Une similarité très haute **ne signifie pas automatiquement
+une contradiction** — les deux entrées peuvent être des doublons
+(→ `validate_entry` sur l'existante plutôt que d'en créer une nouvelle),
+ou elles peuvent effectivement se contredire (→ `contradict_entry`).
+L'agent doit **comparer les contenus** des candidates avant d'agir : ne
+pas supposer qu'une haute similarité = contradiction, et ne pas ignorer
+les alertes sans vérification.
+
 ---
 
 ## 4. Déduplication avant écriture
@@ -186,8 +197,8 @@ interchangeables.
   rencontré pendant son travail, via `store_entry`/`validate_entry`... Ce
   canal reste actif en permanence, indépendamment des commandes.
 - **Ingestion contrôlée (utilisateur, manuelle)** — les commandes
-  `/wpm-doc` et `/wpm-code` servent à l'apport massif et vérifié d'un
-  document complet ou d'une cartographie du code. Elles ne remplacent pas
+  `/wpm-doc`, `/wpm-code`, `/wpm-review` et `/wpm-bootstrap` couvrent
+  l'ingestion massive, l'audit et le peuplement initial. Elles ne remplacent pas
   la mémorisation incrémentale, et ne bloquent pas non plus un
   `store_entry` opportun : un fait durable rencontré pendant une tâche est
   toujours écrit immédiatement, pas "rangé pour plus tard".
@@ -202,8 +213,15 @@ interchangeables.
   seulement les faits structurants dont l'agent est réellement confiant,
   en s'appuyant sur du code réellement lu, jamais sur le nom des dossiers
   seul.
+- **`/wpm-review`** — diagnostic en lecture seule de la santé
+  mémoire (voir §13). À utiliser avant de s'appuyer sur la mémoire ou
+  quand on soupçonne des entrées périmées.
+- **`/wpm-bootstrap`** — peuplement initial unique du projet à
+  partir des artefacts existants (README, configs, CI, structure de
+  dossiers). À lancer une fois après `wpm enable`, puis laisser la
+  mémorisation incrémentale prendre le relais.
 
-Les deux commandes tournent en tâche annexe et rendent un résumé
+Les quatre commandes tournent en tâche annexe et rendent un résumé
 (stocké / revalidé / ignoré) — lire ce résumé pour savoir si des éléments
 ont été volontairement écartés faute de confiance suffisante.
 

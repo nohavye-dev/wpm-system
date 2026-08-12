@@ -299,7 +299,8 @@ du seuil de création automatique de liens implicites.
   "hop_decay": 0.5,
   "min_confidence": 0.3,
   "top_n_candidates": 20,
-  "auto_link_similarity_threshold": 0.82
+  "auto_link_similarity_threshold": 0.82,
+  "contradiction_alert_threshold": 0.92
 }
 ```
 
@@ -309,6 +310,7 @@ du seuil de création automatique de liens implicites.
 | `min_confidence` | float | Confiance minimum pour qu'une entrée trouvée par expansion (pas par match direct) soit incluse dans `related_context`. |
 | `top_n_candidates` | int | Nombre de candidats récupérés par la recherche vectorielle brute (`k` dans la requête `sqlite-vec`), avant filtrage/scoring. |
 | `auto_link_similarity_threshold` | float | Seuil de similarité cosinus au-delà duquel `store_entry` crée automatiquement un lien implicite `related` avec une entrée existante. |
+| `contradiction_alert_threshold` | float | Seuil de similarité cosinus au-delà duquel `store_entry` signale une entrée existante comme candidate à la contradiction dans le champ `potential_contradictions` de la réponse. Ne crée pas de lien automatiquement — c'est au LLM d'évaluer les candidates et d'appeler `contradict_entry` si les contenus sont effectivement contradictoires. |
 
 ---
 

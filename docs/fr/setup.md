@@ -21,7 +21,7 @@ Ce que fait `install.sh` :
 1. Construit le plugin compilé
 2. Copie le plugin dans `~/.config/opencode/plugins/wpm-plugin/` — plugin **global**, auto-chargé par OpenCode
 3. Crée un venv géré à `~/.local/share/wpm-system/venv` et y installe `wpm-mcp-server` (non éditable) via `pip install`
-4. Copie `/wpm-doc`, `/wpm-code` et `/wpm-review` dans `~/.config/opencode/commands/` — commandes globales
+4. Copie `/wpm-doc`, `/wpm-code`, `/wpm-review` et `/wpm-bootstrap` dans `~/.config/opencode/commands/` — commandes globales
 5. Installe la commande `wpm` dans `~/.local/bin` (ou `$XDG_BIN_HOME`)
 
 Redémarre ensuite opencode : la config n'est chargée qu'une seule fois au démarrage.

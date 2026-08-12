@@ -158,5 +158,18 @@ except Exception as exc:
     assert "not found" in str(exc)
 print("OK, pin nonexistent raised")
 
+# 14. potential_contradictions: identical content should flag
+e_same = repo.store_entry(type_="convention", content="Use camelCase for all JavaScript private fields", source="observed_code")
+assert isinstance(e_same["potential_contradictions"], list), "potential_contradictions should be a list"
+same_ids = {c["entry_id"] for c in e_same["potential_contradictions"]}
+assert e_same["entry_id"] not in same_ids, "should not flag itself"
+
+# Store the SAME content again — identical vectors, distance=0, similarity=1.0
+e_dup = repo.store_entry(type_="convention", content="Use camelCase for all JavaScript private fields", source="observed_code")
+dup_ids = {c["entry_id"] for c in e_dup["potential_contradictions"]}
+assert e_same["entry_id"] in dup_ids, "storing duplicate content should flag the earlier entry as potential contradiction"
+assert e_dup["entry_id"] not in dup_ids, "should not flag itself"
+print("potential_contradictions OK")
+
 os.remove(tmp)
 print("ALL OK")
