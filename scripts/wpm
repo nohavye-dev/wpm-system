@@ -21,13 +21,13 @@ def _resolve_wpm_config() -> Path:
 
 # ── enable ──────────────────────────────────────────────────────────────
 
-def cmd_enable() -> None:
+def cmd_enable(db_dir: str | None = None) -> None:
     config_path = _resolve_wpm_config()
     data: dict = {}
     if config_path.exists():
         data = json.loads(config_path.read_text(encoding="utf-8"))
     if not data.get("db_path"):
-        data["db_path"] = ".wpm/wpm.db"
+        data["db_path"] = f"{db_dir}/wpm.db" if db_dir else ".wpm/wpm.db"
 
     db_path_raw = data["db_path"]
     if db_path_raw.endswith(os.sep):
@@ -68,6 +68,11 @@ def cmd_enable() -> None:
         with gitignore.open("a", encoding="utf-8") as f:
             f.write(f"# weighted persistent memory\n{gitignore_entry}\n")
 
+    # Create the database schema (no embedding model needed here).
+    from wpm_mcp_server import db as wdb
+    conn = wdb.connect(str(resolved))
+    conn.close()
+
     print(f"wpm: activated (wpm.config.json written, db_path={db_path_raw})")
     print("restart opencode for the change to take effect")
 
@@ -76,15 +81,40 @@ def cmd_enable() -> None:
 
 def cmd_disable() -> None:
     config_path = _resolve_wpm_config()
+    db_path = None
     if config_path.exists():
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+        db_path = data.get("db_path")
         config_path.unlink()
     print("wpm: deactivated")
-    print("note: the database (see db_path in the removed config) was NOT deleted")
+
+    if not db_path:
+        return
+
+    db_dir = os.path.dirname(db_path)
+    basename = os.path.basename(db_path)
+    if db_dir == ".wpm" and basename == "wpm.db":
+        reactivate = "wpm enable"
+    elif db_dir not in (".", "") and basename == "wpm.db":
+        reactivate = f"wpm enable {db_dir}"
+    else:
+        reactivate = None
+
+    print(f"note: the database at {db_path} was NOT deleted")
+    if reactivate:
+        print(f"      re-activate with: {reactivate}")
 
 
 # ── uninstall ───────────────────────────────────────────────────────────
 
-def cmd_uninstall() -> None:
+def cmd_uninstall(force: bool = False) -> None:
+    if not force:
+        print("This will remove the plugin, venv, slash commands and the 'wpm' binary.")
+        answer = input("Continue? [y/N] ")
+        if answer.strip().lower() not in ("y", "yes"):
+            print("wpm: aborted")
+            return
+
     plugin_dir = Path(GLOBAL_CONFIG_DIR) / "plugins" / "wpm-plugin"
     if plugin_dir.exists():
         shutil.rmtree(plugin_dir)
@@ -231,9 +261,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="wpm")
     sub = parser.add_subparsers(dest="command")
 
-    sub.add_parser("enable", help="Activate wpm in the current project")
+    p = sub.add_parser("enable", help="Activate wpm (optionally set a custom DB subdirectory)")
+    p.add_argument("db_dir", nargs="?", default=None)
     sub.add_parser("disable", help="Deactivate wpm (keeps the database)")
-    sub.add_parser("uninstall", help="Fully remove wpm from the system")
+    u = sub.add_parser("uninstall", help="Fully remove wpm from the system")
+    u.add_argument("--force", "-f", action="store_true", help="Skip confirmation")
 
     p = sub.add_parser("search", help="Search the project's persistent memory")
     p.add_argument("query", help="Search query (in English)")
@@ -244,11 +276,11 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "enable":
-        cmd_enable()
+        cmd_enable(args.db_dir)
     elif args.command == "disable":
         cmd_disable()
     elif args.command == "uninstall":
-        cmd_uninstall()
+        cmd_uninstall(args.force)
     elif args.command == "search":
         cmd_search(args)
     else:
