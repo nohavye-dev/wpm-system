@@ -79,7 +79,15 @@ these rules every turn:
     idle, do a final pass: is there any decision/result/pattern not yet
     persisted? If so, write it now.
 
-13. INCREMENTAL MEMORY IS ALWAYS FREE. Persist durable facts as they
+13. WRITE MEMORY ANYTIME. Memory write tools (store_entry, validate_entry,
+    contradict_entry, pin_entry, deprecate_entry, restore_entry) MUST be
+    used whenever a durable fact emerges — in plan mode, build mode, or
+    any other mode. Plan mode is NOT a reason to defer persistence. If
+    opencode blocks the write, retry immediately or switch to build mode.
+    An unpersisted fact is lost forever at context compaction — do not
+    assume you will remember it later.
+
+14. INCREMENTAL MEMORY IS ALWAYS FREE. Persist durable facts as they
     emerge during normal work. /wpm-doc and /wpm-code are user-controlled
     commands for bulk ingestion (a full document, a codebase survey) — do
     not wait for them to memorize, and do not use them for mid-task facts.

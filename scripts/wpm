@@ -155,9 +155,10 @@ def cmd_search(args: argparse.Namespace) -> None:
     sys.path.insert(0, server_src)
 
     import logging
-    hf_logger = logging.getLogger("huggingface_hub")
-    hf_logger.setLevel(logging.ERROR)
-    hf_logger.propagate = False
+    import warnings
+    logging.root.handlers.clear()
+    logging.root.setLevel(logging.ERROR)
+    warnings.filterwarnings("ignore")
 
     from wpm_mcp_server import db
     from wpm_mcp_server.embeddings import get_provider
@@ -167,7 +168,16 @@ def cmd_search(args: argparse.Namespace) -> None:
     settings = load_settings(config_path)
     os.chdir(str(Path.cwd()))
     conn = db.connect(str(db_path))
-    embedder = get_provider()
+
+    _stderr_fd = os.dup(2)
+    _null_fd = os.open(os.devnull, os.O_WRONLY)
+    os.dup2(_null_fd, 2)
+    try:
+        embedder = get_provider()
+    finally:
+        os.dup2(_stderr_fd, 2)
+        os.close(_null_fd)
+        os.close(_stderr_fd)
     repo = Repository(conn=conn, embedder=embedder, settings=settings.domain)
 
     result = repo.query_context(

@@ -13,6 +13,15 @@ from abc import ABC, abstractmethod
 
 from wpm_mcp_server.domain import EMBEDDING_DIM
 
+import logging as _logging
+import os as _os
+import warnings as _warnings
+_logging.root.handlers.clear()
+_logging.root.setLevel(_logging.ERROR)
+_warnings.filterwarnings("ignore")
+if "HF_HUB_DISABLE_IMPLICIT_TRUST" not in _os.environ:
+    _os.environ["HF_HUB_DISABLE_IMPLICIT_TRUST"] = "1"
+
 _DEFAULT_MODEL = "all-MiniLM-L6-v2"
 
 
