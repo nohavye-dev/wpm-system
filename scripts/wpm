@@ -88,6 +88,9 @@ def cmd_uninstall() -> None:
     plugin_dir = Path(GLOBAL_CONFIG_DIR) / "plugins" / "wpm-plugin"
     if plugin_dir.exists():
         shutil.rmtree(plugin_dir)
+    shim = Path(GLOBAL_CONFIG_DIR) / "plugins" / "wpm-plugin.ts"
+    if shim.exists():
+        shim.unlink()
 
     commands_dir = Path(GLOBAL_CONFIG_DIR) / "commands"
     for name in ("wpm-doc.md", "wpm-code.md", "wpm-review.md", "wpm-bootstrap.md", "wpm-patterns.md"):

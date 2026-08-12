@@ -25,6 +25,8 @@ npm run build
 printf 'installing plugin globally...\n'
 mkdir -p "$GLOBAL_CONFIG_DIR/plugins/wpm-plugin"
 cp -r dist package.json README.md "$GLOBAL_CONFIG_DIR/plugins/wpm-plugin/"
+printf 'export { default, WpmPlugin } from "./wpm-plugin/dist/index.js"\n' \
+  > "$GLOBAL_CONFIG_DIR/plugins/wpm-plugin.ts"
 
 printf 'ensuring runtime deps for the global plugin...\n'
 mkdir -p "$GLOBAL_CONFIG_DIR"

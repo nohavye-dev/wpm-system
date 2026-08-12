@@ -20,11 +20,16 @@ Depuis la racine du dépôt :
 Ce que fait `install.sh` :
 1. Construit le plugin compilé
 2. Copie le plugin dans `~/.config/opencode/plugins/wpm-plugin/` — plugin **global**, auto-chargé par OpenCode
-3. Crée un venv géré à `~/.local/share/wpm-system/venv` et y installe `wpm-mcp-server` (non éditable) via `pip install`
-4. Copie `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et `/wpm-patterns` dans `~/.config/opencode/commands/` — commandes globales
-5. Installe la commande `wpm` dans `~/.local/bin` (ou `$XDG_BIN_HOME`)
+3. Écrit le shim `~/.config/opencode/plugins/wpm-plugin.ts` qui permet à OpenCode de découvrir le plugin (le dossier seul ne suffit pas)
+4. Crée un venv géré à `~/.local/share/wpm-system/venv` et y installe `wpm-mcp-server` (non éditable) via `pip install`
+5. Copie `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et `/wpm-patterns` dans `~/.config/opencode/commands/` — commandes globales
+6. Installe la commande `wpm` dans `~/.local/bin` (ou `$XDG_BIN_HOME`)
 
 Redémarre ensuite opencode : la config n'est chargée qu'une seule fois au démarrage.
+
+> **Note** : un `opencode.json` de projet contenant `"plugin": []` désactive
+> le chargement du plugin global. Retirez ce champ (ou listez `wpm-plugin`
+> dedans) pour que le plugin soit chargé.
 
 ## Activer sur un projet
 
