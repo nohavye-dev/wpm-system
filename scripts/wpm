@@ -151,9 +151,6 @@ def cmd_search(args: argparse.Namespace) -> None:
         print(f"wpm: database not found at {db_path}", file=sys.stderr)
         sys.exit(1)
 
-    server_src = str(Path(__file__).resolve().parent.parent / "wpm-mcp-server" / "src")
-    sys.path.insert(0, server_src)
-
     import logging
     import warnings
     logging.root.handlers.clear()

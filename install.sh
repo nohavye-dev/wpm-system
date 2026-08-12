@@ -72,6 +72,7 @@ printf 'installing wpm command...\n'
 mkdir -p "$BIN_DIR"
 cp "$BUNDLE_DIR/scripts/wpm" "$BIN_DIR/wpm"
 chmod +x "$BIN_DIR/wpm"
+sed -i "1s|^#!/usr/bin/env python3|#!$DATA_DIR/venv/bin/python3|" "$BIN_DIR/wpm"
 
 printf 'wpm installed. Restart opencode. Then in any project: wpm enable\n'
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
