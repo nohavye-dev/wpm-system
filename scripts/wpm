@@ -110,7 +110,10 @@ def cmd_disable() -> None:
 def cmd_uninstall(force: bool = False) -> None:
     if not force:
         print("This will remove the plugin, venv, slash commands and the 'wpm' binary.")
-        answer = input("Continue? [y/N] ")
+        try:
+            answer = input("Continue? [y/N] ")
+        except (EOFError, KeyboardInterrupt):
+            answer = ""
         if answer.strip().lower() not in ("y", "yes"):
             print("wpm: aborted")
             return
