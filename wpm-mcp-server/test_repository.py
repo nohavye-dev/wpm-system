@@ -73,5 +73,90 @@ try:
 except Exception as exc:
     print("OK, missing entry raised:", exc)
 
+# 8. get_stats on a populated repo
+stats = repo.get_stats()
+assert stats["total_entries"] == 3, f"expected 3, got {stats['total_entries']}"
+assert stats["by_type"]["archi_decision"] == 1
+assert stats["by_type"]["convention"] == 1
+assert stats["by_type"]["bug_pattern"] == 1
+assert len(stats["never_validated"]) >= 0
+assert len(stats["active_contradictions"]) == 1
+assert stats["active_contradictions"][0]["source_id"] == e2["entry_id"]
+assert len(stats["lowest_confidence"]) <= 5
+assert (
+    stats["confidence_distribution"]["high"]
+    + stats["confidence_distribution"]["medium"]
+    + stats["confidence_distribution"]["low"]
+    == stats["total_entries"]
+)
+assert len(stats["recent_activity"]) <= 10
+print("stats OK:", stats["total_entries"], stats["by_type"])
+
+# 9. get_stats on an empty repo
+tmp2 = tempfile.mktemp(suffix=".db")
+conn2 = db.connect(tmp2)
+repo2 = Repository(conn=conn2, embedder=_StubEmbedder())
+stats_empty = repo2.get_stats()
+assert stats_empty["total_entries"] == 0
+assert stats_empty["never_validated"] == []
+assert stats_empty["active_contradictions"] == []
+assert stats_empty["lowest_confidence"] == []
+assert stats_empty["recent_activity"] == []
+conn2.close()
+os.remove(tmp2)
+print("stats_empty OK")
+
+# 10. pin_entry
+pinned = repo.pin_entry(entry_id=e1["entry_id"])
+assert pinned["status"] == "pinned", f"expected pinned, got {pinned['status']}"
+
+# Verify pinned entry still appears in query results
+result_pinned = repo.query_context(query="Parameter Object pattern C#")
+all_ids = {m["entry_id"] for m in result_pinned["direct_matches"]} | {
+    m["entry_id"] for m in result_pinned["related_context"]
+}
+assert e1["entry_id"] in all_ids, "pinned entry should still appear in queries"
+matched = [m for m in result_pinned["direct_matches"] + result_pinned["related_context"] if m["entry_id"] == e1["entry_id"]]
+assert len(matched) == 1
+assert matched[0]["status"] == "pinned"
+print("pin OK")
+
+# 11. deprecate_entry
+deprecated = repo.deprecate_entry(entry_id=e3["entry_id"])
+assert deprecated["status"] == "deprecated"
+
+# Deprecated entry should NOT appear in queries
+result_dep = repo.query_context(query="MassImport pipeline fails silently")
+all_dep_ids = {m["entry_id"] for m in result_dep["direct_matches"]} | {
+    m["entry_id"] for m in result_dep["related_context"]
+}
+assert e3["entry_id"] not in all_dep_ids, "deprecated entry should be excluded from queries"
+
+# Contradictions involving deprecated entries should also be filtered
+conflicts_after_dep = result_dep.get("conflicts", [])
+conflict_ids = {c["contradicted_by"] for c in conflicts_after_dep}
+assert e3["entry_id"] not in conflict_ids, "deprecated entry should not appear as conflict other"
+print("deprecate OK")
+
+# 12. restore_entry
+restored = repo.restore_entry(entry_id=e3["entry_id"])
+assert restored["status"] == "active"
+
+# Restored entry should appear in queries again
+result_rest = repo.query_context(query="MassImport pipeline fails silently")
+all_rest_ids = {m["entry_id"] for m in result_rest["direct_matches"]} | {
+    m["entry_id"] for m in result_rest["related_context"]
+}
+assert e3["entry_id"] in all_rest_ids, "restored entry should be visible again"
+print("restore OK")
+
+# 13. error: pin/deprecate/restore on nonexistent entry
+try:
+    repo.pin_entry(entry_id="nonexistent-id")
+    assert False, "should have raised"
+except Exception as exc:
+    assert "not found" in str(exc)
+print("OK, pin nonexistent raised")
+
 os.remove(tmp)
 print("ALL OK")

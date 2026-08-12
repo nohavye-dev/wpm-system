@@ -183,6 +183,20 @@ v7 = apply_evidence(
 assert v7 == 0.5, f"expected 0.5 got {v7}"  # 0.5 - 0.0
 print("OK: apply_evidence AGENT_REASONING has zero contradict weight")
 
+# --- confidence_at: pinned entries never decay ---
+
+c_pinned = confidence_at(
+    entry_type=EntryType.ARCHI_DECISION,
+    provenance_score=0.5,
+    validation_score=0.25,
+    last_validated_at="2026-01-01T12:00:00+00:00",
+    status="pinned",
+    settings=norms,
+    now=one_hour_later,
+)
+assert abs(c_pinned - 0.75) < 1e-9, f"expected 0.75 got {c_pinned}"
+print("OK: confidence_at pinned entry skips decay entirely")
+
 # --- now_iso ---
 
 ts = now_iso()

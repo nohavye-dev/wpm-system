@@ -209,7 +209,77 @@ ont été volontairement écartés faute de confiance suffisante.
 
 ---
 
-## 13. Ce qu'il ne faut jamais faire
+## 13. Audit mémoire (`/wpm-review`)
+
+`/wpm-review` est une commande de diagnostic en lecture seule qui appelle
+l'outil `get_memory_stats` pour produire un tableau de bord de la santé
+de la mémoire. À utiliser avant de s'appuyer fortement sur la mémoire, ou
+quand on soupçonne des entrées périmées ou contradictoires.
+
+Le dashboard inclut : total par type, distribution de confiance (high >0.7,
+medium 0.3-0.7, low <0.3), entrées jamais validées, contradictions actives,
+les 5 entrées de plus faible confiance, et les 10 derniers événements.
+
+L'agent doit traiter ce dashboard comme une check-list actionnable :
+- Les entrées jamais validées méritent d'être vérifiées ou dépréciées.
+- Les contradictions actives doivent être résolues (choisir quelle entrée
+  garder, déprécier l'autre).
+- Les entrées sous le seuil de confiance du projet (défaut 0.5) sont
+  effectivement invisibles à la plupart des queries — si ce sont des faits
+  importants, les revalider avec des preuves réelles.
+
+---
+
+## 14. Pin, deprecate et restore — cycle de vie des entrées
+
+En plus des 5 outils de base, trois outils de gestion du cycle de vie sont
+disponibles :
+
+### `pin_entry` — épingler une entrée
+
+Épingle une entrée pour que sa confiance **ne décroisse jamais** (le decay
+temporel est désactivé). N'affecte pas les autres mécanismes (l'entrée peut
+toujours être contredite, validée, ou dépréciée).
+
+**Quand épingler :**
+- Une décision d'architecture fondatrice et jamais contredite.
+- Une convention imposée (politique d'équipe, règle de sécurité).
+- Une entrée validée 3+ fois à travers plusieurs sessions, avec une
+  confiance stable >0.8.
+
+**Ne jamais épingler :**
+- Un `learning` ou un `bug_pattern` (durée de vie courte par nature).
+- Une entrée avec une contradiction active non résolue.
+- Une entrée récente, non validée, ou dont la véracité n'est pas certaine.
+
+### `deprecate_entry` — déprécier une entrée
+
+Marque une entrée comme obsolète — elle est **exclue de toutes les
+queries futures** (`query_context`, `get_memory_stats`). Les données
+restent en base, et l'opération est réversible via `restore_entry`.
+
+**Quand déprécier :**
+- Une contradiction a été résolue en faveur de l'autre entrée →
+  déprécier l'entrée contredite.
+- Le code, module, ou fichier référencé par l'entrée n'existe plus.
+- Un `bug_pattern` qui a été corrigé dans tout le codebase.
+
+**Ne pas déprécier :** une entrée dont on n'est pas sûr — la dépréciation
+est réversible, mais un excès de prudence évite des allers-retours.
+
+### `restore_entry` — restaurer une entrée
+
+Remet une entrée épinglée ou dépréciée en statut `active`. La confiance
+redevient soumise au decay normal.
+
+**Quand restaurer :**
+- Une dépréciation était prématurée (l'entrée est à nouveau pertinente).
+- Une épingle n'est plus justifiée (la règle a changé, la décision est
+  révisée).
+
+---
+
+## 15. Ce qu'il ne faut jamais faire
 
 - Stocker en français ou dans une langue autre que l'anglais.
 - Créer une entrée sans avoir vérifié qu'elle n'existe pas déjà.
@@ -220,3 +290,7 @@ ont été volontairement écartés faute de confiance suffisante.
 - Différer l'écriture d'un fait important "pour plus tard" dans la même
   session.
 - Sur-lier des entrées sans relation explicite dans le texte source.
+- Épingler un `learning`, un `bug_pattern`, ou une entrée jamais validée.
+- Déprécier une entrée sans être certain qu'elle est obsolète.
+- Ignorer les problèmes signalés par `/wpm-review` (contradictions non
+  résolues, entrées jamais validées).

@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+"""wpm — Weighted Persistent Memory CLI."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import shutil
+import sys
+from pathlib import Path
+
+DATA_DIR = os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share" / "wpm-system"))
+GLOBAL_CONFIG_DIR = os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config" / "opencode"))
+BIN_DIR = os.environ.get("XDG_BIN_HOME", str(Path.home() / ".local" / "bin"))
+
+
+def _resolve_wpm_config() -> Path:
+    return Path.cwd() / "wpm.config.json"
+
+
+# ── enable ──────────────────────────────────────────────────────────────
+
+def cmd_enable() -> None:
+    config_path = _resolve_wpm_config()
+    data: dict = {}
+    if config_path.exists():
+        data = json.loads(config_path.read_text(encoding="utf-8"))
+    if not data.get("db_path"):
+        data["db_path"] = ".wpm/wpm.db"
+
+    db_path_raw = data["db_path"]
+    if db_path_raw.endswith(os.sep):
+        print("wpm: error: db_path must be a file (no trailing separator)", file=sys.stderr)
+        sys.exit(1)
+
+    resolved = Path(db_path_raw)
+    if not resolved.is_absolute():
+        resolved = (Path.cwd() / db_path_raw).resolve()
+    else:
+        resolved = resolved.resolve()
+
+    root = Path.cwd().resolve()
+    if resolved == root:
+        print("wpm: error: db_path must be a file, not the project root directory", file=sys.stderr)
+        sys.exit(1)
+    if not str(resolved).startswith(str(root) + os.sep):
+        print("wpm: error: db_path must live inside the project directory", file=sys.stderr)
+        sys.exit(1)
+
+    config_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+    rel_path = db_path_raw
+    if str(resolved).startswith(str(root) + os.sep):
+        rel_path = os.path.relpath(str(resolved), str(root))
+    else:
+        rel_path = db_path_raw
+
+    db_dir = os.path.dirname(rel_path)
+    if db_dir and db_dir != ".":
+        os.makedirs(os.path.join(str(root), db_dir), exist_ok=True)
+        gitignore_entry = db_dir + os.sep
+    else:
+        gitignore_entry = os.path.basename(rel_path)
+
+    gitignore = Path.cwd() / ".gitignore"
+    if not gitignore.exists() or gitignore_entry not in gitignore.read_text(encoding="utf-8"):
+        with gitignore.open("a", encoding="utf-8") as f:
+            f.write(f"# weighted persistent memory\n{gitignore_entry}\n")
+
+    print(f"wpm: activated (wpm.config.json written, db_path={db_path_raw})")
+    print("restart opencode for the change to take effect")
+
+
+# ── disable ─────────────────────────────────────────────────────────────
+
+def cmd_disable() -> None:
+    config_path = _resolve_wpm_config()
+    if config_path.exists():
+        config_path.unlink()
+    print("wpm: deactivated")
+    print("note: the database (see db_path in the removed config) was NOT deleted")
+
+
+# ── uninstall ───────────────────────────────────────────────────────────
+
+def cmd_uninstall() -> None:
+    plugin_dir = Path(GLOBAL_CONFIG_DIR) / "plugins" / "wpm-plugin"
+    if plugin_dir.exists():
+        shutil.rmtree(plugin_dir)
+
+    commands_dir = Path(GLOBAL_CONFIG_DIR) / "commands"
+    for name in ("wpm-doc.md", "wpm-code.md", "wpm-review.md"):
+        cmd_file = commands_dir / name
+        if cmd_file.exists():
+            cmd_file.unlink()
+
+    pkg_json = Path(GLOBAL_CONFIG_DIR) / "package.json"
+    if pkg_json.exists():
+        pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
+        deps = pkg.get("dependencies")
+        if isinstance(deps, dict):
+            deps.pop("@opencode-ai/plugin", None)
+            deps.pop("@modelcontextprotocol/sdk", None)
+            if not deps:
+                pkg.pop("dependencies", None)
+        if not pkg:
+            pkg_json.unlink()
+        else:
+            pkg_json.write_text(json.dumps(pkg, indent=2) + "\n", encoding="utf-8")
+
+    try:
+        os.rmdir(str(Path(GLOBAL_CONFIG_DIR) / "plugins"))
+    except OSError:
+        pass
+    try:
+        os.rmdir(str(commands_dir))
+    except OSError:
+        pass
+
+    data_path = Path(DATA_DIR)
+    if data_path.exists():
+        shutil.rmtree(data_path)
+
+    wpm_bin = Path(BIN_DIR) / "wpm"
+    if wpm_bin.exists():
+        wpm_bin.unlink()
+
+    print("wpm: fully uninstalled")
+
+
+# ── search ──────────────────────────────────────────────────────────────
+
+def cmd_search(args: argparse.Namespace) -> None:
+    config_path = _resolve_wpm_config()
+    if not config_path.exists():
+        print("wpm: not activated here. Run 'wpm enable' first.", file=sys.stderr)
+        sys.exit(1)
+
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    db_path_raw = config.get("db_path", "")
+    if not db_path_raw:
+        print("wpm: db_path not set in wpm.config.json", file=sys.stderr)
+        sys.exit(1)
+
+    db_path = Path(db_path_raw)
+    if not db_path.is_absolute():
+        db_path = (Path.cwd() / db_path_raw).resolve()
+
+    if not db_path.exists():
+        print(f"wpm: database not found at {db_path}", file=sys.stderr)
+        sys.exit(1)
+
+    server_src = str(Path(__file__).resolve().parent.parent / "wpm-mcp-server" / "src")
+    sys.path.insert(0, server_src)
+
+    import logging
+    hf_logger = logging.getLogger("huggingface_hub")
+    hf_logger.setLevel(logging.ERROR)
+    hf_logger.propagate = False
+
+    from wpm_mcp_server import db
+    from wpm_mcp_server.embeddings import get_provider
+    from wpm_mcp_server.repository import Repository
+    from wpm_mcp_server.settings import load_settings
+
+    settings = load_settings(config_path)
+    os.chdir(str(Path.cwd()))
+    conn = db.connect(str(db_path))
+    embedder = get_provider()
+    repo = Repository(conn=conn, embedder=embedder, settings=settings.domain)
+
+    result = repo.query_context(
+        query=args.query,
+        min_confidence=args.min_confidence or 0.0,
+        token_budget=999_999,
+    )
+    conn.close()
+
+    if args.json:
+        print(json.dumps(result, indent=2))
+    else:
+        _print_text(result)
+
+
+def _print_text(result: dict) -> None:
+    direct = result.get("direct_matches", [])
+    related = result.get("related_context", [])
+    conflicts = result.get("conflicts", [])
+
+    if direct:
+        print(f"Direct matches ({len(direct)}):")
+        for m in direct:
+            eid = m["entry_id"][:8]
+            typ = m["type"]
+            conf = m["confidence"]
+            score = m.get("score", conf)
+            status = m.get("status", "active")
+            content = m["content"].replace("\n", " ")[:80]
+            print(f"  {eid}  {typ:<16} {conf:.2f}  {score:.2f}  {status:<9} {content}")
+        print()
+
+    if related:
+        print(f"Related context ({len(related)}):")
+        for m in related:
+            eid = m["entry_id"][:8]
+            typ = m["type"]
+            score = m.get("score", 0)
+            status = m.get("status", "active")
+            content = m["content"].replace("\n", " ")[:80]
+            print(f"  {eid}  {typ:<16} {score:.2f}  {status:<9} {content}")
+        print()
+
+    if conflicts:
+        print("Conflicts:")
+        for c in conflicts:
+            src = c["entry_id"][:8]
+            tgt = c["contradicted_by"][:8]
+            print(f"  {src}  ↔  {tgt}")
+    else:
+        action = any([direct, related])
+        if action:
+            print("Conflicts: none")
+
+
+# ── main ────────────────────────────────────────────────────────────────
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="wpm")
+    sub = parser.add_subparsers(dest="command")
+
+    sub.add_parser("enable", help="Activate wpm in the current project")
+    sub.add_parser("disable", help="Deactivate wpm (keeps the database)")
+    sub.add_parser("uninstall", help="Fully remove wpm from the system")
+
+    p = sub.add_parser("search", help="Search the project's persistent memory")
+    p.add_argument("query", help="Search query (in English)")
+    p.add_argument("--json", "-j", action="store_true", help="Output as JSON")
+    p.add_argument("--min-confidence", "-c", type=float, default=None,
+                   help="Minimum confidence threshold (default: no filter)")
+
+    args = parser.parse_args()
+
+    if args.command == "enable":
+        cmd_enable()
+    elif args.command == "disable":
+        cmd_disable()
+    elif args.command == "uninstall":
+        cmd_uninstall()
+    elif args.command == "search":
+        cmd_search(args)
+    else:
+        parser.print_usage()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

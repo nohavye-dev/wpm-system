@@ -1,4 +1,4 @@
-# Commandes `/wpm-doc` et `/wpm-code`
+# Commandes `/wpm-doc`, `/wpm-code` et `/wpm-review`
 
 Les deux commandes sont des **commandes slash opencode** exécutées
 manuellement par l'utilisateur. Elles offrent un moyen **contrôlé** d'intégrer
@@ -80,7 +80,27 @@ mémoire persistante.
   revalidé, et surtout ce qui a été envisagé puis **écarté** faute de
   confiance suffisante.
 
-## Notes
+## `/wpm-review`
+
+Affiche un tableau de bord de la santé de la mémoire persistante.
+
+```
+/wpm-review
+```
+
+- Appelle l'outil MCP `get_memory_stats` — un seul appel, lecture seule.
+- Présente les résultats en sections :
+  - **Total par type** (`archi_decision`, `convention`, `doc`, `learning`, `bug_pattern`)
+  - **Distribution de confiance** : high (>0.7), medium (0.3-0.7), low (<0.3)
+  - **⚠ Entrées jamais validées** — jamais confirmées par test, cross-reference ou réutilisation
+  - **⚠ Contradictions actives** — paires d'entrées en conflit non résolu
+  - **🔻 5 entrées les plus faibles** — avec leur confiance et aperçu du contenu
+  - **Activité récente** — 10 derniers événements (créations, validations, contradictions, pin/deprecate)
+- Se termine par un verdict : "Memory is healthy" ou "N issues need attention".
+- C'est un diagnostic en lecture seule — aucune entrée n'est modifiée.
+- Si le dashboard révèle des problèmes (entrées faibles, contradictions non résolues), la commande peut suggérer des actions concrètes : épingler des entrées fiables avec `pin_entry`, déprécier des entrées obsolètes avec `deprecate_entry`, ou restaurer une entrée dépréciée par erreur avec `restore_entry`.
+
+---
 
 - Les deux commandes tournent en **tâche annexe** (`subtask: true`,
   `agent: build`) : elles ne polluent pas le contexte de la conversation

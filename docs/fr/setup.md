@@ -5,7 +5,7 @@
 Le bundle mémoire se compose d'un plugin OpenCode **global** et d'un serveur MCP installé dans un venv dédié. Le plugin est global mais **inerte par projet** : à chaque démarrage d'OpenCode, il vérifie la présence de `wpm.config.json` à la racine du projet courant.
 
 - `wpm.config.json` **absent** → le plugin ne fait rien : aucun outil exposé, aucun hook, aucun serveur lancé.
-- `wpm.config.json` **présent** → le plugin s'active et expose les 5 outils mémoire directement à l'LLM : `store_entry`, `query_context`, `validate_entry`, `contradict_entry`, `link_entries`.
+- `wpm.config.json` **présent** → le plugin s'active et expose les 9 outils mémoire directement à l'LLM : `store_entry`, `query_context`, `validate_entry`, `contradict_entry`, `link_entries`, `get_memory_stats`, `pin_entry`, `deprecate_entry`, `restore_entry`.
 
 L'activation se résume à la présence de `wpm.config.json` à la racine du projet : aucune entrée MCP dans `opencode.json`, aucune copie du plugin par projet. Aucun projet n'est affecté sans cette activation.
 
@@ -21,7 +21,7 @@ Ce que fait `install.sh` :
 1. Construit le plugin compilé
 2. Copie le plugin dans `~/.config/opencode/plugins/wpm-plugin/` — plugin **global**, auto-chargé par OpenCode
 3. Crée un venv géré à `~/.local/share/wpm-system/venv` et y installe `wpm-mcp-server` (non éditable) via `pip install`
-4. Copie `/wpm-doc` et `/wpm-code` dans `~/.config/opencode/commands/` — commandes globales
+4. Copie `/wpm-doc`, `/wpm-code` et `/wpm-review` dans `~/.config/opencode/commands/` — commandes globales
 5. Installe la commande `wpm` dans `~/.local/bin` (ou `$XDG_BIN_HOME`)
 
 Redémarre ensuite opencode : la config n'est chargée qu'une seule fois au démarrage.
@@ -64,9 +64,29 @@ ou, depuis la racine du dépôt :
 
 `install.sh uninstall` délègue à la commande `wpm uninstall` si le binaire `wpm` existe, sinon au script du bundle `scripts/wpm.sh uninstall` ; il ne signale « non installé » que si ce script est lui aussi absent. Supprime le plugin global, le venv serveur, les commandes globales et la commande `wpm`. Redémarre opencode.
 
+## `wpm search` — interroger la mémoire depuis le terminal
+
+```bash
+wpm search "constructor parameter object pattern"
+```
+
+Recherche les entrées pertinentes via l'API `query_context` et affiche les
+résultats formatés pour un humain. Fonctionne uniquement dans un projet
+où `wpm enable` a été exécuté.
+
+Options :
+```bash
+wpm search --json "query"          # Sortie JSON brute (pour piping vers jq)
+wpm search --min-confidence 0.5 "query"  # Filtrer par seuil de confiance
+```
+
+L'affichage texte montre pour chaque entrée : l'ID tronqué, le type, la
+confiance, le score, le statut (`active`/`pinned`/`deprecated`), et un
+aperçu du contenu.
+
 ## Vérifier
 
-- Dans opencode, les outils `store_entry`, `query_context`, `validate_entry`, `contradict_entry`, `link_entries` sont visibles par l'LLM (outils exposés par le plugin).
+- Dans opencode, les outils `store_entry`, `query_context`, `validate_entry`, `contradict_entry`, `link_entries`, `get_memory_stats`, `pin_entry`, `deprecate_entry`, `restore_entry` sont visibles par l'LLM (outils exposés par le plugin).
 - Consulte le journal du plugin pour confirmer l'activation ou l'inertie sur le projet courant.
 
 ## Règles et limites

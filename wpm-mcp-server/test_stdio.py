@@ -36,12 +36,16 @@ async def main():
                 # --- tool listing ---
                 tools = await session.list_tools()
                 names = [t.name for t in tools.tools]
-                check("5 tools registered", len(names) == 5, f"got {len(names)}: {names}")
+                check("9 tools registered", len(names) == 9, f"got {len(names)}: {names}")
                 check("store_entry present", "store_entry" in names)
                 check("query_context present", "query_context" in names)
                 check("validate_entry present", "validate_entry" in names)
                 check("contradict_entry present", "contradict_entry" in names)
                 check("link_entries present", "link_entries" in names)
+                check("get_memory_stats present", "get_memory_stats" in names)
+                check("pin_entry present", "pin_entry" in names)
+                check("deprecate_entry present", "deprecate_entry" in names)
+                check("restore_entry present", "restore_entry" in names)
 
                 # --- store entry ---
                 store_raw = await session.call_tool(

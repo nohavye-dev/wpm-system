@@ -66,11 +66,11 @@ for f in ['tokenizer.json', 'onnx/model.onnx']:
 
 printf 'installing global commands...\n'
 mkdir -p "$GLOBAL_CONFIG_DIR/commands"
-cp "$BUNDLE_DIR/wpm-commands"/wpm-doc.md "$BUNDLE_DIR/wpm-commands"/wpm-code.md "$GLOBAL_CONFIG_DIR/commands/"
+cp "$BUNDLE_DIR/wpm-commands"/wpm-doc.md "$BUNDLE_DIR/wpm-commands"/wpm-code.md "$BUNDLE_DIR/wpm-commands"/wpm-review.md "$GLOBAL_CONFIG_DIR/commands/"
 
 printf 'installing wpm command...\n'
 mkdir -p "$BIN_DIR"
-cp "$BUNDLE_DIR/scripts/wpm.sh" "$BIN_DIR/wpm"
+cp "$BUNDLE_DIR/scripts/wpm" "$BIN_DIR/wpm"
 chmod +x "$BIN_DIR/wpm"
 
 printf 'wpm installed. Restart opencode. Then in any project: wpm enable\n'

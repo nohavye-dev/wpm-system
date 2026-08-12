@@ -56,21 +56,30 @@ these rules every turn:
    re-validating right after).
 
 9. READ RESULTS DIFFERENTLY. query_context returns direct_matches
-   (most reliable), related_context (1-hop graph recall, less reliable —
-   mention cautiously), and conflicts (entries with an active
-   contradiction). ALWAYS check conflicts before relying on a direct_match;
-   never present a contested fact as settled without flagging it.
+    (most reliable), related_context (1-hop graph recall, less reliable —
+    mention cautiously), and conflicts (entries with an active
+    contradiction). ALWAYS check conflicts before relying on a direct_match;
+    never present a contested fact as settled without flagging it.
 
-10. LINKS. Only use link_entries for relationships similarity cannot infer
+10. PIN AND DEPRECATE SPARINGLY. Pin only architecture decisions and
+    conventions that are project-defining and immutable — never pin
+    learnings or bug_patterns. When a contradiction is resolved in favor
+    of one entry, deprecate the contradicted entry rather than leaving it
+    to decay. After reviewing memory with get_memory_stats, consider
+    pinning high-confidence entries validated 3+ times across sessions,
+    and consider deprecating entries below the confidence threshold that
+    have been actively contradicted.
+
+11. LINKS. Only use link_entries for relationships similarity cannot infer
     (depends_on, refines). Do not over-link; contradicts is covered by
     contradict_entry.
 
-11. SESSION DISCIPLINE. Keep the same session_id for the whole task — the
+12. SESSION DISCIPLINE. Keep the same session_id for the whole task — the
     anti-loop dedup depends on it. Before a task ends or the session goes
     idle, do a final pass: is there any decision/result/pattern not yet
     persisted? If so, write it now.
 
-12. INCREMENTAL MEMORY IS ALWAYS FREE. Persist durable facts as they
+13. INCREMENTAL MEMORY IS ALWAYS FREE. Persist durable facts as they
     emerge during normal work. /wpm-doc and /wpm-code are user-controlled
     commands for bulk ingestion (a full document, a codebase survey) — do
     not wait for them to memorize, and do not use them for mid-task facts.

@@ -38,6 +38,15 @@ class EventType(StrEnum):
     VALIDATED = "validated"
     CONTRADICTED = "contradicted"
     REFERENCED = "referenced"
+    PINNED = "pinned"
+    DEPRECATED = "deprecated"
+    RESTORED = "restored"
+
+
+class EntryStatus(StrEnum):
+    ACTIVE = "active"
+    PINNED = "pinned"
+    DEPRECATED = "deprecated"
 
 
 # Not exposed via JSON config: changing it requires re-embedding every

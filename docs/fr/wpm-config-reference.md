@@ -5,7 +5,7 @@
 `wpm.config.json` se trouve à la **racine du projet**. C'est aussi le **marqueur d'activation** du plugin global : à chaque démarrage d'OpenCode, le plugin vérifie l'existence de ce fichier à la racine du projet courant.
 
 - Fichier **absent** → le plugin est inerte : aucun outil exposé, aucun hook, aucun serveur lancé.
-- Fichier **présent** → le plugin s'active et expose les 5 outils mémoire directement à l'LLM : `store_entry`, `query_context`, `validate_entry`, `contradict_entry`, `link_entries`.
+- Fichier **présent** → le plugin s'active et expose les 9 outils mémoire directement à l'LLM : `store_entry`, `query_context`, `validate_entry`, `contradict_entry`, `link_entries`, `get_memory_stats`, `pin_entry`, `deprecate_entry`, `restore_entry`.
 
 Le fichier est normalement écrit par `wpm enable` (qui remplit `db_path` par défaut `.wpm/wpm.db` s'il est absent) et supprimé par `wpm disable` (les données sont conservées). Il peut aussi être localisé via `WPM_CONFIG_PATH`.
 

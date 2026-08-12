@@ -148,6 +148,67 @@ def link_entries(source_id: str, target_id: str, relation_type: str, weight: flo
         return {"error": True, "message": str(exc)}
 
 
+@mcp.tool(
+    description=(
+        "Pin an entry so its confidence NEVER decays. USE WHEN: a fundamental "
+        "architecture decision that defines the project, a convention that is "
+        "company/project policy, or an entry that has been validated repeatedly "
+        "across many sessions and is now considered settled. DO NOT use for: "
+        "recent learnings, bug patterns that may be fixed, entries with active "
+        "contradictions. Pinning is reversible via restore_entry."
+    )
+)
+def pin_entry(entry_id: str) -> dict:
+    try:
+        return get_repo().pin_entry(entry_id=entry_id)
+    except WpmError as exc:
+        return {"error": True, "message": str(exc)}
+
+
+@mcp.tool(
+    description=(
+        "Mark an entry as deprecated — excluded from all future queries. "
+        "USE WHEN: an entry has been conclusively contradicted and the newer "
+        "entry is confirmed, the code/module it references no longer exists, "
+        "or it describes a bug pattern that has been fixed. DO NOT use for: "
+        "entries you are unsure about. Deprecation is reversible via "
+        "restore_entry, but prefer caution."
+    )
+)
+def deprecate_entry(entry_id: str) -> dict:
+    try:
+        return get_repo().deprecate_entry(entry_id=entry_id)
+    except WpmError as exc:
+        return {"error": True, "message": str(exc)}
+
+
+@mcp.tool(
+    description=(
+        "Restore a pinned or deprecated entry back to active status. "
+        "USE WHEN: a deprecation was premature, the entry is relevant again, "
+        "or a pin is no longer warranted."
+    )
+)
+def restore_entry(entry_id: str) -> dict:
+    try:
+        return get_repo().restore_entry(entry_id=entry_id)
+    except WpmError as exc:
+        return {"error": True, "message": str(exc)}
+
+
+@mcp.tool(
+    description=(
+        "Review memory health: total entries by type, confidence distribution "
+        "(low <0.3 / medium 0.3-0.7 / high >0.7), entries never validated, "
+        "active contradictions, 5 lowest-confidence entries, and the last 10 "
+        "events. Read-only diagnostic — use this before relying heavily on "
+        "memory, or when you suspect stale/contradicted entries."
+    )
+)
+def get_memory_stats() -> dict:
+    return get_repo().get_stats()
+
+
 def main() -> None:
     mcp.run(transport="stdio")
 

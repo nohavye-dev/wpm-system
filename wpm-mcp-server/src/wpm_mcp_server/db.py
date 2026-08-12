@@ -66,6 +66,12 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
 
     conn.executescript(SCHEMA_SQL)
     conn.execute(VEC_TABLE_SQL_TEMPLATE.format(dim=EMBEDDING_DIM))
+    try:
+        conn.execute(
+            "ALTER TABLE entries ADD COLUMN status TEXT NOT NULL DEFAULT 'active'"
+        )
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     return conn
 

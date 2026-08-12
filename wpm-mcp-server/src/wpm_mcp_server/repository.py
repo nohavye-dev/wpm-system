@@ -16,7 +16,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from wpm_mcp_server.domain import EntryType, EventType, EvidenceType, RelationType
+from wpm_mcp_server.domain import EntryStatus, EntryType, EventType, EvidenceType, RelationType
 from wpm_mcp_server.embeddings import EmbeddingProvider
 from wpm_mcp_server.scoring import apply_evidence, base_confidence_for_source, confidence_at, now_iso
 from wpm_mcp_server.settings import DomainSettings
@@ -176,7 +176,10 @@ class Repository:
         }
 
     def _score_entry(self, entry_id: str, similarity: float, *, is_direct: bool) -> dict[str, Any] | None:
-        row = self.conn.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
+        row = self.conn.execute(
+            "SELECT * FROM entries WHERE id = ? AND status != ?",
+            (entry_id, EntryStatus.DEPRECATED.value),
+        ).fetchone()
         if row is None:
             return None
 
@@ -185,6 +188,7 @@ class Repository:
             provenance_score=row["provenance_score"],
             validation_score=row["validation_score"],
             last_validated_at=row["last_validated_at"],
+            status=row["status"],
             settings=self.settings,
         )
         centrality = self._centrality(entry_id)
@@ -200,6 +204,7 @@ class Repository:
             "type": row["type"],
             "content": row["content"],
             "source": row["source"],
+            "status": row["status"],
             "similarity": round(similarity, 4),
             "confidence": round(confidence, 4),
             "centrality": round(centrality, 4),
@@ -240,7 +245,16 @@ class Repository:
 
     def _collect_conflicts(self, entry_ids: list[str]) -> list[dict[str, Any]]:
         conflicts = []
+        deprecated = set(
+            row["id"]
+            for row in self.conn.execute(
+                "SELECT id FROM entries WHERE status = ?",
+                (EntryStatus.DEPRECATED.value,),
+            ).fetchall()
+        )
         for entry_id in entry_ids:
+            if entry_id in deprecated:
+                continue
             rows = self.conn.execute(
                 """
                 SELECT target_id as other_id FROM entry_links
@@ -252,7 +266,8 @@ class Repository:
                 (entry_id, RelationType.CONTRADICTS.value, entry_id, RelationType.CONTRADICTS.value),
             ).fetchall()
             for row in rows:
-                conflicts.append({"entry_id": entry_id, "contradicted_by": row["other_id"]})
+                if row["other_id"] not in deprecated:
+                    conflicts.append({"entry_id": entry_id, "contradicted_by": row["other_id"]})
         return conflicts
 
     # --- validate_entry / contradict_entry -----------------------------------------------------
@@ -392,7 +407,122 @@ class Repository:
         self.conn.commit()
         return {"source_id": source_id, "target_id": target_id, "relation_type": rel.value, "weight": weight}
 
-    # --- shared -----------------------------------------------------
+    # --- pin_entry / deprecate_entry / restore_entry -------------------------
+    def pin_entry(self, *, entry_id: str) -> dict[str, Any]:
+        return self._set_status(entry_id, EntryStatus.PINNED, EventType.PINNED)
+
+    def deprecate_entry(self, *, entry_id: str) -> dict[str, Any]:
+        return self._set_status(entry_id, EntryStatus.DEPRECATED, EventType.DEPRECATED)
+
+    def restore_entry(self, *, entry_id: str) -> dict[str, Any]:
+        return self._set_status(entry_id, EntryStatus.ACTIVE, EventType.RESTORED)
+
+    def _set_status(self, entry_id: str, status: EntryStatus, event_type: EventType) -> dict[str, Any]:
+        row = self.conn.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
+        if row is None:
+            raise WpmError(f"entry not found: {entry_id}")
+        self.conn.execute("UPDATE entries SET status = ? WHERE id = ?", (status.value, entry_id))
+        self._log_event(entry_id, event_type, evidence_type=None, evidence_ref=None, session_id=None)
+        self.conn.commit()
+        return {"entry_id": entry_id, "status": status.value}
+    # --- get_stats ---------------------------------------------------------
+    def get_stats(self) -> dict[str, Any]:
+        """Read-only diagnostic: memory health overview."""
+
+        total = self.conn.execute("SELECT COUNT(*) AS c FROM entries").fetchone()["c"]
+
+        by_type = {
+            row["type"]: row["c"]
+            for row in self.conn.execute(
+                "SELECT type, COUNT(*) AS c FROM entries GROUP BY type"
+            ).fetchall()
+        }
+
+        never_validated = [
+            {
+                "entry_id": row["id"],
+                "type": row["type"],
+                "content": row["content"][:200],
+            }
+            for row in self.conn.execute(
+                """
+                SELECT e.id, e.type, e.content
+                FROM entries e
+                LEFT JOIN entry_events ev ON ev.entry_id = e.id AND ev.event_type = 'validated'
+                WHERE ev.id IS NULL
+                """
+            ).fetchall()
+        ]
+
+        contradictions = [
+            {"source_id": row["source_id"], "target_id": row["target_id"]}
+            for row in self.conn.execute(
+                """
+                SELECT source_id, target_id FROM entry_links
+                WHERE relation_type = 'contradicts'
+                """
+            ).fetchall()
+        ]
+
+        rows = self.conn.execute(
+            "SELECT id, type, content, provenance_score, validation_score, last_validated_at, status FROM entries"
+        ).fetchall()
+
+        entries_with_confidence = []
+        for row in rows:
+            conf = confidence_at(
+                entry_type=EntryType(row["type"]),
+                provenance_score=row["provenance_score"],
+                validation_score=row["validation_score"],
+                last_validated_at=row["last_validated_at"],
+                status=row["status"],
+                settings=self.settings,
+            )
+            entries_with_confidence.append(
+                {
+                    "entry_id": row["id"],
+                    "type": row["type"],
+                    "status": row["status"],
+                    "content": row["content"][:200],
+                    "confidence": round(conf, 4),
+                }
+            )
+
+        entries_with_confidence.sort(key=lambda e: e["confidence"])
+        lowest = entries_with_confidence[:5]
+
+        distribution = {"high": 0, "medium": 0, "low": 0}
+        for e in entries_with_confidence:
+            c = e["confidence"]
+            if c >= 0.7:
+                distribution["high"] += 1
+            elif c >= 0.3:
+                distribution["medium"] += 1
+            else:
+                distribution["low"] += 1
+
+        recent = [
+            {
+                "entry_id": row["entry_id"],
+                "event_type": row["event_type"],
+                "timestamp": row["timestamp"],
+            }
+            for row in self.conn.execute(
+                "SELECT entry_id, event_type, timestamp FROM entry_events "
+                "ORDER BY timestamp DESC LIMIT 10"
+            ).fetchall()
+        ]
+
+        return {
+            "total_entries": total,
+            "by_type": by_type,
+            "confidence_distribution": distribution,
+            "never_validated": never_validated,
+            "active_contradictions": contradictions,
+            "lowest_confidence": lowest,
+            "recent_activity": recent,
+        }
+
     def _log_event(
         self,
         entry_id: str,

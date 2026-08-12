@@ -28,6 +28,7 @@ def confidence_at(
     provenance_score: float,
     validation_score: float,
     last_validated_at: str,
+    status: str = "active",
     settings: DomainSettings,
     now: datetime | None = None,
 ) -> float:
@@ -36,7 +37,13 @@ def confidence_at(
     base_confidence here combines provenance and accumulated validation:
     provenance sets the floor, validation_score raises it, both decay
     together with time since last validation (spec section 3).
+
+    Pinned entries skip decay entirely — their confidence remains at
+    base = min(1.0, provenance + validation) indefinitely.
     """
+    base = min(1.0, provenance_score + validation_score)
+    if status == "pinned":
+        return base
     now = now or datetime.now(timezone.utc)
     last_validated = datetime.fromisoformat(last_validated_at)
     if last_validated.tzinfo is None:
@@ -45,7 +52,6 @@ def confidence_at(
     elapsed_seconds = max(0.0, (now - last_validated).total_seconds())
     lam = settings.decay.lambda_per_type.get(entry_type.value, settings.decay.default_lambda)
 
-    base = min(1.0, provenance_score + validation_score)
     decay = math.exp(-lam * (elapsed_seconds / 3600.0))  # lambda tuned per hour
     return base * decay
 

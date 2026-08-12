@@ -72,6 +72,9 @@ export const MEMORY_MUTATION_TOOLS = new Set([
   "validate_entry",
   "contradict_entry",
   "link_entries",
+  "pin_entry",
+  "deprecate_entry",
+  "restore_entry",
 ])
 
 export function looksLikeVerificationCommand(
@@ -277,6 +280,67 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
         },
         execute: async (args) => {
           const result = await memory.callTool("link_entries", args)
+          return toolResultToString(result)
+        },
+      }),
+
+      get_memory_stats: tool({
+        description:
+          "Review memory health: total entries by type, confidence distribution " +
+          "(low <0.3 / medium 0.3-0.7 / high >0.7), entries never validated, " +
+          "active contradictions, 5 lowest-confidence entries, and the last 10 " +
+          "events. Read-only diagnostic.",
+        args: {},
+        execute: async () => {
+          const result = await memory.callTool("get_memory_stats", {})
+          return toolResultToString(result)
+        },
+      }),
+
+      pin_entry: tool({
+        description:
+          "Pin an entry so its confidence NEVER decays. USE WHEN: a fundamental " +
+          "architecture decision that defines the project, a convention that is " +
+          "company/project policy, or an entry that has been validated repeatedly " +
+          "across many sessions and is now considered settled. DO NOT use for: " +
+          "recent learnings, bug patterns that may be fixed, entries with active " +
+          "contradictions. Pinning is reversible via restore_entry.",
+        args: {
+          entry_id: tool.schema.string(),
+        },
+        execute: async (args) => {
+          const result = await memory.callTool("pin_entry", args)
+          return toolResultToString(result)
+        },
+      }),
+
+      deprecate_entry: tool({
+        description:
+          "Mark an entry as deprecated — excluded from all future queries. " +
+          "USE WHEN: an entry has been conclusively contradicted and the newer " +
+          "entry is confirmed, the code/module it references no longer exists, " +
+          "or it describes a bug pattern that has been fixed. DO NOT use for: " +
+          "entries you are unsure about. Deprecation is reversible via " +
+          "restore_entry, but prefer caution.",
+        args: {
+          entry_id: tool.schema.string(),
+        },
+        execute: async (args) => {
+          const result = await memory.callTool("deprecate_entry", args)
+          return toolResultToString(result)
+        },
+      }),
+
+      restore_entry: tool({
+        description:
+          "Restore a pinned or deprecated entry back to active status. " +
+          "USE WHEN: a deprecation was premature, the entry is relevant again, " +
+          "or a pin is no longer warranted.",
+        args: {
+          entry_id: tool.schema.string(),
+        },
+        execute: async (args) => {
+          const result = await memory.callTool("restore_entry", args)
           return toolResultToString(result)
         },
       }),
