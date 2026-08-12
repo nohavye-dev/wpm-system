@@ -25,10 +25,11 @@ Le plugin est global mais inerte : il ne s'active que si un
 `opencode.json`, aucune copie par projet).
 
 ```bash
-wpm enable     # écrit wpm.config.json (db_path ".wpm/wpm.db" s'il est absent), crée le dossier de la base, l'ajoute au .gitignore
-               # la base doit vivre dans le projet : refuse un db_path qui en sort (chemin absolu externe, ou relatif avec « .. »)
-wpm disable    # supprime wpm.config.json, conserve les données (db_path) sur place
-wpm uninstall  # suppression globale complète
+wpm enable           # écrit wpm.config.json (db_path ".wpm/wpm.db" s'il est absent), crée le dossier de la base + la base (schéma), l'ajoute au .gitignore
+wpm enable .memory   # dossier de base personnalisé → db_path ".memory/wpm.db"
+                     # la base doit vivre dans le projet : refuse un db_path qui en sort (chemin absolu externe, ou relatif avec « .. »)
+wpm disable          # supprime wpm.config.json, conserve les données (db_path) sur place, suggère la commande de ré-activation
+wpm uninstall        # suppression globale complète (demande confirmation) ; --force pour sauter la confirmation
 ```
 
 **Redémarrez OpenCode** après `install.sh`, `wpm enable` ou `wpm disable` — la configuration est lue une seule fois au démarrage.

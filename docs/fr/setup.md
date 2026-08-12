@@ -43,7 +43,18 @@ wpm enable
 1. Lit `wpm.config.json` s'il existe — toutes les clés existantes sont préservées (dont un `db_path` personnalisé)
 2. Écrit `wpm.config.json` à la racine du projet ; `db_path` par défaut `.wpm/wpm.db` (chemin relatif) s'il est absent
 3. Crée le répertoire de la base et l'ajoute au `.gitignore` du projet
-4. Refuse un `db_path` qui sort du projet (chemin absolu externe, ou relatif avec `..`) — la base doit toujours vivre dans le répertoire du projet ; le serveur refuse aussi de démarrer dans ce cas
+4. Crée la base de données (schéma SQLite seul — le modèle d'embedding n'est pas téléchargé ici)
+5. Refuse un `db_path` qui sort du projet (chemin absolu externe, ou relatif avec `..`) — la base doit toujours vivre dans le répertoire du projet ; le serveur refuse aussi de démarrer dans ce cas
+
+### Dossier de base personnalisé
+
+Pour stocker la base dans un sous-dossier autre que `.wpm/` :
+
+```bash
+wpm enable .memory   # → db_path ".memory/wpm.db"
+```
+
+Le `db_dir` ne définit le chemin que lors d'une **première activation** : si un `db_path` existe déjà dans `wpm.config.json`, il est préservé et `db_dir` est ignoré.
 
 Redémarre ensuite opencode : le plugin détecte `wpm.config.json` et active les outils mémoire sur ce projet.
 
@@ -53,12 +64,13 @@ Redémarre ensuite opencode : le plugin détecte `wpm.config.json` et active les
 wpm disable
 ```
 
-Supprime `wpm.config.json` du projet. Les données (`.wpm/wpm.db`) sont **conservées** — réactive à tout moment avec `wpm enable`. Redémarre opencode.
+Supprime `wpm.config.json` du projet. Les données (`.wpm/wpm.db`) sont **conservées** — la commande affiche le chemin de la base et la commande de ré-activation (`wpm enable` ou `wpm enable <db_dir>`). Redémarre opencode.
 
 ## Désinstallation complète
 
 ```bash
-wpm uninstall
+wpm uninstall            # demande confirmation (abandon par défaut)
+wpm uninstall --force    # pas de confirmation (scripts/CI)
 ```
 
 ou, depuis la racine du dépôt :
@@ -67,7 +79,7 @@ ou, depuis la racine du dépôt :
 ./install.sh uninstall
 ```
 
-`install.sh uninstall` délègue à la commande `wpm uninstall` si le binaire `wpm` existe, sinon au script du bundle `scripts/wpm.sh uninstall` ; il ne signale « non installé » que si ce script est lui aussi absent. Supprime le plugin global, le venv serveur, les commandes globales et la commande `wpm`. Redémarre opencode.
+`install.sh uninstall` délègue à la commande `wpm uninstall` si le binaire `wpm` existe, sinon au script du bundle `scripts/wpm uninstall` ; il ne signale « non installé » que si ce script est lui aussi absent. Supprime le plugin global, le venv serveur, les commandes globales et la commande `wpm`. Redémarre opencode.
 
 ## `wpm search` — interroger la mémoire depuis le terminal
 
