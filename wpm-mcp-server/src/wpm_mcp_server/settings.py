@@ -43,14 +43,16 @@ class ProvenanceSettings:
 class DecaySettings:
     lambda_per_type: dict[str, float] = field(
         default_factory=lambda: {
-            EntryType.ARCHI_DECISION.value: 0.002,
-            EntryType.CONVENTION.value: 0.003,
-            EntryType.DOC.value: 0.004,
-            EntryType.LEARNING.value: 0.008,
-            EntryType.BUG_PATTERN.value: 0.015,
+            # Half-lives (time for confidence to halve), calibrated against
+            # external anchors — see new_spec/calibration-heuristique.md.
+            EntryType.ARCHI_DECISION.value: 0.00008,   # ~1 year
+            EntryType.CONVENTION.value: 0.00016,       # ~6 months
+            EntryType.DOC.value: 0.00021,              # ~4.5 months (indicative)
+            EntryType.LEARNING.value: 0.004,           # ~7 days
+            EntryType.BUG_PATTERN.value: 0.0016,       # ~18 days (measured)
         }
     )
-    default_lambda: float = 0.01
+    default_lambda: float = 0.001
 
 
 @dataclass

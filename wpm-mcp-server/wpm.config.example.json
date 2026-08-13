@@ -16,13 +16,13 @@
     },
     "decay": {
       "lambda_per_type": {
-        "archi_decision": 0.002,
-        "convention": 0.003,
-        "doc": 0.004,
-        "learning": 0.008,
-        "bug_pattern": 0.015
+        "archi_decision": 0.00008,
+        "convention": 0.00016,
+        "doc": 0.00021,
+        "learning": 0.004,
+        "bug_pattern": 0.0016
       },
-      "default_lambda": 0.01
+      "default_lambda": 0.001
     },
     "evidence": {
       "confirm_weight": {

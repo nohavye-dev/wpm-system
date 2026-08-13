@@ -11,7 +11,7 @@ from wpm_mcp_server.settings import load_settings
 s = load_settings("/tmp/does_not_exist.json")
 assert s.domain.retrieval.weight_similarity == 0.5
 assert s.domain.retrieval.min_similarity == 0.1
-assert s.domain.decay.lambda_per_type["archi_decision"] == 0.002
+assert s.domain.decay.lambda_per_type["archi_decision"] == 0.00008
 assert s.confidence_threshold == 0.5
 print("OK: defaults when no file")
 
@@ -24,7 +24,7 @@ s2 = load_settings(tmp)
 assert s2.domain.retrieval.weight_similarity == 0.7
 assert s2.domain.retrieval.weight_confidence == 0.35  # untouched default
 assert s2.domain.retrieval.min_similarity == 0.1  # untouched default
-assert s2.domain.decay.lambda_per_type["archi_decision"] == 0.002  # untouched
+assert s2.domain.decay.lambda_per_type["archi_decision"] == 0.00008  # untouched
 print("OK: partial override merges correctly, rest stays default")
 os.remove(tmp)
 

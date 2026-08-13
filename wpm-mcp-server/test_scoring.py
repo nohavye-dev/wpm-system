@@ -70,7 +70,7 @@ print("OK: confidence_at clamps base to 1.0")
 # --- confidence_at: decay after one hour ---
 
 one_hour_later = now + timedelta(hours=1)
-lam = norms.decay.lambda_per_type["convention"]  # 0.003
+lam = norms.decay.lambda_per_type["convention"]  # read dynamically (0.00016)
 expected_decay = 0.8 * math.exp(-lam * 1.0)  # one hour
 
 c4 = confidence_at(
@@ -94,8 +94,8 @@ c5 = confidence_at(
     settings=norms,
     now=now,
 )
-# doc lambda = 0.004, elapsed = 1h
-expected5 = 0.5 * math.exp(-0.004 * 1.0)
+# doc lambda = 0.00021, elapsed = 1h
+expected5 = 0.5 * math.exp(-0.00021 * 1.0)
 assert abs(c5 - expected5) < 1e-8, f"expected {expected5} got {c5}"
 print("OK: confidence_at uses entry type lambda from config")
 

@@ -163,13 +163,13 @@ validation, par type d'entrée.
 ```json
 "decay": {
   "lambda_per_type": {
-    "archi_decision": 0.002,
-    "convention": 0.003,
-    "doc": 0.004,
-    "learning": 0.008,
-    "bug_pattern": 0.015
+    "archi_decision": 0.00008,
+    "convention": 0.00016,
+    "doc": 0.00021,
+    "learning": 0.004,
+    "bug_pattern": 0.0016
   },
-  "default_lambda": 0.01
+  "default_lambda": 0.001
 }
 ```
 
@@ -184,10 +184,11 @@ Formule appliquée (voir `scoring.py::confidence_at`) :
 confidence(t) = min(1, provenance_score + validation_score) × exp(−λ × heures_écoulées)
 ```
 
-Plus λ est **grand**, plus la confiance chute vite. `bug_pattern` (0.015)
-décroît environ 7× plus vite que `archi_decision` (0.002) — une décision
-d'architecture reste valable longtemps, un pattern de bug observé devient
-vite obsolète si non revalidé.
+Plus λ est **grand**, plus la confiance chute vite. Les demi-vies implicites
+sont : `archi_decision` ≈ 1 an, `convention` ≈ 6 mois, `doc` ≈ 4.5 mois,
+`bug_pattern` ≈ 18 jours, `learning` ≈ 7 jours. Ces valeurs sont calibrées
+sur des ancres externes mesurées — voir
+`new_spec/calibration-heuristique.md`.
 
 ### `domain.evidence`
 

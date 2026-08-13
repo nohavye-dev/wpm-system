@@ -99,46 +99,54 @@ rigoureuse dès que possible.
 
 ---
 
-## 3. Gaps (à déterminer)
+## 3. Valeurs provisoires (raisonnement de domaine, non mesurées)
 
-Aucune ancre publiée trouvée pour ces types. Ils restent sur leurs défauts
-jusqu'à extraction ou raisonnement de domaine :
+Aucune ancre publiée trouvée pour `archi_decision`, `convention` et
+`learning`. Résolus par **raisonnement de domaine** (option A) : ordre de
+grandeur cohérent avec les deux ancres mesurées, marqués « non mesurés ».
 
-| Type | Défaut λ | Demi-vie implicite | Statut |
-|------|---------|-------------------|--------|
-| `archi_decision` | 0.002/h | ~14 jours | gap — probablement trop rapide aussi |
-| `convention` | 0.003/h | ~10 jours | gap — probablement trop rapide aussi |
-| `learning` | 0.008/h | ~3.6 jours | gap — le plus difficile (fourre-tout) |
+| Type | λ/h (provisoire) | Demi-vie | Base |
+|------|------------------|----------|------|
+| `archi_decision` | 0.00008 | ~1 an | érosion architecturale lente (qualitatif) |
+| `convention` | 0.00016 | ~6 mois | change sur décision d'équipe |
+| `learning` | 0.004 | ~7 jours | le plus éphémère (« ad-hoc insight, execution result ») |
 
-**Options pour combler :** extraction GitHub ciblée (CHANGELOG, guides de
-migration, commits de refactor/dépréciation) pour archi_decision/convention ;
-raisonnement de domaine avec fourchette prudente pour learning.
+**Options pour mesurer plus tard :** extraction GitHub ciblée (CHANGELOG,
+guides de migration, commits de refactor/dépréciation) pour
+archi_decision/convention ; learning reste le plus difficile (fourre-tout).
 
 ---
 
-## 4. Synthèse des écarts défauts vs ancres
+## 4. Synthèse : défauts précédents vs valeurs calibrées
 
-| Type | Défaut (λ/h) | Ancre (λ/h) | Écart | Fiabilité de l'ancre |
-|------|-------------|-------------|-------|----------------------|
-| `bug_pattern` | 0.015 | ~0.0016 | ~10× trop rapide | **chiffrée** |
-| `doc` | 0.004 | ~0.00021 | ~19× trop rapide | indicative (borne) |
-| `archi_decision` | 0.002 | ? | ? | gap |
-| `convention` | 0.003 | ? | ? | gap |
-| `learning` | 0.008 | ? | ? | gap |
+| Type | Ancien défaut (λ/h) | Nouvelle valeur (λ/h) | Demi-vie | Fiabilité |
+|------|--------------------|----------------------|----------|-----------|
+| `archi_decision` | 0.002 | 0.00008 | ~1 an | raisonnement |
+| `convention` | 0.003 | 0.00016 | ~6 mois | raisonnement |
+| `doc` | 0.004 | 0.00021 | ~4.5 mois | indicative (borne) |
+| `bug_pattern` | 0.015 | 0.0016 | ~18 jours | **mesurée** |
+| `learning` | 0.008 | 0.004 | ~7 jours | raisonnement |
 
-**Conclusion :** les défauts de decay actuels sont uniformément **trop
-agressifs** — les faits perdent leur confiance beaucoup plus vite que la
-réalité. La calibration commence par `bug_pattern` (ancré) et `doc` (borne
-indicative), et laisse `archi_decision`/`convention`/`learning` en gap.
+**Conclusion :** les anciens défauts étaient uniformément **trop
+agressifs** (demi-vies de 2 à 14 jours). Les nouvelles valeurs allongent
+les demi-vies d'un à deux ordres de grandeur, avec `bug_pattern` ancré sur
+une mesure (18 jours) et `doc` sur une borne indicative. L'ordre relatif
+reste archi > convention > doc > bug_pattern > learning (lent → rapide),
+mais `bug_pattern` passe désormais **plus lent** que `learning`, corrigeant
+une inversion de l'ancien défaut.
+
+*Note :* ces valeurs sont **appliquées dans le code** (`settings.py`) et
+documentées dans `wpm-config-reference.md`. Elles restent provisoires tant
+que `archi_decision`/`convention`/`learning` ne sont pas mesurées.
 
 ---
 
 ## 5. Prochaine étape
 
-1. Appliquer les λ dérivés dans un banc d'essai de retrieval et mesurer
-   l'effet (le λ modifie le classement via `weight_confidence`).
-2. Pour les gaps : décider entre extraction GitHub ciblée et raisonnement
-   de domaine.
+1. Mesurer l'effet des nouveaux λ dans un banc d'essai de retrieval
+   (le λ modifie le classement via `weight_confidence`).
+2. Pour les valeurs raisonnées : décider entre extraction GitHub ciblée et
+   maintien du raisonnement de domaine.
 3. Remplacer la borne indicative de `doc` par une mesure rigoureuse
    (ré-exécution de DOCER avec timestamps, ou autre source).
 
