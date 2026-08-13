@@ -1,8 +1,10 @@
 # Commandes `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et `/wpm-patterns`
 
-Les cinq commandes sont des **commandes slash opencode** exécutées
-manuellement par l'utilisateur. Elles offrent un moyen **contrôlé** d'intégrer
-de la documentation et du code dans la mémoire persistante du projet.
+Les cinq commandes sont des **wrappers opencode** exécutées manuellement par
+l'utilisateur. Elles délèguent aux prompts MCP du serveur (`wpm-doc`,
+`wpm-code`, `wpm-review`, `wpm-bootstrap`, `wpm-patterns`) et offrent un
+moyen **contrôlé** d'intégrer de la documentation et du code dans la mémoire
+persistante du projet.
 
 Elles sont installées **globalement** par `install.sh` dans
 `~/.config/opencode/commands/` et disponibles dans tous les projets. Les
@@ -24,8 +26,9 @@ versions opérationnelles vivent dans `wpm-commands/` à la racine du dépôt.
 ## Garde commune
 
 Si `wpm.config.json` n'existe pas à la racine du projet, la mémoire n'est
-pas activée. La commande le signale poliment : lancez `wpm enable` à la
-racine du projet puis redémarrez opencode.
+pas activée. La commande le signale poliment : lancez
+`wpm enable --write-config` à la racine du projet, ajoutez l'entrée `mcp`
+affichée dans la configuration de votre host, puis redémarrez le host.
 
 ---
 
@@ -64,7 +67,7 @@ mémoire persistante.
 
 ```
 /wpm-code
-/wpm-code wpm-opencode-plugin/src
+/wpm-code src/lib
 ```
 
 - Si `<scope>` est vide, tout le projet est cartographié ; sinon, le
@@ -132,8 +135,8 @@ Pour chaque fait trouvé : déduplication via `query_context`, puis
 `store_entry(type, content, source="observed_code")`. La commande rend
 un résumé groupé par type (`archi_decision`, `convention`, `learning`).
 
-À utiliser une seule fois par projet, après `wpm enable`, pour peupler
-rapidement la mémoire avec ce qui existe déjà. La mémorisation
+À utiliser une seule fois par projet, après `wpm enable --write-config`,
+pour peupler rapidement la mémoire avec ce qui existe déjà. La mémorisation
 incrémentale au fil du travail continue ensuite normalement.
 
 ---

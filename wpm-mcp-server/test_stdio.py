@@ -31,12 +31,12 @@ async def main():
     try:
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:
-                await session.initialize()
+                init = await session.initialize()
 
                 # --- tool listing ---
                 tools = await session.list_tools()
                 names = [t.name for t in tools.tools]
-                check("10 tools registered", len(names) == 10, f"got {len(names)}: {names}")
+                check("11 tools registered", len(names) == 11, f"got {len(names)}: {names}")
                 check("store_entry present", "store_entry" in names)
                 check("query_context present", "query_context" in names)
                 check("validate_entry present", "validate_entry" in names)
@@ -47,6 +47,110 @@ async def main():
                 check("deprecate_entry present", "deprecate_entry" in names)
                 check("restore_entry present", "restore_entry" in names)
                 check("list_entries present", "list_entries" in names)
+                check("record_execution present", "record_execution" in names)
+
+                # --- initialize instructions carry the behavior rules ---
+                inst = getattr(init, "instructions", "") or ""
+                check(
+                    "initialize.instructions embed memory rules",
+                    "wpm" in inst.lower() and "memory" in inst.lower(),
+                    f"len={len(inst)}",
+                )
+
+                # --- resources ---
+                resources = await session.list_resources()
+                resource_uris = [str(r.uri) for r in resources.resources]
+                check(
+                    "wpm://project-rules resource",
+                    "wpm://project-rules" in resource_uris,
+                    f"got {resource_uris}",
+                )
+                check(
+                    "wpm://memory-rules resource",
+                    "wpm://memory-rules" in resource_uris,
+                    f"got {resource_uris}",
+                )
+                check(
+                    "wpm://verification-commands resource",
+                    "wpm://verification-commands" in resource_uris,
+                    f"got {resource_uris}",
+                )
+                rules_resource = await session.read_resource("wpm://memory-rules")
+                rules_text = rules_resource.contents[0].text
+                check(
+                    "memory-rules resource non-empty",
+                    len(rules_text) > 200,
+                    f"len={len(rules_text)}",
+                )
+
+                # --- prompts ---
+                prompts = await session.list_prompts()
+                prompt_names = [p.name for p in prompts.prompts]
+                for expected in (
+                    "wpm-persist",
+                    "wpm-review",
+                    "wpm-doc",
+                    "wpm-code",
+                    "wpm-bootstrap",
+                    "wpm-patterns",
+                ):
+                    check(f"prompt {expected} present", expected in prompt_names)
+                persist_prompt = await session.get_prompt("wpm-persist", {})
+                check(
+                    "wpm-persist prompt returns messages",
+                    len(persist_prompt.messages) > 0,
+                )
+
+                # --- record_execution: non-trivial command stored as learning ---
+                rec_raw = await session.call_tool(
+                    "record_execution",
+                    {
+                        "command": "python -m pytest tests/test_api.py -x --cov",
+                        "succeeded": True,
+                        "session_id": "smoke-test-session",
+                    },
+                )
+                rec = json.loads(rec_raw.content[0].text)
+                check(
+                    "record_execution stores learning entry",
+                    rec.get("type") == "learning",
+                    f"got {rec}",
+                )
+                if rec.get("entry_id"):
+                    vrec = json.loads(
+                        (
+                            await session.call_tool(
+                                "validate_entry",
+                                {
+                                    "entry_id": rec["entry_id"],
+                                    "evidence_type": "execution_verified",
+                                    "evidence_ref": "pytest smoke test",
+                                    "session_id": "smoke-test-session",
+                                },
+                            )
+                        ).content[0].text
+                    )
+                    check(
+                        "record_execution entry is validatable",
+                        vrec.get("validation_score", 0) > 0,
+                        f"got {vrec.get('validation_score')}",
+                    )
+
+                # --- record_execution: trivial command rejected ---
+                triv_raw = await session.call_tool(
+                    "record_execution",
+                    {
+                        "command": "ls -la",
+                        "succeeded": True,
+                        "session_id": "smoke-test-session",
+                    },
+                )
+                triv = json.loads(triv_raw.content[0].text)
+                check(
+                    "record_execution rejects trivial commands",
+                    triv.get("error") is True,
+                    f"got {triv}",
+                )
 
                 # --- store entry ---
                 store_raw = await session.call_tool(

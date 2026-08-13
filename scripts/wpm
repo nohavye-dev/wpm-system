@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""wpm — Weighted Persistent Memory CLI."""
+"""wpm — Weighted Persistent Memory CLI.
+
+Host-agnostic activation: `wpm enable` prints the MCP server config snippet
+for your host (opencode.json shown by default). With `--write-config` it also
+writes wpm.config.json for the current project (with confirmation).
+"""
 
 from __future__ import annotations
 
@@ -11,7 +16,7 @@ import sys
 from pathlib import Path
 
 DATA_DIR = os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share" / "wpm-system"))
-GLOBAL_CONFIG_DIR = os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config" / "opencode"))
+GLOBAL_CONFIG_DIR = os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
 BIN_DIR = os.environ.get("XDG_BIN_HOME", str(Path.home() / ".local" / "bin"))
 
 
@@ -19,62 +24,102 @@ def _resolve_wpm_config() -> Path:
     return Path.cwd() / "wpm.config.json"
 
 
+def _venv_python() -> str:
+    return os.path.join(DATA_DIR, "venv", "bin", "python")
+
+
+def _print_mcp_snippet(config_path: Path) -> None:
+    """Print the host MCP configuration that launches the wpm server."""
+    python = _venv_python()
+    snippet = {
+        "mcp": {
+            "wpm": {
+                "type": "local",
+                "command": [python, "-m", "wpm_mcp_server"],
+                "environment": {
+                    "WPM_CONFIG_PATH": str(config_path),
+                },
+            }
+        }
+    }
+    print("1. Add this MCP server to your host configuration")
+    print("   (for opencode: the project's ./opencode.json, or the global")
+    print(f"   {os.path.join(GLOBAL_CONFIG_DIR, 'opencode', 'opencode.json')}):")
+    print()
+    print(json.dumps(snippet, indent=2))
+    print()
+    print("2. Restart your host (MCP servers are configured once at startup).")
+    print()
+    print("Other hosts (Claude Desktop, etc.) accept the same shape in their")
+    print("own MCP client configuration — server name 'wpm', type local, the")
+    print("command above, and the WPM_CONFIG_PATH environment variable.")
+
+
+def _contained_in_project(db_path_raw: str) -> Path:
+    """Validate db_path lives inside the current project; return the resolved path."""
+    from wpm_mcp_server import db
+    root = Path.cwd()
+    return db.resolve_within_root(db_path_raw, root)
+
+
 # ── enable ──────────────────────────────────────────────────────────────
 
-def cmd_enable(db_dir: str | None = None) -> None:
+def cmd_enable(db_dir: str | None, write_config: bool, assume_yes: bool) -> None:
     config_path = _resolve_wpm_config()
+    exists = config_path.exists()
+
     data: dict = {}
-    if config_path.exists():
+    if exists:
         data = json.loads(config_path.read_text(encoding="utf-8"))
     if not data.get("db_path"):
         data["db_path"] = f"{db_dir}/wpm.db" if db_dir else ".wpm/wpm.db"
 
-    db_path_raw = data["db_path"]
-    if db_path_raw.endswith(os.sep):
-        print("wpm: error: db_path must be a file (no trailing separator)", file=sys.stderr)
-        sys.exit(1)
+    resolved = _contained_in_project(data["db_path"])
 
-    resolved = Path(db_path_raw)
-    if not resolved.is_absolute():
-        resolved = (Path.cwd() / db_path_raw).resolve()
+    if write_config:
+        if not assume_yes:
+            try:
+                answer = input(
+                    f"Write {config_path} with db_path={data['db_path']}? [y/N] "
+                )
+            except (EOFError, KeyboardInterrupt):
+                answer = ""
+            if answer.strip().lower() not in ("y", "yes"):
+                print("wpm: aborted — nothing written")
+                sys.exit(0)
+
+        config_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+        rel_path = os.path.relpath(str(resolved), str(Path.cwd()))
+        db_dir_path = os.path.dirname(rel_path)
+        if db_dir_path and db_dir_path != ".":
+            (Path.cwd() / db_dir_path).mkdir(parents=True, exist_ok=True)
+            gitignore_entry = db_dir_path + os.sep
+        else:
+            gitignore_entry = os.path.basename(rel_path)
+
+        gitignore = Path.cwd() / ".gitignore"
+        if not gitignore.exists() or gitignore_entry not in gitignore.read_text(encoding="utf-8"):
+            with gitignore.open("a", encoding="utf-8") as f:
+                f.write(f"# weighted persistent memory\n{gitignore_entry}\n")
+
+        from wpm_mcp_server import db as wdb
+        conn = wdb.connect(str(resolved))
+        conn.close()
+
+        print(f"wpm: wpm.config.json written (db_path={data['db_path']})")
+        if not exists:
+            print(f"wpm: created database schema at {resolved}")
+        print()
     else:
-        resolved = resolved.resolve()
+        if exists:
+            print(f"wpm: {config_path} already exists — nothing changed")
+        else:
+            print(f"wpm: no wpm.config.json yet — run 'wpm enable --write-config'")
+            print(f"     (db_path default: {data['db_path']})")
+        print()
 
-    root = Path.cwd().resolve()
-    if resolved == root:
-        print("wpm: error: db_path must be a file, not the project root directory", file=sys.stderr)
-        sys.exit(1)
-    if not str(resolved).startswith(str(root) + os.sep):
-        print("wpm: error: db_path must live inside the project directory", file=sys.stderr)
-        sys.exit(1)
-
-    config_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-
-    rel_path = db_path_raw
-    if str(resolved).startswith(str(root) + os.sep):
-        rel_path = os.path.relpath(str(resolved), str(root))
-    else:
-        rel_path = db_path_raw
-
-    db_dir = os.path.dirname(rel_path)
-    if db_dir and db_dir != ".":
-        os.makedirs(os.path.join(str(root), db_dir), exist_ok=True)
-        gitignore_entry = db_dir + os.sep
-    else:
-        gitignore_entry = os.path.basename(rel_path)
-
-    gitignore = Path.cwd() / ".gitignore"
-    if not gitignore.exists() or gitignore_entry not in gitignore.read_text(encoding="utf-8"):
-        with gitignore.open("a", encoding="utf-8") as f:
-            f.write(f"# weighted persistent memory\n{gitignore_entry}\n")
-
-    # Create the database schema (no embedding model needed here).
-    from wpm_mcp_server import db as wdb
-    conn = wdb.connect(str(resolved))
-    conn.close()
-
-    print(f"wpm: activated (wpm.config.json written, db_path={db_path_raw})")
-    print("restart opencode for the change to take effect")
+    _print_mcp_snippet(config_path)
 
 
 # ── disable ─────────────────────────────────────────────────────────────
@@ -86,30 +131,18 @@ def cmd_disable() -> None:
         data = json.loads(config_path.read_text(encoding="utf-8"))
         db_path = data.get("db_path")
         config_path.unlink()
-    print("wpm: deactivated")
-
-    if not db_path:
-        return
-
-    db_dir = os.path.dirname(db_path)
-    basename = os.path.basename(db_path)
-    if db_dir == ".wpm" and basename == "wpm.db":
-        reactivate = "wpm enable"
-    elif db_dir not in (".", "") and basename == "wpm.db":
-        reactivate = f"wpm enable {db_dir}"
-    else:
-        reactivate = None
-
-    print(f"note: the database at {db_path} was NOT deleted")
-    if reactivate:
-        print(f"      re-activate with: {reactivate}")
+    print("wpm: wpm.config.json removed")
+    if db_path:
+        print(f"note: the database at {db_path} was NOT deleted")
+    print("note: remove the 'wpm' MCP server entry from your host")
+    print("      configuration (opencode.json) — it stays active until then")
 
 
 # ── uninstall ───────────────────────────────────────────────────────────
 
 def cmd_uninstall(force: bool = False) -> None:
     if not force:
-        print("This will remove the plugin, venv, slash commands and the 'wpm' binary.")
+        print("This will remove the server venv, slash commands, data and the 'wpm' binary.")
         try:
             answer = input("Continue? [y/N] ")
         except (EOFError, KeyboardInterrupt):
@@ -118,37 +151,11 @@ def cmd_uninstall(force: bool = False) -> None:
             print("wpm: aborted")
             return
 
-    plugin_dir = Path(GLOBAL_CONFIG_DIR) / "plugins" / "wpm-plugin"
-    if plugin_dir.exists():
-        shutil.rmtree(plugin_dir)
-    shim = Path(GLOBAL_CONFIG_DIR) / "plugins" / "wpm-plugin.ts"
-    if shim.exists():
-        shim.unlink()
-
-    commands_dir = Path(GLOBAL_CONFIG_DIR) / "commands"
+    commands_dir = Path(GLOBAL_CONFIG_DIR) / "opencode" / "commands"
     for name in ("wpm-doc.md", "wpm-code.md", "wpm-review.md", "wpm-bootstrap.md", "wpm-patterns.md"):
         cmd_file = commands_dir / name
         if cmd_file.exists():
             cmd_file.unlink()
-
-    pkg_json = Path(GLOBAL_CONFIG_DIR) / "package.json"
-    if pkg_json.exists():
-        pkg = json.loads(pkg_json.read_text(encoding="utf-8"))
-        deps = pkg.get("dependencies")
-        if isinstance(deps, dict):
-            deps.pop("@opencode-ai/plugin", None)
-            deps.pop("@modelcontextprotocol/sdk", None)
-            if not deps:
-                pkg.pop("dependencies", None)
-        if not pkg:
-            pkg_json.unlink()
-        else:
-            pkg_json.write_text(json.dumps(pkg, indent=2) + "\n", encoding="utf-8")
-
-    try:
-        os.rmdir(str(Path(GLOBAL_CONFIG_DIR) / "plugins"))
-    except OSError:
-        pass
     try:
         os.rmdir(str(commands_dir))
     except OSError:
@@ -163,6 +170,7 @@ def cmd_uninstall(force: bool = False) -> None:
         wpm_bin.unlink()
 
     print("wpm: fully uninstalled")
+    print("note: remove any 'wpm' MCP server entry from your host configurations")
 
 
 # ── search ──────────────────────────────────────────────────────────────
@@ -170,7 +178,7 @@ def cmd_uninstall(force: bool = False) -> None:
 def cmd_search(args: argparse.Namespace) -> None:
     config_path = _resolve_wpm_config()
     if not config_path.exists():
-        print("wpm: not activated here. Run 'wpm enable' first.", file=sys.stderr)
+        print("wpm: not activated here. Run 'wpm enable --write-config' first.", file=sys.stderr)
         sys.exit(1)
 
     config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -264,9 +272,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(prog="wpm")
     sub = parser.add_subparsers(dest="command")
 
-    p = sub.add_parser("enable", help="Activate wpm (optionally set a custom DB subdirectory)")
+    p = sub.add_parser("enable", help="Show host MCP config; with --write-config, activate wpm in this project")
     p.add_argument("db_dir", nargs="?", default=None)
-    sub.add_parser("disable", help="Deactivate wpm (keeps the database)")
+    p.add_argument("--write-config", action="store_true",
+                   help="Write wpm.config.json for this project (asks for confirmation)")
+    p.add_argument("--yes", "-y", action="store_true", help="Skip confirmation for --write-config")
+    sub.add_parser("disable", help="Remove wpm.config.json (keeps the database)")
     u = sub.add_parser("uninstall", help="Fully remove wpm from the system")
     u.add_argument("--force", "-f", action="store_true", help="Skip confirmation")
 
@@ -279,7 +290,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "enable":
-        cmd_enable(args.db_dir)
+        cmd_enable(args.db_dir, args.write_config, args.yes)
     elif args.command == "disable":
         cmd_disable()
     elif args.command == "uninstall":

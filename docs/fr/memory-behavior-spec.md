@@ -40,9 +40,9 @@ l'utilisateur** — ne basculez pas en anglais pour la sortie.
 résultat de test, un pattern de bug compris — l'enregistrer immédiatement
 via `store_entry`, sans attendre la fin de la tâche ou de la session. Un
 fait non écrit peut disparaître silencieusement à la compaction du
-contexte ; rien ne le rattrape après coup côté agent (le plugin peut
-capturer certains résultats de commande automatiquement, mais pas les
-décisions ou raisonnements).
+contexte ; rien ne le rattrape après coup côté agent (`record_execution`
+peut capturer certains résultats de commande, mais pas les décisions ou
+raisonnements).
 
 **Ne pas écrire n'importe quoi.** Avant de stocker, se demander : ce fait
 sera-t-il encore vrai et utile dans plusieurs semaines ? Si la réponse est
@@ -257,9 +257,10 @@ L'agent doit traiter ce dashboard comme une check-list actionnable :
 
 ## 14. Pin, deprecate et restore — cycle de vie des entrées
 
-Les 10 outils de mémoire (store, query, validate, contradict, link,
-get_memory_stats, pin, deprecate, restore, list_entries) sont tous
-disponibles. Cette section couvre les trois outils de cycle de vie :
+Les 11 outils de mémoire (store, query, validate, contradict, link,
+get_memory_stats, pin, deprecate, restore, list_entries,
+record_execution) sont tous disponibles. Cette section couvre les trois
+outils de cycle de vie :
 
 ### `pin_entry` — épingler une entrée
 

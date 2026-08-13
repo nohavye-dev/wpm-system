@@ -17,38 +17,6 @@ if [ "${1:-}" = "uninstall" ]; then
   exit 1
 fi
 
-printf 'building plugin...\n'
-cd "$BUNDLE_DIR/wpm-opencode-plugin"
-npm install
-npm run build
-
-printf 'installing plugin globally...\n'
-mkdir -p "$GLOBAL_CONFIG_DIR/plugins/wpm-plugin"
-cp -r dist package.json README.md "$GLOBAL_CONFIG_DIR/plugins/wpm-plugin/"
-printf 'export { default, WpmPlugin } from "./wpm-plugin/dist/index.js"\n' \
-  > "$GLOBAL_CONFIG_DIR/plugins/wpm-plugin.ts"
-
-printf 'ensuring runtime deps for the global plugin...\n'
-mkdir -p "$GLOBAL_CONFIG_DIR"
-if [ -f "$GLOBAL_CONFIG_DIR/package.json" ]; then
-  python3 - "$GLOBAL_CONFIG_DIR/package.json" <<'PYEOF'
-import json
-import sys
-path = sys.argv[1]
-with open(path, encoding="utf-8") as f:
-    data = json.load(f)
-deps = data.setdefault("dependencies", {})
-deps["@opencode-ai/plugin"] = "latest"
-deps["@modelcontextprotocol/sdk"] = "^1.12.0"
-with open(path, "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2)
-    f.write("\n")
-PYEOF
-else
-  printf '%s\n' '{"dependencies":{"@opencode-ai/plugin":"latest","@modelcontextprotocol/sdk":"^1.12.0"}}' > "$GLOBAL_CONFIG_DIR/package.json"
-fi
-printf 'note: opencode will bun install these on startup\n'
-
 printf 'creating server venv...\n'
 python3 -m venv "$DATA_DIR/venv"
 "$DATA_DIR/venv/bin/python" -m pip install --upgrade pip
@@ -76,7 +44,8 @@ cp "$BUNDLE_DIR/scripts/wpm" "$BIN_DIR/wpm"
 chmod +x "$BIN_DIR/wpm"
 sed -i "1s|^#!/usr/bin/env python3|#!$DATA_DIR/venv/bin/python3|" "$BIN_DIR/wpm"
 
-printf 'wpm installed. Restart opencode. Then in any project: wpm enable\n'
+printf 'wpm installed. In each project: wpm enable --write-config\n'
+printf 'then add the MCP server snippet printed by "wpm enable" to your host config.\n'
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
   printf 'add %s to your PATH\n' "$BIN_DIR"
 fi

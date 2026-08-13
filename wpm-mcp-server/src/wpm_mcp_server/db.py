@@ -76,14 +76,17 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     return conn
 
 
-def resolve_within_cwd(db_path: str | Path) -> Path:
-    """Resolve db_path, requiring it to be strictly inside the cwd.
+def resolve_within_root(db_path: str | Path, root: str | Path | None = None) -> Path:
+    """Resolve db_path, requiring it to be strictly inside `root`.
 
-    The server is launched with cwd = project root, so this guarantees the
-    database always lives under the project directory. The project root
-    itself is rejected too: a directory can never be opened as a SQLite
-    database (sqlite3 fails with "unable to open database file"), so an
-    early, clear error beats a crash at connect time.
+    Relative paths are resolved against `root`, not the process cwd — since
+    the MCP host (not the server) decides the working directory, callers pass
+    the project root explicitly (usually the directory that holds
+    wpm.config.json) so the containment guarantee holds regardless of how the
+    host launched the server. `root` defaults to the current working
+    directory. The root itself is rejected too: a directory can never be
+    opened as a SQLite database (sqlite3 fails with "unable to open database
+    file"), so an early, clear error beats a crash at connect time.
     """
     raw = str(db_path)
     if raw.endswith(os.sep):
@@ -91,16 +94,23 @@ def resolve_within_cwd(db_path: str | Path) -> Path:
             f"db_path {raw!r} must be a file path, not a directory "
             "(trailing separator)"
         )
-    resolved = os.path.realpath(raw)
-    cwd = os.path.realpath(os.getcwd())
-    if resolved == cwd:
+    root_real = os.path.realpath(str(root or os.getcwd()))
+    if os.path.isabs(raw):
+        resolved = os.path.realpath(raw)
+    else:
+        resolved = os.path.realpath(os.path.join(root_real, raw))
+    if resolved == root_real:
         raise RuntimeError(
             f"db_path {str(db_path)!r} must be a file inside the project, not "
-            f"the project root directory itself ({cwd})"
+            f"the project root directory itself ({root_real})"
         )
-    if not resolved.startswith(cwd + os.sep):
+    if not resolved.startswith(root_real + os.sep):
         raise RuntimeError(
-            f"db_path {str(db_path)!r} must live inside the current working "
-            f"directory ({cwd})"
+            f"db_path {str(db_path)!r} must live inside the project "
+            f"directory ({root_real})"
         )
     return Path(resolved)
+
+
+# Backwards-compatible alias kept for the CLI and older callers.
+resolve_within_cwd = resolve_within_root

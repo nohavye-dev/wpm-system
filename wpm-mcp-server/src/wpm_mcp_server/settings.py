@@ -1,10 +1,11 @@
 """JSON configuration loading, layered over hardcoded defaults.
 
 wpm.config.json at the project root is the primary place to configure
-the server: where the database lives, and how the OpenCode plugin should
-launch/connect to this server. The "domain" section (scoring/retrieval
-tuning, spec sections 3-6) is deliberately separate and optional — most
-users will never need to touch it; it's advanced/expert configuration.
+the server: where the database lives, the project-rules confidence
+threshold, extra verification command patterns. The "domain" section
+(scoring/retrieval tuning, spec sections 3-6) is deliberately separate
+and optional — most users will never need to touch it; it's
+advanced/expert configuration.
 
 Config file location: WPM_CONFIG_PATH env var, or "wpm.config.json"
 in the current working directory if unset. Environment variables
@@ -114,19 +115,14 @@ class DomainSettings:
 class Settings:
     # Basic, everyday settings — top level, not nested under a sub-section.
     db_path: str | None = None
-    # Optional, default 0.5. Validated here by the server (unknown keys raise)
-    # but USED by the OpenCode plugin's compaction hook, which reads
-    # WPM_CONFIDENCE_THRESHOLD; the server itself does not read that env var.
+    # Optional, default 0.5. Used by the wpm://project-rules resource as the
+    # minimum confidence below which an entry is not injected into the
+    # project-rules block recomputed at each session.
     confidence_threshold: float = 0.5
-    # Optional, default False. Validated here by the server (unknown keys
-    # raise) but USED by the OpenCode plugin's session.idle hook, which reads
-    # WPM_IDLE_NUDGE; the server itself does not read that env var.
-    idle_nudge: bool = False
     # Optional, default [] (no additions). List of extra regex patterns
-    # ADDED to the plugin's built-in VERIFICATION_COMMAND_PATTERNS for which
-    # shell commands count as strong proof (execution_verified). Validated
-    # here by the server (unknown keys raise) but USED by the OpenCode
-    # plugin's tool.execute.after hook; the server itself does not read it.
+    # ADDED to the built-in VERIFICATION_COMMAND_PATTERNS for which shell
+    # commands count as strong proof (execution_verified). Used by the
+    # record_execution tool.
     verification_command_patterns: list[str] | None = None
 
     # Advanced — see DomainSettings docstring.
@@ -209,8 +205,8 @@ def load_settings(config_path: str | Path | None = None) -> Settings:
 
 def _validate_settings(settings: Settings) -> None:
     """Fail fast on an out-of-range/mistyped scalar instead of silently
-    misbehaving downstream (the plugin's compaction hook and the docs both
-    treat confidence_threshold as a confidence value in [0, 1])."""
+    misbehaving downstream (confidence_threshold feeds the project-rules
+    resource and is documented as a confidence value in [0, 1])."""
     ct = settings.confidence_threshold
     if isinstance(ct, bool) or not isinstance(ct, (int, float)):
         raise ValueError(
@@ -220,11 +216,6 @@ def _validate_settings(settings: Settings) -> None:
     if not 0.0 <= ct <= 1.0:
         raise ValueError(
             f"confidence_threshold: expected a value between 0 and 1, got {ct}"
-        )
-
-    if not isinstance(settings.idle_nudge, bool):
-        raise ValueError(
-            f"idle_nudge: expected a boolean (true/false), got {settings.idle_nudge!r}"
         )
 
     patterns = settings.verification_command_patterns

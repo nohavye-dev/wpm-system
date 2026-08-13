@@ -1,62 +1,100 @@
-# WPM — bundle de déploiement
+# WPM — Weighted Persistent Memory
 
-Deux composants, déployés ensemble :
+Un **serveur MCP pur** (Python, SQLite + sqlite-vec) qui donne à votre agent
+une mémoire persistante **pondérée par la confiance** : les décisions
+d'architecture, conventions et patterns découverts dans une session ne sont
+pas perdus à la suivante.
 
-- `wpm-mcp-server/` — serveur MCP Python (SQLite + sqlite-vec). Source de vérité : scoring, décroissance (decay), expansion de graphe, les 10 outils.
-- `wpm-opencode-plugin/` — plugin TypeScript pour OpenCode. Client léger : hooks déterministes (compaction, preuve d'exécution, revue en session inactive) qui appellent les outils du serveur au bon moment.
+Composant unique :
+
+- `wpm-mcp-server/` — serveur MCP Python. Source de vérité : scoring,
+  décroissance (decay), expansion de graphe, les 11 outils (`store_entry`,
+  `query_context`, `validate_entry`, `contradict_entry`, `link_entries`,
+  `get_memory_stats`, `pin_entry`, `deprecate_entry`, `restore_entry`,
+  `list_entries`, `record_execution`), 3 resources (`wpm://project-rules`,
+  `wpm://memory-rules`, `wpm://verification-commands`), 6 prompts
+  (`wpm-persist`, `wpm-review`, `wpm-doc`, `wpm-code`, `wpm-bootstrap`,
+  `wpm-patterns`) et les règles d'usage dans `initialize.instructions`.
+
+Plus de plugin OpenCode, plus de hooks `experimental.*` : tout est exprimé
+avec des primitives MCP standard, donc le serveur fonctionne sur **n'importe
+quel host MCP** (OpenCode, Claude Desktop, etc.).
 
 ## Installation
 
 `./install.sh` installe tout globalement en une étape :
 
-- compile le plugin dans `~/.config/opencode/plugins/wpm-plugin/` (plugin global chargé automatiquement) ;
 - crée un environnement virtuel géré dans `~/.local/share/wpm-system/venv` et y installe `wpm-mcp-server` (non éditable) ;
-- copie `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et `/wpm-patterns` dans `~/.config/opencode/commands/` (commandes slash globales) ;
+- pré-télécharge le modèle d'embedding (~80 MB) pour un premier démarrage hors-ligne ;
+- copie `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et `/wpm-patterns` dans `~/.config/opencode/commands/` (wrappers opencode qui délèguent aux prompts MCP) ;
 - installe la commande `wpm` dans `~/.local/bin` (ou `$XDG_BIN_HOME`).
 
 (les chemins ci-dessus honorent $XDG_CONFIG_HOME / $XDG_DATA_HOME / $XDG_BIN_HOME lorsqu'ils sont définis)
 
-`./install.sh uninstall` (ou `wpm uninstall`) supprime tout globalement : plugin, venv, commandes, binaire `wpm`, dépendances.
+`./install.sh uninstall` (ou `wpm uninstall`) supprime tout globalement : venv, commandes, binaire `wpm`, données.
 
 ## Activation par projet
 
-Le plugin est global mais inerte : il ne s'active que si un
-`wpm.config.json` existe à la racine du projet (aucune entrée `mcp` dans
-`opencode.json`, aucune copie par projet).
+Le serveur est global mais **inerte par projet** : il ne s'active que si un
+`wpm.config.json` existe dans le projet (ou si `WPM_DB_PATH` est défini).
+L'activation = ce fichier + une entrée `mcp` dans la configuration de votre
+host (`opencode.json` par exemple).
 
 ```bash
-wpm enable           # écrit wpm.config.json (db_path ".wpm/wpm.db" s'il est absent), crée le dossier de la base + la base (schéma), l'ajoute au .gitignore
-wpm enable .memory   # dossier de base personnalisé → db_path ".memory/wpm.db"
-                     # la base doit vivre dans le projet : refuse un db_path qui en sort (chemin absolu externe, ou relatif avec « .. »)
-wpm disable          # supprime wpm.config.json, conserve les données (db_path) sur place, suggère la commande de ré-activation
-wpm uninstall        # suppression globale complète (demande confirmation) ; --force pour sauter la confirmation
+wpm enable                      # affiche le snippet mcp à coller dans le host (n'écrit rien)
+wpm enable --write-config       # + écrit wpm.config.json (db_path ".wpm/wpm.db" s'il est absent), crée le dossier de la base + la base (schéma), l'ajoute au .gitignore (demande confirmation ; --yes pour sauter)
+wpm enable .memory --write-config   # dossier de base personnalisé → db_path ".memory/wpm.db"
+                                 # la base doit vivre dans le projet : refuse un db_path qui en sort
+wpm disable                     # supprime wpm.config.json, conserve les données (db_path) sur place ; retirez ensuite l'entrée mcp du host
+wpm uninstall                   # suppression globale complète (demande confirmation) ; --force pour sauter la confirmation
 ```
 
-**Redémarrez OpenCode** après `install.sh`, `wpm enable` ou `wpm disable` — la configuration est lue une seule fois au démarrage.
+Le snippet affiché par `wpm enable` (à coller dans `opencode.json`, projet
+ou global) :
 
-Lorsqu'il est actif, le plugin expose les 10 outils de mémoire directement à
-l'LLM (`store_entry`, `query_context`, `validate_entry`, `contradict_entry`,
-`link_entries`, `get_memory_stats`, `pin_entry`, `deprecate_entry`,
-`restore_entry`, `list_entries`) et exécute ses 3 hooks (compaction,
-`tool.execute.after`, `session.idle`).
+```json
+{
+  "mcp": {
+    "wpm": {
+      "type": "local",
+      "command": ["~/.local/share/wpm-system/venv/bin/python", "-m", "wpm_mcp_server"],
+      "environment": {
+        "WPM_CONFIG_PATH": "/abs/path/to/project/wpm.config.json"
+      }
+    }
+  }
+}
+```
+
+**Redémarrez votre host** après `install.sh`, `wpm enable --write-config`,
+`wpm disable` ou toute modification de la config du host — la configuration
+est lue une seule fois au démarrage.
+
+Lorsqu'il est actif, le serveur expose les 11 outils de mémoire à l'LLM et
+orient son comportement : `initialize.instructions` embarque les règles
+d'usage (l'agent doit appeler `query_context` en préambule des réponses
+substantielle et lire `wpm://project-rules` au démarrage de session), la
+resource `wpm://project-rules` est recomputée depuis la mémoire et invalidée
+à chaque mutation, et les workflows `/wpm-*` sont des prompts MCP.
 
 ## Démarrage rapide
 
 1. `./install.sh`
-2. `wpm enable` à la racine du projet
-3. Redémarrez OpenCode
+2. `wpm enable --write-config` à la racine du projet
+3. Collez le snippet affiché dans `opencode.json`
+4. Redémarrez votre host
 
 ## Documentation
 
 La documentation détaillée vit dans [`docs/fr/`](docs/fr/index.md) :
 
-- [`docs/fr/setup.md`](docs/fr/setup.md) — guide d'activation complet (installation, `wpm`, redémarrage).
-- [`docs/fr/wpm-config-reference.md`](docs/fr/wpm-config-reference.md) — schéma `wpm.config.json` et constantes du serveur (substituables par variables d'environnement).
+- [`docs/fr/setup.md`](docs/fr/setup.md) — guide d'activation complet (installation, `wpm`, snippet MCP, redémarrage).
+- [`docs/fr/wpm-config-reference.md`](docs/fr/wpm-config-reference.md) — schéma `wpm.config.json` et substitutions par variables d'environnement.
 - [`docs/fr/memory-behavior-spec.md`](docs/fr/memory-behavior-spec.md) — comportement de l'agent : quand/comment écrire, valider, contredire, lire la mémoire.
 - [`docs/fr/commands.md`](docs/fr/commands.md) — commandes `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et `/wpm-patterns`.
-- [`wpm-mcp-server/README.md`](wpm-mcp-server/README.md) — le serveur.
-- [`wpm-opencode-plugin/README.md`](wpm-opencode-plugin/README.md) — le plugin.
+- [`wpm-mcp-server/README.md`](wpm-mcp-server/README.md) — le serveur MCP.
 
 ## Limitations
 
 - Le document de spécification complet (modèle de poids, formules de récupération, working-scope) reste à conserver à côté du bundle ; les commentaires du code renvoient à ses sections.
+- Sans host, pas de push déterministe : la perte des hooks du plugin (compaction, auto-capture, nudge) est compensée par la discipline write-as-you-go (dans les règles) + le prompt `wpm-persist`.

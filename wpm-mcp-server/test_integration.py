@@ -36,6 +36,8 @@ def check(label, cond, detail=""):
 
 async def main():
     os.makedirs(os.path.join(PROJECT_DIR, ".wpm"), exist_ok=True)
+    with open(CONFIG_PATH, "w") as f:
+        json.dump({"db_path": ".wpm/wpm.db"}, f)
     # Clean previous db
     for f in [DB_PATH, DB_PATH + "-wal", DB_PATH + "-shm"]:
         if os.path.exists(f):
@@ -60,10 +62,12 @@ async def main():
             tools = await session.list_tools()
             names = sorted(t.name for t in tools.tools)
             check(
-                "5 tools registered",
+                "11 tools registered",
                 names == [
-                    "contradict_entry", "link_entries", "query_context",
-                    "store_entry", "validate_entry",
+                    "contradict_entry", "deprecate_entry", "get_memory_stats",
+                    "link_entries", "list_entries", "pin_entry", "query_context",
+                    "record_execution", "restore_entry", "store_entry",
+                    "validate_entry",
                 ],
             )
 

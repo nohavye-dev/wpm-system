@@ -4,7 +4,7 @@ agent: build
 subtask: true
 ---
 
-> Guard: if `wpm.config.json` does not exist at the project root, memory is not activated. Politely explain that the user must run `wpm enable` (then restart opencode) and stop without doing anything else.
+> Guard: if `wpm.config.json` does not exist at the project root, memory is not activated. Politely explain that the user must run `wpm enable --write-config` at the project root, add the MCP server snippet it prints to the host configuration, restart the host, and stop without doing anything else.
 
 You are reviewing the health of this project's persistent memory system.
 

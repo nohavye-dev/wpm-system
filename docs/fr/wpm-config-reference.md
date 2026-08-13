@@ -2,12 +2,26 @@
 
 ## Où vit la config
 
-`wpm.config.json` se trouve à la **racine du projet**. C'est aussi le **marqueur d'activation** du plugin global : à chaque démarrage d'OpenCode, le plugin vérifie l'existence de ce fichier à la racine du projet courant.
+`wpm.config.json` se trouve à la **racine du projet**. C'est la **marqueur
+d'activation** du serveur MCP : sans lui (ou sans `WPM_DB_PATH`), le serveur
+démarre en mode **inerte** — il liste ses outils mais chaque appel renvoie
+une erreur claire « wpm is not activated in this project ». L'activation
+réelle passe par une entrée `mcp` dans la configuration de **votre host**
+(`opencode.json` par exemple), qui lance le serveur avec
+`WPM_CONFIG_PATH` pointant vers ce fichier. Voir
+[`setup.md`](setup.md) pour le snippet exact.
 
-- Fichier **absent** → le plugin est inerte : aucun outil exposé, aucun hook, aucun serveur lancé.
-- Fichier **présent** → le plugin s'active et expose les 10 outils mémoire directement à l'LLM : `store_entry`, `query_context`, `validate_entry`, `contradict_entry`, `link_entries`, `get_memory_stats`, `pin_entry`, `deprecate_entry`, `restore_entry`, `list_entries`.
+- Fichier **absent** + pas de `WPM_DB_PATH` → serveur inerte.
+- Fichier **présent** (ou `WPM_DB_PATH` défini) → le serveur expose les
+  11 outils mémoire à l'LLM : `store_entry`, `query_context`,
+  `validate_entry`, `contradict_entry`, `link_entries`, `get_memory_stats`,
+  `pin_entry`, `deprecate_entry`, `restore_entry`, `list_entries`,
+  `record_execution`.
 
-Le fichier est normalement écrit par `wpm enable` (qui remplit `db_path` par défaut `.wpm/wpm.db` s'il est absent) et supprimé par `wpm disable` (les données sont conservées). Il peut aussi être localisé via `WPM_CONFIG_PATH`.
+Le fichier est normalement écrit par `wpm enable --write-config` (qui remplit
+`db_path` par défaut `.wpm/wpm.db` s'il est absent) et supprimé par
+`wpm disable` (les données sont conservées). Il peut aussi être localisé via
+`WPM_CONFIG_PATH`.
 
 Une clé absente garde sa valeur par défaut ; le fichier peut être partiel. Une clé **inconnue** (typo) fait lever une erreur explicite au démarrage du serveur plutôt que d'être ignorée silencieusement.
 
@@ -22,69 +36,48 @@ Une clé absente garde sa valeur par défaut ; le fichier peut être partiel. Un
 | | |
 |---|---|
 | Type | string (chemin) |
-| Requis | oui |
-| Défaut si absent | Aucune — le serveur refuse de démarrer sans db_path ou WPM_DB_PATH |
+| Requis | oui (sinon serveur inerte) |
+| Défaut si absent | Aucune — sans db_path ni WPM_DB_PATH le serveur reste inerte |
 
-Chemin vers le fichier SQLite. Un chemin **relatif est résolu par rapport à la racine du projet** — `wpm enable` écrit `.wpm/wpm.db` s'il est absent (les clés existantes — dont `db_path` — sont préservées). Le chemin doit pointer **à l'intérieur de la racine du projet** : `wpm enable` refuse un `db_path` qui en sort (chemin absolu externe, ou relatif avec `..`), et le serveur refuse de démarrer si le chemin résolu sort du répertoire de travail. Précédence : `WPM_DB_PATH` (variable d'env) > `db_path` (config). Aucune valeur par défaut : sans l'un des deux, le serveur lève une erreur explicite au démarrage.
+Chemin vers le fichier SQLite. Un chemin **relatif est résolu par rapport au
+répertoire qui contient `wpm.config.json`** (pas le répertoire de travail du
+host, sur lequel le serveur n'a aucun contrôle) — `wpm enable --write-config`
+écrit `.wpm/wpm.db` s'il est absent (les clés existantes — dont `db_path` —
+sont préservées). Le chemin doit pointer **à l'intérieur de ce répertoire** :
+`wpm enable` refuse un `db_path` qui en sort (chemin absolu externe, ou
+relatif avec `..`), et le serveur refuse de démarrer si le chemin résolu sort
+du répertoire du projet (y compris via un symlink). Précédence : `WPM_DB_PATH`
+(variable d'env) > `db_path` (config). Aucune valeur par défaut : sans l'un
+des deux, le serveur démarre inerte.
 
 ---
 
-## `confidence_threshold` — seuil de confiance du hook de compaction [optionnel]
+## `confidence_threshold` — seuil de confiance des project-rules [optionnel]
 
-Clé **top-level** optionnelle (défaut `0.5`), validée par le serveur mais
-utilisée par le plugin OpenCode : c'est le seuil de confiance sous lequel le
-hook `experimental.session.compacting` n'injecte pas une entrée dans le
-contexte préservé avant compaction. Il pilote aussi l'**injection des règles
-projet** dans le prompt système (`experimental.chat.system.transform`) : seules
-les conventions/décisions `≥ confidence_threshold` y sont injectées de façon
-déterministe.
+Clé **top-level** optionnelle (défaut `0.5`), lue et validée par le serveur.
+C'est le seuil de confiance sous lequel la resource `wpm://project-rules`
+n'injecte pas une entrée dans le bloc `<project-rules>` recomputé depuis la
+mémoire à chaque lecture (conventions, décisions d'architecture, standards
+de test) : seules les entrées `≥ confidence_threshold` y figurent.
 
 ```json
 "confidence_threshold": 0.6
 ```
 
-Précédence : `WPM_CONFIDENCE_THRESHOLD` (variable d'env) > `confidence_threshold` (fichier) > `0.5`.
-
----
-
-## `idle_nudge` — relance en session inactive [optionnel]
-
-Clé **top-level** optionnelle (défaut `false`), validée par le serveur
-comme clé connue mais **utilisée par le plugin OpenCode**. Quand elle est
-active, le plugin envoie une seule relance à l'agent (`promptAsync`) quand
-une session qui a **réellement travaillé** (édition de fichier, outil
-exécuté) devient inactive, pour lui rappeler de persister ce qui n'a pas
-encore été stocké. Sans elle, le hook `session.idle` se contente d'une
-entrée de journal passive.
-
-```json
-"idle_nudge": true
-```
-
-Conditions et limites :
-- **Opt-in explicite** : défaut `false`, on n'embête jamais l'agent sans
-  demande.
-- Une seule relance **par session** (même si la session redevient
-  inactive plusieurs fois).
-- Uniquement pour une session ayant montré de l'activité (édition,
-  outil de travail) — une session en simple lecture n'est jamais relancée.
-- En cas d'échec d'envoi, la relance est simplement journalisée (pas de
-  nouvelle tentative dans la même session).
-
-Précédence : `WPM_IDLE_NUDGE` (variable d'env, `"true"`/`"false"`) >
-`idle_nudge` (fichier) > `false`.
+Aucune variable d'environnement ne le surcharge — il se règle uniquement
+dans le fichier.
 
 ---
 
 ## `verification_command_patterns` — ajouts de commandes de preuve forte [optionnel]
 
-Clé **top-level** optionnelle (défaut `[]` : aucun ajout), validée par le
-serveur comme clé connue mais **utilisée par le plugin OpenCode**. C'est
-une liste de regex **ajoutée** à la liste en dur `VERIFICATION_COMMAND_PATTERNS`
-du plugin (`src/index.ts`) qui désigne les commandes shell dont le succès
-compte comme preuve forte (`execution_verified`) dans le hook
-`tool.execute.after`. **Sémantique = addition, pas remplacement** : on ne
-peut pas retirer une commande de la liste en dur.
+Clé **top-level** optionnelle (défaut `[]` : aucun ajout), lue et validée par
+le serveur. C'est une liste de regex **ajoutée** à la liste en dur
+`VERIFICATION_COMMAND_PATTERNS` du serveur (`behavior.py`) qui désigne les
+commandes shell dont le succès compte comme preuve forte
+(`execution_verified`) dans l'outil `record_execution`. **Sémantique =
+addition, pas remplacement** : on ne peut pas retirer une commande de la
+liste en dur.
 
 ```json
 "verification_command_patterns": [
@@ -94,7 +87,7 @@ peut pas retirer une commande de la liste en dur.
 
 | | |
 |---|---|
-| Type | liste de strings (regex JavaScript valides) |
+| Type | liste de strings (regex Python valides) |
 | Défaut si absent | `[]` — aucune commande ajoutée à la liste en dur |
 | Sémantique | addition aux built-ins ; une liste vide n'ajoute rien |
 
@@ -133,7 +126,7 @@ avoir déjà inséré des entrées nécessite de ré-embedder la base (supprimez
 
 ## `domain` — configuration avancée (scoring et retrieval) [optionnel]
 
-Section **optionnelle** de tuning avancé du scoring, composée de 6 sous-sections : `provenance`, `decay`, `evidence`, `validation`, `retrieval`, `expansion`. Elle est **préservée par `wpm enable`** si elle existe déjà dans le fichier. Uniquement lue par le serveur Python. **À laisser de côté sauf besoin explicite de tuning** — les 6 sous-sections suivantes ne concernent que le calcul du score de confiance et du retrieval, pas le fonctionnement de base.
+Section **optionnelle** de tuning avancé du scoring, composée de 6 sous-sections : `provenance`, `decay`, `evidence`, `validation`, `retrieval`, `expansion`. Elle est **préservée par `wpm enable --write-config`** si elle existe déjà dans le fichier. Uniquement lue par le serveur Python. **À laisser de côté sauf besoin explicite de tuning** — les 6 sous-sections suivantes ne concernent que le calcul du score de confiance et du retrieval, pas le fonctionnement de base.
 
 ### `domain.provenance`
 
@@ -314,23 +307,21 @@ du seuil de création automatique de liens implicites.
 
 ---
 
-## Constantes de lancement du serveur
+## Lancement du serveur
 
-Les paramètres de lancement du serveur MCP sont des constantes du
-plugin :
+Le serveur est lancé par **votre host MCP** via une entrée `mcp` dans sa
+configuration (`opencode.json` par exemple) — ce n'est ni un plugin, ni une
+constante en dur. La commande et l'environnement sont décidés là :
 
-| Constante | Valeur fixe |
+| Élément | Valeur recommandée |
 |---|---|
-| `mcp_command` | `~/.local/share/wpm-system/venv/bin/python` (chemin respectant `XDG_DATA_HOME`) |
-| `mcp_args` | `["-m", "wpm_mcp_server"]` (fixes) |
-| `mcp_cwd` | racine du projet (fixe) |
+| `command` | `~/.local/share/wpm-system/venv/bin/python -m wpm_mcp_server` (chemin respectant `XDG_DATA_HOME`) |
+| `environment.WPM_CONFIG_PATH` | chemin absolu du `wpm.config.json` du projet |
 
-Ces constantes ne se modifient **pas** dans le fichier de config — seul
-`WPM_MCP_COMMAND` (l'interpréteur) est surchargeable via l'environnement
-(voir la table de précédence ci-dessous). `confidence_threshold` n'est plus
-une constante de lancement : il se règle via la clé de config décrite
-ci-dessus. Le serveur continue de fonctionner en standalone
-(`python -m wpm_mcp_server` avec `WPM_DB_PATH` etc.).
+`wpm enable` affiche ce snippet prêt à coller. Le serveur résout un
+`db_path` relatif par rapport au répertoire de `wpm.config.json` (pas le
+répertoire de travail du host), donc l'entrée `mcp` fonctionne quel que
+soit le répertoire de travail avec lequel le host lance le serveur.
 
 ---
 
@@ -366,12 +357,8 @@ Avec une section `domain` optionnelle :
 |---|---|
 | `WPM_CONFIG_PATH` | quel fichier JSON est lu (chemin du fichier lui-même, pas une clé à l'intérieur) |
 | `WPM_DB_PATH` | `db_path` |
-| `WPM_MCP_COMMAND` | surcharge l'interpréteur du plugin |
-| `WPM_CONFIDENCE_THRESHOLD` | `confidence_threshold` |
-| `WPM_IDLE_NUDGE` | `idle_nudge` (parse `"true"`/`"false"`) |
+| `WPM_EMBEDDING_MODEL` | modèle d'embedding (défaut `all-MiniLM-L6-v2`) |
 
 Les clés de `domain` n'ont pas de variable d'env — cette section n'est
-configurable que via le fichier JSON. Les variables d'environnement côté
-serveur (par champ) passent devant le fichier de config ; les constantes
-du plugin ne sont surchargeables que par leurs variables d'env
-respectives.
+configurable que via le fichier JSON. Les variables d'environnement passent
+devant le fichier de config.

@@ -4,6 +4,10 @@ Confidence-weighted, serveur MCP de mémoire persistante hybride
 vecteur+graphe — implémentation de référence Python du document de
 spécification (sections 1-9).
 
+**Serveur MCP pur** : pas de plugin OpenCode, pas de hooks `experimental.*`.
+Tout est exprimé avec des primitives MCP standard, donc le serveur fonctionne
+avec n'importe quel host (OpenCode, Claude Desktop, etc.).
+
 Testé de bout en bout sur le vrai transport MCP stdio (`test_stdio.py`), pas
 seulement testé unitairement contre la couche de dépôt.
 
@@ -26,45 +30,53 @@ reste l'alternative pour le développement autonome.
 WPM_DB_PATH=./wpm.db python -m wpm_mcp_server
 ```
 
-Parle MCP via stdio — le même sous-processus que lance le plugin OpenCode
-global (avec les constantes fixes ci-dessous).
+Parle MCP via stdio. Sans `WPM_DB_PATH` ni `wpm.config.json`, le serveur
+démarre en mode **inerte** : il liste ses outils mais chaque appel renvoie
+« wpm is not activated in this project ».
 
-## Brancher dans OpenCode
+## Brancher dans votre host MCP
 
-Aucune entrée `mcp` n'est requise dans `opencode.json`. Le plugin OpenCode
-global (`wpm-opencode-plugin`, installé par `install.sh` dans
-`~/.config/opencode/plugins/wpm-plugin/`) expose les 10 outils de mémoire
-directement à l'LLM via l'API du plugin et lance lui-même ce serveur comme
-sous-processus. N'ajoutez pas aussi ce serveur comme entrée `mcp` dans
-`opencode.json` : le plugin expose déjà les 10 outils sous ces noms, et deux
-expositions du même nom entreraient en conflit. Le plugin est inerte par
-projet : il ne s'active que si un `wpm.config.json` existe à la racine du
-projet :
+Ajoutez une entrée `mcp` à la configuration de votre host (ex. `opencode.json`,
+projet ou global). `WPM_CONFIG_PATH` pointe vers le `wpm.config.json` du
+projet — cela rend l'activation indépendante du répertoire de travail avec
+lequel le host lance le serveur :
 
 ```json
 {
-  "db_path": ".wpm/wpm.db"
+  "mcp": {
+    "wpm": {
+      "type": "local",
+      "command": ["~/.local/share/wpm-system/venv/bin/python", "-m", "wpm_mcp_server"],
+      "environment": {
+        "WPM_CONFIG_PATH": "/abs/path/to/project/wpm.config.json"
+      }
+    }
+  }
 }
 ```
 
-`wpm enable` écrit ce fichier pour vous et crée `.wpm/`. Le serveur est
-ensuite lancé par le plugin avec des constantes fixes — interpréteur
-`~/.local/share/wpm-system/venv/bin/python` (chemin respectant
-`XDG_DATA_HOME`), arguments `["-m", "wpm_mcp_server"]`, répertoire de
-travail = racine du projet — seul l'interpréteur est surchargeable via
-l'environnement :
-
-| Variable | Remplace |
-|---|---|
-| `WPM_DB_PATH` | `db_path` |
-| `WPM_MCP_COMMAND` | l'interpréteur Python |
-
-Le seuil de confiance se règle via la clé top-level `confidence_threshold`
-de `wpm.config.json` (défaut 0.5). `WPM_CONFIDENCE_THRESHOLD` n'est pas lu
-par le serveur : il est lu par le plugin OpenCode (hook de compaction).
-
-Redémarrez OpenCode après tout changement — la configuration est lue une
+`wpm enable` (voir le `README.md` racine) affiche ce snippet prêt à coller et
+`wpm enable --write-config` écrit le fichier `wpm.config.json` pour vous.
+Redémarrez votre host après tout changement — la configuration est lue une
 seule fois au démarrage.
+
+## Comment le serveur oriente le comportement de l'agent (100 % MCP)
+
+- **`initialize.instructions`** — les règles d'usage de la mémoire (16 règles,
+  `MEMORY_USAGE_RULES`) : l'agent doit appeler `query_context` en préambule de
+  toute réponse substantielle, écrire au fil de l'eau, valider par preuves
+  externes, ne jamais supprimer, etc. Re-lisibles via la resource
+  `wpm://memory-rules`.
+- **`wpm://project-rules`** — les règles/conventions du projet, recomputées
+  depuis la mémoire (`query_context(PROJECT_RULES_QUERY, min_confidence=
+  confidence_threshold, token_budget=800)`) et formatées en bloc
+  `<project-rules>`. Le cache est invalidé à chaque mutation (store/validate/
+  contradict/link/...), avec notification `resources/updated`.
+- **`wpm://verification-commands`** — les commandes dont le succès compte
+  comme preuve forte (`execution_verified`).
+- **Descriptions d'outils directives** — relues à chaque décision d'appel :
+  « à appeler en début de chaque réponse substantielle » sur `query_context`,
+  etc.
 
 ## Outils exposés
 
@@ -80,6 +92,7 @@ seule fois au démarrage.
 | `deprecate_entry(entry_id)` | Déprécier une entrée — exclue des résultats (réversible) |
 | `restore_entry(entry_id)` | Restaurer une entrée épinglée ou dépréciée en statut actif |
 | `list_entries(type?, status?, min_confidence?, max_confidence?, limit?, offset?)` | Liste paginée et filtrable des entrées avec leur confiance actuelle |
+| `record_execution(command, succeeded, session_id)` | Capturer un test/build/lint comme preuve forte : stocke une entrée `learning` (`tool_execution`) et la valide `execution_verified` en un seul appel. La commande doit matcher un pattern de vérification — les commandes triviales (`ls`, `cat`, `echo`, `grep`, `git status`) sont rejetées |
 
 `type` ∈ `doc`, `archi_decision`, `learning`, `convention`, `bug_pattern`.
 `evidence_type` ∈ `execution_verified`, `cross_reference`,
@@ -87,10 +100,33 @@ seule fois au démarrage.
 journalisé, selon la section 4 de la spécification).
 
 Les règles d'utilisation (contenu en anglais uniquement, exigences de
-preuve, non-suppression) sont intégrées directement dans les descriptions
-d'outils que l'agent voit à chaque appel — voir la section 8 de la
-spécification pour savoir pourquoi cela est préféré au fait de s'appuyer
-uniquement sur AGENTS.md.
+preuve, non-suppression) sont intégrées dans `initialize.instructions` et
+dans les descriptions d'outils que l'agent voit à chaque appel — voir la
+section 8 de la spécification.
+
+## Resources
+
+| Resource | Contenu |
+|---|---|
+| `wpm://project-rules` | Conventions/décisions du projet (≥ `confidence_threshold`), en bloc `<project-rules>` |
+| `wpm://memory-rules` | Les 16 règles d'usage de la mémoire (même contenu que `instructions`) |
+| `wpm://verification-commands` | Commandes considérées comme preuve forte pour `record_execution` |
+
+## Prompts
+
+Les workflows `/wpm-*` de l'ancien plugin sont des prompts MCP :
+
+| Prompt | Rôle |
+|---|---|
+| `wpm-persist` | Checklist de fin de tâche : persister ce qui n'a pas encore été stocké |
+| `wpm-review` | Revue de la santé de la mémoire (conflits, entrées jamais validées, faibles) |
+| `wpm-doc(document_path)` | Ingest un document markdown, section par section (dédup ≥ 0.85, traduction EN) |
+| `wpm-code(scope)` | Cartographie du code en entrées de mémoire (conventions, patterns) |
+| `wpm-bootstrap` | Bootstrap initial d'un projet (README, docs, configs de lint, CI/CD) |
+| `wpm-patterns(type_filter)` | Analyse de patterns récurrents dans le code |
+
+Les commandes slash opencode installées (`~/.config/opencode/commands/wpm-*.md`)
+sont des wrappers qui délèguent à ces prompts.
 
 ## Embeddings
 
@@ -130,25 +166,22 @@ Réglages de base, quotidiens, au niveau supérieur :
 ```
 
 - `db_path` — **obligatoire**, chemin relatif vers la base de données
-  SQLite — le serveur refuse de démarrer sans lui (ou sans `WPM_DB_PATH`).
-  Lu par ce serveur uniquement (jamais par le plugin OpenCode). La base
-  doit toujours vivre à l'intérieur du répertoire du projet : le serveur
-  refuse de démarrer si le chemin résolu sort du répertoire de travail.
-- `confidence_threshold` — **optionnel**, défaut `0.5`. Validé par le
-  serveur, utilisé par le hook de compaction du plugin.
-- `idle_nudge` — **optionnel**, défaut `false`. Clé connue du serveur
-  (validée comme telle), mais **utilisée par le plugin OpenCode** : relance
-  opt-in de l'agent quand une session qui a réellement travaillé devient
-  inactive.
+  SQLite — sans lui (ni `WPM_DB_PATH`), le serveur démarre inerte. Un
+  chemin relatif est résolu **par rapport au répertoire de
+  `wpm.config.json`**, pas par rapport au cwd du host. La base doit
+  toujours vivre à l'intérieur de ce répertoire : le serveur refuse de
+  démarrer si le chemin résolu sort du répertoire du projet (y compris via
+  un symlink).
+- `confidence_threshold` — **optionnel**, défaut `0.5`. Seuil de confiance
+  sous lequel la resource `wpm://project-rules` n'injecte pas une entrée.
 - `verification_command_patterns` — **optionnel**, défaut `[]` (aucun
-  ajout). Clé connue du serveur (validée comme telle), mais **utilisée par
-  le plugin OpenCode** : liste de regex **ajoutées** à la liste en dur
-  `VERIFICATION_COMMAND_PATTERNS` du plugin, pour désigner les commandes
-  shell supplémentaires dont le succès compte comme preuve forte
-  (`execution_verified`) — voir la section « Personnalisation » du
-  `README.md` du plugin pour le critère (pas de `ls`/`grep`/`cat`).
+  ajout). Liste de regex **ajoutées** à la liste en dur
+  `VERIFICATION_COMMAND_PATTERNS` du serveur (`behavior.py`), pour désigner
+  les commandes shell supplémentaires dont le succès compte comme preuve
+  forte (`execution_verified`) dans `record_execution` — critère : pas de
+  `ls`/`grep`/`cat`/`git status`.
 
-`wpm enable` (voir le `README.md` racine du bundle) écrit ce fichier
+`wpm enable --write-config` (voir le `README.md` racine) écrit ce fichier
 automatiquement pour vous lors de l'activation d'un projet.
 
 ### Avancé : la section `domain` (réglage du scoring/récupération)
@@ -194,22 +227,32 @@ silence.
 
 | Variable | Remplace | Défaut si non définie (et pas de JSON) |
 |---|---|---|
-| `WPM_DB_PATH` | `db_path` | aucune — obligatoire |
+| `WPM_DB_PATH` | `db_path` | aucune — serveur inerte |
 | `WPM_CONFIG_PATH` | quel fichier JSON lire | `wpm.config.json` (cwd) |
 | `WPM_EMBEDDING_MODEL` | modèle d'embedding | `all-MiniLM-L6-v2` |
 
 ## Tests
 
 ```bash
-python test_repository.py   # repository logic, no MCP transport
-python test_stdio.py        # full MCP protocol over stdio, as a client would use it
+pytest            # 12 fichiers de test à la racine (script-style via conftest)
 ```
+
+- `test_repository.py`, `test_scoring.py`, `test_domain.py`,
+  `test_embeddings.py`, `test_db.py`, `test_contradict_validation.py` — la
+  couche dépôt, sans transport MCP
+- `test_stdio.py` — protocole MCP complet sur stdio, comme un client réel
+- `test_behavior.py` — règles, matching des commandes de vérification,
+  rendu des project-rules
+- `test_settings.py`, `test_db_path_precedence.py`,
+  `test_db_path_constraint.py` — config et contrainte d'emplacement de la base
+- `test_integration.py` — parcours complet depuis un vrai répertoire projet
 
 ## Ce qui n'est volontairement PAS encore implémenté
 
 - La discipline du **working scope** (section 8 de la spécification : vidage
-  avant compaction) vit dans le plugin OpenCode compagnon, pas ici — ce
-  serveur reste un magasin passif d'enregistrements.
+  avant compaction) était portée par les hooks du plugin OpenCode, supprimés
+  dans cette version MCP-pure. Elle est remplacée par la discipline
+  write-as-you-go des règles 4/13 + le prompt `wpm-persist`.
 - Pas d'authentification/multi-location — suppose un seul fichier SQLite
   local par projet, conformément à la contrainte « local, fichier unique »
   de la spécification.
