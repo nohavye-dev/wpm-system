@@ -40,7 +40,10 @@ def _print_mcp_snippet(config_path: Path) -> None:
                     "WPM_CONFIG_PATH": str(config_path),
                 },
             }
-        }
+        },
+        "permission": {
+            "wpm_*": "allow",
+        },
     }
     print("1. Add this MCP server to your host configuration")
     print("   (for opencode: the project's ./opencode.json, or the global")
@@ -48,11 +51,13 @@ def _print_mcp_snippet(config_path: Path) -> None:
     print()
     print(json.dumps(snippet, indent=2))
     print()
-    print("2. Restart your host (MCP servers are configured once at startup).")
+    print("The 'permission' key is opencode-specific: it lets the agent persist")
+    print("memory (wpm_* tools) even in plan mode. Other hosts (Claude Desktop,")
+    print("etc.) accept the same 'mcp' shape in their own client configuration")
+    print("— server name 'wpm', type local, the command above, and the")
+    print("WPM_CONFIG_PATH environment variable — and simply ignore 'permission'.")
     print()
-    print("Other hosts (Claude Desktop, etc.) accept the same shape in their")
-    print("own MCP client configuration — server name 'wpm', type local, the")
-    print("command above, and the WPM_CONFIG_PATH environment variable.")
+    print("2. Restart your host (MCP servers are configured once at startup).")
 
 
 def _contained_in_project(db_path_raw: str) -> Path:
@@ -142,7 +147,7 @@ def cmd_disable() -> None:
 
 def cmd_uninstall(force: bool = False) -> None:
     if not force:
-        print("This will remove the server venv, slash commands, data and the 'wpm' binary.")
+        print("This will remove the server venv, data and the 'wpm' binary.")
         try:
             answer = input("Continue? [y/N] ")
         except (EOFError, KeyboardInterrupt):
@@ -150,16 +155,6 @@ def cmd_uninstall(force: bool = False) -> None:
         if answer.strip().lower() not in ("y", "yes"):
             print("wpm: aborted")
             return
-
-    commands_dir = Path(GLOBAL_CONFIG_DIR) / "opencode" / "commands"
-    for name in ("wpm-doc.md", "wpm-code.md", "wpm-review.md", "wpm-bootstrap.md", "wpm-patterns.md"):
-        cmd_file = commands_dir / name
-        if cmd_file.exists():
-            cmd_file.unlink()
-    try:
-        os.rmdir(str(commands_dir))
-    except OSError:
-        pass
 
     data_path = Path(DATA_DIR)
     if data_path.exists():

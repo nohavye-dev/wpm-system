@@ -3,7 +3,6 @@ set -euo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/wpm-system"
-GLOBAL_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode"
 BIN_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
 
 if [ "${1:-}" = "uninstall" ]; then
@@ -33,10 +32,6 @@ for f in ['tokenizer.json', 'onnx/model.onnx']:
     except Exception as e:
         print(f'warning: could not cache {f}: {e}')
 " || printf 'warning: model pre-download failed (will download on first use)\n'
-
-printf 'installing global commands...\n'
-mkdir -p "$GLOBAL_CONFIG_DIR/commands"
-cp "$BUNDLE_DIR/wpm-commands"/wpm-doc.md "$BUNDLE_DIR/wpm-commands"/wpm-code.md "$BUNDLE_DIR/wpm-commands"/wpm-review.md "$BUNDLE_DIR/wpm-commands"/wpm-bootstrap.md "$BUNDLE_DIR/wpm-commands"/wpm-patterns.md "$GLOBAL_CONFIG_DIR/commands/"
 
 printf 'installing wpm command...\n'
 mkdir -p "$BIN_DIR"

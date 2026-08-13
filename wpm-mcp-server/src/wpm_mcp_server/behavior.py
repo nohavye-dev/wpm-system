@@ -110,8 +110,8 @@ list_entries, record_execution). Follow these rules every turn:
     context compaction — do not assume you will remember it later.
 
 15. INCREMENTAL MEMORY IS ALWAYS FREE. Persist durable facts as they
-    emerge during normal work. /wpm-doc and /wpm-code (also available as
-    the wpm-doc and wpm-code MCP prompts) are user-controlled commands for
+    emerge during normal work. The wpm-doc, wpm-code, wpm-bootstrap,
+    wpm-patterns and wpm-review MCP prompts are user-controlled workflows for
     bulk ingestion (a full document, a codebase survey) — do not wait for
     them to memorize, and do not use them for mid-task facts.
 

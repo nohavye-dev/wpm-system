@@ -1,24 +1,20 @@
-# Commandes `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et `/wpm-patterns`
+# Workflows `wpm-doc`, `wpm-code`, `wpm-review`, `wpm-bootstrap` et `wpm-patterns`
 
-Les cinq commandes sont des **wrappers opencode** exécutées manuellement par
-l'utilisateur. Elles délèguent aux prompts MCP du serveur (`wpm-doc`,
-`wpm-code`, `wpm-review`, `wpm-bootstrap`, `wpm-patterns`) et offrent un
-moyen **contrôlé** d'intégrer de la documentation et du code dans la mémoire
-persistante du projet.
-
-Elles sont installées **globalement** par `install.sh` dans
-`~/.config/opencode/commands/` et disponibles dans tous les projets. Les
-versions opérationnelles vivent dans `wpm-commands/` à la racine du dépôt.
+Les cinq workflows sont des **prompts MCP** exposés par le serveur, invoqués
+manuellement par l'utilisateur. Dans opencode ils apparaissent comme commandes
+slash (ex. `/wpm:wpm-doc:mcp`) ; dans tout autre host MCP, comme des prompts
+du serveur `wpm`. Ils offrent un moyen **contrôlé** d'intégrer de la
+documentation et du code dans la mémoire persistante du projet.
 
 > **Deux canaux de mémorisation, ne pas les confondre**
 >
 > - **Mémorisation incrémentale (agent, automatique)** : au fil du travail,
 >   le LLM persistе tout fait durable qu'il rencontre (`store_entry`,
 >   `validate_entry`…) — c'est le comportement par défaut, décrit dans
->   [`memory-behavior-spec.md`](memory-behavior-spec.md). Les commandes ne
->   le remplacent ni ne le bloquent.
-> - **Ingestion contrôlée (utilisateur, manuelle)** : `/wpm-doc`,
->   `/wpm-code` et `/wpm-bootstrap` servent à l'apport massif et vérifié
+>   [`memory-behavior-spec.md`](memory-behavior-spec.md). Les prompts ne le
+>   remplacent ni ne le bloquent.
+> - **Ingestion contrôlée (utilisateur, manuelle)** : `wpm-doc`,
+>   `wpm-code` et `wpm-bootstrap` servent à l'apport massif et vérifié
 >   d'un document complet, d'une cartographie du code ou d'un peuplement
 >   initial. On ne les utilise pas pour des faits
 >   ponctuels rencontrés pendant une tâche.
@@ -26,19 +22,15 @@ versions opérationnelles vivent dans `wpm-commands/` à la racine du dépôt.
 ## Garde commune
 
 Si `wpm.config.json` n'existe pas à la racine du projet, la mémoire n'est
-pas activée. La commande le signale poliment : lancez
+pas activée. Le prompt le signale poliment : lancez
 `wpm enable --write-config` à la racine du projet, ajoutez l'entrée `mcp`
 affichée dans la configuration de votre host, puis redémarrez le host.
 
 ---
 
-## `/wpm-doc <chemin>`
+## `wpm-doc <chemin>`
 
 Ingère un document markdown existant dans la mémoire persistante.
-
-```
-/wpm-doc docs/architecture.md
-```
 
 - Le document est **découpé par sections** (`##`/`###`, ou paragraphes
   logiques) — chaque section devient une entrée de mémoire candidate.
@@ -52,23 +44,18 @@ Ingère un document markdown existant dans la mémoire persistante.
   `source: "official_doc"`.
 - Les sections liées entre elles sont reliées via `link_entries` quand la
   relation est explicite.
-- La commande rend un **résumé** en fin de parcours : sections stockées,
+- Le prompt rend un **résumé** en fin de parcours : sections stockées,
   dédupliquées/revalidées, ignorées (et pourquoi).
 
-Si aucun chemin n'est fourni, la commande demande un chemin et s'arrête —
-elle ne devine pas de fichier.
+Si aucun chemin n'est fourni, le prompt demande un chemin et s'arrête —
+il ne devine pas de fichier.
 
 ---
 
-## `/wpm-code [scope]`
+## `wpm-code [scope]`
 
 Cartographie l'architecture et les conventions de la base de code dans la
 mémoire persistante.
-
-```
-/wpm-code
-/wpm-code src/lib
-```
 
 - Si `<scope>` est vide, tout le projet est cartographié ; sinon, le
   sous-arbre nommé.
@@ -78,19 +65,15 @@ mémoire persistante.
 - Types utilisés : `archi_decision` (choix structurel observé),
   `convention` (règle suivie de façon cohérente), `bug_pattern` (problème
   connu documenté, jamais supposé), `source: "observed_code"`.
-- Même déduplication que `/wpm-doc` (`query_context` avant écriture,
+- Même déduplication que `wpm-doc` (`query_context` avant écriture,
   `validate_entry` au lieu d'un doublon).
-- La commande rend un **résumé** : ce qui a été stocké (groupé par type),
+- Le prompt rend un **résumé** : ce qui a été stocké (groupé par type),
   revalidé, et surtout ce qui a été envisagé puis **écarté** faute de
   confiance suffisante.
 
-## `/wpm-review`
+## `wpm-review`
 
 Affiche un tableau de bord de la santé de la mémoire persistante.
-
-```
-/wpm-review
-```
 
 - Appelle l'outil MCP `get_memory_stats` — un seul appel, lecture seule.
 - Présente les résultats en sections :
@@ -102,19 +85,15 @@ Affiche un tableau de bord de la santé de la mémoire persistante.
   - **Activité récente** — 10 derniers événements (créations, validations, contradictions, pin/deprecate)
 - Se termine par un verdict : "Memory is healthy" ou "N issues need attention".
 - C'est un diagnostic en lecture seule — aucune entrée n'est modifiée.
-- Si le dashboard révèle des problèmes (entrées faibles, contradictions non résolues), la commande peut suggérer des actions concrètes : épingler des entrées fiables avec `pin_entry`, déprécier des entrées obsolètes avec `deprecate_entry`, ou restaurer une entrée dépréciée par erreur avec `restore_entry`.
+- Si le dashboard révèle des problèmes (entrées faibles, contradictions non résolues), le prompt peut suggérer des actions concrètes : épingler des entrées fiables avec `pin_entry`, déprécier des entrées obsolètes avec `deprecate_entry`, ou restaurer une entrée dépréciée par erreur avec `restore_entry`.
 
 ---
 
-## `/wpm-bootstrap`
+## `wpm-bootstrap`
 
 Peuple la mémoire à partir des artefacts existants du projet — en une seule
-passe. C'est l'équivalent d'un `/wpm-doc` + `/wpm-code` généralisé, mais
+passe. C'est l'équivalent d'un `wpm-doc` + `wpm-code` généralisé, mais
 appliqué à tout le projet.
-
-```
-/wpm-bootstrap
-```
 
 Lit automatiquement, dans l'ordre :
 1. **`README.md`** — description du projet, stack technique, architecture
@@ -132,7 +111,7 @@ Lit automatiquement, dans l'ordre :
    seuls)
 
 Pour chaque fait trouvé : déduplication via `query_context`, puis
-`store_entry(type, content, source="observed_code")`. La commande rend
+`store_entry(type, content, source="observed_code")`. Le prompt rend
 un résumé groupé par type (`archi_decision`, `convention`, `learning`).
 
 À utiliser une seule fois par projet, après `wpm enable --write-config`,
@@ -141,16 +120,11 @@ incrémentale au fil du travail continue ensuite normalement.
 
 ---
 
-## `/wpm-patterns [type]`
+## `wpm-patterns [type]`
 
 Analyse la mémoire pour détecter des patterns récurrents et proposer
 des améliorations — conventions manquantes, décisions d'architecture
 implicites, contradictions à résoudre.
-
-```
-/wpm-patterns                  # Tous les types
-/wpm-patterns bug_pattern      # Un type spécifique
-```
 
 Utilise `list_entries` pour récupérer toutes les entrées du type ciblé,
 puis les catégorise par thème sémantique (jugement humain, pas similarité
@@ -166,15 +140,15 @@ actionnable :
   en `archi_decision`
 
 Les actions sont exécutées automatiquement (pas de confirmation par
-action). La commande rend un rapport structuré : thèmes trouvés, actions
+action). Le prompt rend un rapport structuré : thèmes trouvés, actions
 prises, et ce qui n'a pas nécessité d'action. Si aucun pattern n'émerge,
 le résultat négatif est valide et signalé clairement.
 
 ## Notes
 
-- Les cinq commandes tournent en **tâche annexe** (`subtask: true`,
-  `agent: build`) : elles ne polluent pas le contexte de la conversation
-  principale et rendent leur résumé à la fin.
+- Les cinq prompts sont déclarés dans `wpm-mcp-server` sous les mêmes noms
+  (`wpm-doc`, `wpm-code`, `wpm-review`, `wpm-bootstrap`, `wpm-patterns`), à
+  côté de `wpm-persist` (checklist de fin de tâche).
 - Lire le résumé renvoyé : des sections/faits écartés volontairement (trop
   vagues, trop incertains) indiquent un travail de sélection, pas un échec.
 - Après une ingestion, vous pouvez renforcer une entrée par des preuves

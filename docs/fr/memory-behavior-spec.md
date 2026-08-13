@@ -189,7 +189,7 @@ valeur.
 
 ---
 
-## 12. Utilisation des commandes dédiées
+## 12. Utilisation des workflows dédiés
 
 Rappel : il existe **deux canaux de mémorisation**, complémentaires et non
 interchangeables.
@@ -197,46 +197,47 @@ interchangeables.
 - **Mémorisation incrémentale (agent, automatique)** — c'est ce que décrit
   ce document (§3-§11) : l'agent persiste au fil de l'eau tout fait durable
   rencontré pendant son travail, via `store_entry`/`validate_entry`... Ce
-  canal reste actif en permanence, indépendamment des commandes.
-- **Ingestion contrôlée (utilisateur, manuelle)** — les commandes
-  `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et `/wpm-patterns` couvrent
-  l'ingestion massive, l'audit et le peuplement initial. Elles ne remplacent pas
+  canal reste actif en permanence, indépendamment des workflows.
+- **Ingestion contrôlée (utilisateur, manuelle)** — les prompts MCP
+  `wpm-doc`, `wpm-code`, `wpm-review`, `wpm-bootstrap` et `wpm-patterns` couvrent
+  l'ingestion massive, l'audit et le peuplement initial. Ils ne remplacent pas
   la mémorisation incrémentale, et ne bloquent pas non plus un
   `store_entry` opportun : un fait durable rencontré pendant une tâche est
   toujours écrit immédiatement, pas "rangé pour plus tard".
 
-- **`/wpm-doc <chemin>`** — pour ingérer manuellement un document
+- **`wpm-doc <chemin>`** — pour ingérer manuellement un document
   existant. Ne pas reproduire ce travail à la main avec des appels
-  `store_entry` un par un dans la conversation normale ; utiliser la
-  commande, qui applique déjà le découpage par section et la
+  `store_entry` un par un dans la conversation normale ; utiliser le
+  workflow, qui applique déjà le découpage par section et la
   déduplication.
-- **`/wpm-code [scope]`** — pour cartographier l'architecture
+- **`wpm-code [scope]`** — pour cartographier l'architecture
   existante. Ne pas l'utiliser comme un index fichier par fichier :
   seulement les faits structurants dont l'agent est réellement confiant,
   en s'appuyant sur du code réellement lu, jamais sur le nom des dossiers
   seul.
-- **`/wpm-review`** — diagnostic en lecture seule de la santé
+- **`wpm-review`** — diagnostic en lecture seule de la santé
   mémoire (voir §13). À utiliser avant de s'appuyer sur la mémoire ou
   quand on soupçonne des entrées périmées.
-- **`/wpm-bootstrap`** — peuplement initial unique du projet à
+- **`wpm-bootstrap`** — peuplement initial unique du projet à
   partir des artefacts existants (README, configs, CI, structure de
   dossiers). À lancer une fois après `wpm enable`, puis laisser la
   mémorisation incrémentale prendre le relais.
-- **`/wpm-patterns [type]`** — analyse métacognitive de la mémoire :
+- **`wpm-patterns [type]`** — analyse métacognitive de la mémoire :
   catégorise les entrées par thème, détecte les patterns récurrents
   (bugs similaires, conventions implicites non documentées), et propose
   des actions concrètes (créer une convention, épingler une entrée
   validée, déprécier une contradiction non résolue).
 
-Les cinq commandes tournent en tâche annexe et rendent un résumé
-(stocké / revalidé / ignoré) — lire ce résumé pour savoir si des éléments
-ont été volontairement écartés faute de confiance suffisante.
+Ces cinq workflows (plus `wpm-persist`) sont des prompts MCP du serveur,
+invoqués manuellement ; ils rendent un résumé (stocké / revalidé / ignoré)
+— lire ce résumé pour savoir si des éléments ont été volontairement
+écartés faute de confiance suffisante.
 
 ---
 
-## 13. Audit mémoire (`/wpm-review`)
+## 13. Audit mémoire (`wpm-review`)
 
-`/wpm-review` est une commande de diagnostic en lecture seule qui appelle
+`wpm-review` est un workflow de diagnostic en lecture seule qui appelle
 l'outil `get_memory_stats` pour produire un tableau de bord de la santé
 de la mémoire. À utiliser avant de s'appuyer fortement sur la mémoire, ou
 quand on soupçonne des entrées périmées ou contradictoires.
@@ -319,7 +320,9 @@ redevient soumise au decay normal.
 - Sur-lier des entrées sans relation explicite dans le texte source.
 - Épingler un `learning`, un `bug_pattern`, ou une entrée jamais validée.
 - Déprécier une entrée sans être certain qu'elle est obsolète.
-- Ignorer les problèmes signalés par `/wpm-review` (contradictions non
+- Ignorer les problèmes signalés par `wpm-review` (contradictions non
   résolues, entrées jamais validées).
 - Remettre à plus tard la persistance parce qu'on est en mode plan —
-  un fait non persisté est perdu à la compaction.
+  un fait non persisté est perdu à la compaction. Si le host n'autorise
+  pas l'écriture en plan (permission `wpm_*` non posée), basculer en
+  mode build plutôt que de différer.

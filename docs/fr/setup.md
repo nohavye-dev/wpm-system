@@ -35,10 +35,7 @@ Ce que fait `install.sh` :
    `wpm-mcp-server` (non éditable) via `pip install`
 2. Pré-télécharge le modèle d'embedding (~80 MB) pour un premier démarrage
    hors-ligne
-3. Copie `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et
-   `/wpm-patterns` dans `~/.config/opencode/commands/` — commandes slash
-   globales (wrappers opencode qui délèguent aux prompts MCP)
-4. Installe la commande `wpm` dans `~/.local/bin` (ou `$XDG_BIN_HOME`)
+3. Installe la commande `wpm` dans `~/.local/bin` (ou `$XDG_BIN_HOME`)
 
 ## Activer sur un projet
 
@@ -95,9 +92,17 @@ Collez le snippet affiché par `wpm enable`. Pour opencode (projet ou global) :
         "WPM_CONFIG_PATH": "/abs/path/to/project/wpm.config.json"
       }
     }
+  },
+  "permission": {
+    "wpm_*": "allow"
   }
 }
 ```
+
+Le bloc `permission` est spécifique à opencode : il permet à l'agent de
+persister la mémoire (outils `wpm_*`) **même en mode plan**. Les autres
+hosts (Claude Desktop, etc.) acceptent le même bloc `mcp` et ignorent
+`permission`.
 
 Redémarrez ensuite votre host : les serveurs MCP sont configurés une seule
 fois au démarrage.

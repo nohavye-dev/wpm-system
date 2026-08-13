@@ -51,9 +51,17 @@ lequel le host lance le serveur :
         "WPM_CONFIG_PATH": "/abs/path/to/project/wpm.config.json"
       }
     }
+  },
+  "permission": {
+    "wpm_*": "allow"
   }
 }
 ```
+
+Le bloc `permission` est spécifique à opencode : il permet à l'agent de
+persister la mémoire (outils `wpm_*`) **même en mode plan**. Les autres
+hosts (Claude Desktop, etc.) acceptent le même bloc `mcp` et ignorent
+`permission`.
 
 `wpm enable` (voir le `README.md` racine) affiche ce snippet prêt à coller et
 `wpm enable --write-config` écrit le fichier `wpm.config.json` pour vous.
@@ -114,7 +122,8 @@ section 8 de la spécification.
 
 ## Prompts
 
-Les workflows `/wpm-*` de l'ancien plugin sont des prompts MCP :
+Les workflows des commandes `/wpm-*` de l'ancien plugin sont désormais des
+prompts MCP :
 
 | Prompt | Rôle |
 |---|---|
@@ -125,8 +134,7 @@ Les workflows `/wpm-*` de l'ancien plugin sont des prompts MCP :
 | `wpm-bootstrap` | Bootstrap initial d'un projet (README, docs, configs de lint, CI/CD) |
 | `wpm-patterns(type_filter)` | Analyse de patterns récurrents dans le code |
 
-Les commandes slash opencode installées (`~/.config/opencode/commands/wpm-*.md`)
-sont des wrappers qui délèguent à ces prompts.
+Votre host les expose tels quels (dans opencode : `/wpm:wpm-doc:mcp`, etc.).
 
 ## Embeddings
 

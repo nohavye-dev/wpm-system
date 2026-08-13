@@ -26,12 +26,11 @@ quel host MCP** (OpenCode, Claude Desktop, etc.).
 
 - crée un environnement virtuel géré dans `~/.local/share/wpm-system/venv` et y installe `wpm-mcp-server` (non éditable) ;
 - pré-télécharge le modèle d'embedding (~80 MB) pour un premier démarrage hors-ligne ;
-- copie `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et `/wpm-patterns` dans `~/.config/opencode/commands/` (wrappers opencode qui délèguent aux prompts MCP) ;
 - installe la commande `wpm` dans `~/.local/bin` (ou `$XDG_BIN_HOME`).
 
 (les chemins ci-dessus honorent $XDG_CONFIG_HOME / $XDG_DATA_HOME / $XDG_BIN_HOME lorsqu'ils sont définis)
 
-`./install.sh uninstall` (ou `wpm uninstall`) supprime tout globalement : venv, commandes, binaire `wpm`, données.
+`./install.sh uninstall` (ou `wpm uninstall`) supprime tout globalement : venv, binaire `wpm`, données.
 
 ## Activation par projet
 
@@ -62,20 +61,29 @@ ou global) :
         "WPM_CONFIG_PATH": "/abs/path/to/project/wpm.config.json"
       }
     }
+  },
+  "permission": {
+    "wpm_*": "allow"
   }
 }
 ```
+
+Le bloc `permission` est spécifique à opencode : il permet à l'agent de
+persister la mémoire (outils `wpm_*`) **même en mode plan**. Les autres
+hosts (Claude Desktop, etc.) acceptent le même bloc `mcp` et ignorent
+`permission`.
 
 **Redémarrez votre host** après `install.sh`, `wpm enable --write-config`,
 `wpm disable` ou toute modification de la config du host — la configuration
 est lue une seule fois au démarrage.
 
 Lorsqu'il est actif, le serveur expose les 11 outils de mémoire à l'LLM et
-orient son comportement : `initialize.instructions` embarque les règles
+oriente son comportement : `initialize.instructions` embarque les règles
 d'usage (l'agent doit appeler `query_context` en préambule des réponses
 substantielle et lire `wpm://project-rules` au démarrage de session), la
 resource `wpm://project-rules` est recomputée depuis la mémoire et invalidée
-à chaque mutation, et les workflows `/wpm-*` sont des prompts MCP.
+à chaque mutation, et les workflows `wpm-doc`, `wpm-code`, `wpm-review`,
+`wpm-bootstrap` et `wpm-patterns` sont des prompts MCP.
 
 ## Démarrage rapide
 
@@ -91,7 +99,7 @@ La documentation détaillée vit dans [`docs/fr/`](docs/fr/index.md) :
 - [`docs/fr/setup.md`](docs/fr/setup.md) — guide d'activation complet (installation, `wpm`, snippet MCP, redémarrage).
 - [`docs/fr/wpm-config-reference.md`](docs/fr/wpm-config-reference.md) — schéma `wpm.config.json` et substitutions par variables d'environnement.
 - [`docs/fr/memory-behavior-spec.md`](docs/fr/memory-behavior-spec.md) — comportement de l'agent : quand/comment écrire, valider, contredire, lire la mémoire.
-- [`docs/fr/commands.md`](docs/fr/commands.md) — commandes `/wpm-doc`, `/wpm-code`, `/wpm-review`, `/wpm-bootstrap` et `/wpm-patterns`.
+- [`docs/fr/commands.md`](docs/fr/commands.md) — workflows `wpm-doc`, `wpm-code`, `wpm-review`, `wpm-bootstrap` et `wpm-patterns` (prompts MCP).
 - [`wpm-mcp-server/README.md`](wpm-mcp-server/README.md) — le serveur MCP.
 
 ## Limitations
