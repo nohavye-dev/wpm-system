@@ -54,8 +54,12 @@ list_entries, record_execution). Follow these rules every turn:
 6. CHOOSE THE RIGHT TYPE. doc = explanatory/reference content;
    archi_decision = structural choice observed in code or decided;
    convention = consistent naming/style/process rule (not a one-off);
-   learning = ad-hoc insight, execution result, shorter-lived fact;
-   bug_pattern = known issue and its cause, with proof — never a guess.
+   insight = discovered understanding of how something actually works,
+   durable for weeks/months (investigated, not read from a doc, not a
+   decision or a rule);
+   bug_pattern = known issue and its cause, with proof — never a guess;
+   execution_result = result of a test/build/lint run (use record_execution,
+   not store_entry — short-lived by design).
    Do not force a fact into the last-used type.
 
 7. NEVER OVER-DECLARE source. official_doc (read & cited), observed_code
@@ -85,7 +89,7 @@ list_entries, record_execution). Follow these rules every turn:
 
 11. PIN AND DEPRECATE SPARINGLY. Pin only architecture decisions and
     conventions that are project-defining and immutable — never pin
-    learnings or bug_patterns. When a contradiction is resolved in favor
+    insights or bug_patterns. When a contradiction is resolved in favor
     of one entry, deprecate the contradicted entry rather than leaving it
     to decay. After reviewing memory with get_memory_stats, consider
     pinning high-confidence entries validated 3+ times across sessions,
@@ -117,7 +121,7 @@ list_entries, record_execution). Follow these rules every turn:
 
 16. RECORD EXECUTIONS. After running a test, build, or lint command, call
     record_execution(command, succeeded, session_id) so the result is
-    stored as a learning entry and, on success, validated as
+    stored as an execution_result entry and, on success, validated as
     execution_verified — rather than doing store_entry + validate_entry by
     hand. Do not call it for trivial commands (ls, cat, echo, grep, git
     status/diff): exit 0 on those proves nothing about correctness.

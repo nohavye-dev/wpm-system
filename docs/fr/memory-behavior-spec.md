@@ -84,8 +84,9 @@ d'en renforcer une seule, et pollue l'expansion par graphe.
 | `doc` | Contenu explicatif/référence issu d'une documentation |
 | `archi_decision` | Choix structurant, observé dans le code ou décidé explicitement |
 | `convention` | Règle de nommage/style/process suivie de façon cohérente (pas un cas isolé) |
-| `learning` | Apprentissage ponctuel, résultat d'exécution, fait à durée de vie plus courte |
+| `insight` | Compréhension découverte du fonctionnement réel, durable des semaines/mois — ni une décision, ni une règle, ni un bug, ni recopié d'une doc |
 | `bug_pattern` | Problème connu et sa cause, avec preuve (commentaire, TODO, ticket) — jamais une supposition |
+| `execution_result` | Résultat d'un test/build/lint (via `record_execution`, pas `store_entry`) — éphémère par conception |
 
 Ne pas forcer un fait dans un type qui ne lui correspond pas juste parce
 que c'est le type "par défaut" utilisé récemment.
@@ -276,7 +277,8 @@ toujours être contredite, validée, ou dépréciée).
   confiance stable >0.8.
 
 **Ne jamais épingler :**
-- Un `learning` ou un `bug_pattern` (durée de vie courte par nature).
+- Un `insight`, un `bug_pattern` ou un `execution_result` (durée de vie
+  courte par nature).
 - Une entrée avec une contradiction active non résolue.
 - Une entrée récente, non validée, ou dont la véracité n'est pas certaine.
 
@@ -318,7 +320,8 @@ redevient soumise au decay normal.
 - Différer l'écriture d'un fait important "pour plus tard" dans la même
   session.
 - Sur-lier des entrées sans relation explicite dans le texte source.
-- Épingler un `learning`, un `bug_pattern`, ou une entrée jamais validée.
+- Épingler un `insight`, un `bug_pattern`, un `execution_result`, ou une
+  entrée jamais validée.
 - Déprécier une entrée sans être certain qu'elle est obsolète.
 - Ignorer les problèmes signalés par `audit` (contradictions non
   résolues, entrées jamais validées).

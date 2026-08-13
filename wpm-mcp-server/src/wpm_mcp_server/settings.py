@@ -48,8 +48,9 @@ class DecaySettings:
             EntryType.ARCHI_DECISION.value: 0.00008,   # ~1 year
             EntryType.CONVENTION.value: 0.00016,       # ~6 months
             EntryType.DOC.value: 0.00021,              # ~4.5 months (indicative)
-            EntryType.LEARNING.value: 0.004,           # ~7 days
+            EntryType.INSIGHT.value: 0.001,            # ~1 month
             EntryType.BUG_PATTERN.value: 0.0016,       # ~18 days (measured)
+            EntryType.EXECUTION_RESULT.value: 0.01,    # ~3 days
         }
     )
     default_lambda: float = 0.001

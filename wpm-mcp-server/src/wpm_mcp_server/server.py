@@ -102,8 +102,8 @@ async def _on_memory_mutated(ctx: Context | None) -> None:
 
 @mcp.tool(
     description=(
-        "Store a new memory entry (doc, archi_decision, learning, convention, "
-        "or bug_pattern). CONTENT MUST BE IN ENGLISH. "
+        "Store a new memory entry (doc, archi_decision, insight, convention, "
+        "bug_pattern, or execution_result). CONTENT MUST BE IN ENGLISH. "
         "'source' should be one of: official_doc, observed_code, "
         "tool_execution, agent_inference (unknown sources get a neutral "
         "default confidence). Before storing, run query_context on the "
@@ -231,8 +231,8 @@ async def link_entries(
 
 @mcp.tool(
     description=(
-        "Capture the result of a test/build/lint command as memory: stores a "
-        "learning entry (source=tool_execution) and, on success, validates it "
+        "Capture the result of a test/build/lint command as memory: stores an "
+        "execution_result entry (source=tool_execution) and, on success, validates it "
         "as execution_verified in a single call. The command must look like a "
         "verification command (pytest, npm/pnpm/yarn/bun test or build, "
         "dotnet/cargo/go test or build, make/mix/flutter/mvn/gradle/sbt test, "
@@ -263,7 +263,7 @@ async def record_execution(ctx: Context, command: str, succeeded: bool, session_
                 f"Directory: {_config_dir}",
             ]
         )
-        store_result = repo.store_entry(type_="learning", content=content, source="tool_execution")
+        store_result = repo.store_entry(type_="execution_result", content=content, source="tool_execution")
         entry_id = store_result["entry_id"]
         if succeeded:
             validation = repo.validate_entry(
@@ -277,7 +277,7 @@ async def record_execution(ctx: Context, command: str, succeeded: bool, session_
         await _on_memory_mutated(ctx)
         return {
             "entry_id": entry_id,
-            "type": "learning",
+            "type": "execution_result",
             "stored": True,
             "validation": validation,
         }
@@ -291,7 +291,7 @@ async def record_execution(ctx: Context, command: str, succeeded: bool, session_
         "architecture decision that defines the project, a convention that is "
         "company/project policy, or an entry that has been validated repeatedly "
         "across many sessions and is now considered settled. DO NOT use for: "
-        "recent learnings, bug patterns that may be fixed, entries with active "
+        "recent insights, bug patterns that may be fixed, entries with active "
         "contradictions. Pinning is reversible via restore_entry."
     )
 )
@@ -343,8 +343,8 @@ async def restore_entry(ctx: Context, entry_id: str) -> dict:
     description=(
         "Paginated, filterable list of memory entries with current confidence. "
         "Excludes deprecated entries by default (set status='deprecated' to "
-        "include them). Optional filters: type (doc/archi_decision/learning/"
-        "convention/bug_pattern), status (active/pinned/deprecated), "
+        "include them). Optional filters: type (doc/archi_decision/insight/"
+        "convention/bug_pattern/execution_result), status (active/pinned/deprecated), "
         "min_confidence, max_confidence. limit max 200, default 50. "
         "Sorted by confidence descending. Returns entries + total for pagination."
     )
@@ -481,7 +481,7 @@ def wpm_audit() -> str:
         "   WPM Memory Review\n"
         "   Total: <N> entries\n"
         "     archi_decision: <N>   convention: <N>   doc: <N>   "
-        "learning: <N>   bug_pattern: <N>\n"
+        "insight: <N>   bug_pattern: <N>   execution_result: <N>\n"
         "   Confidence: High (>0.7) <N> / Medium (0.3-0.7) <N> / Low (<0.3) <N>\n"
         "\n"
         "3. Highlight problems under dedicated headings:\n"
@@ -651,7 +651,7 @@ def wpm_bootstrap() -> str:
         "purpose/domain (doc or archi_decision), key dependencies/tech stack "
         "(archi_decision), architectural overview (archi_decision), "
         "contribution guidelines (convention), testing/build instructions "
-        "(learning).\n"
+        "(insight).\n"
         "\n"
         "2. Documentation: search docs/, doc/, documentation/. Read relevant "
         ".md/.rst files (skip CHANGELOG, LICENSE, generated docs). Extract "
@@ -668,7 +668,7 @@ def wpm_bootstrap() -> str:
         "4. Dependencies and tooling: pyproject.toml / package.json / "
         "Cargo.toml / go.mod / Makefile / Justfile. Extract primary "
         "framework/runtime (archi_decision), package manager (convention), "
-        "standard build/test/lint commands (learning).\n"
+        "standard build/test/lint commands (insight).\n"
         "\n"
         "5. CI/CD: .github/workflows/, .gitlab-ci.yml, .circleci/config.yml, "
         "Jenkinsfile. Extract provider, key stages, required checks; if CI "
@@ -729,7 +729,7 @@ def wpm_patterns(type_filter: str = "") -> str:
         "(store_entry, type convention);\n"
         "   - convention validated 3+ times -> pin_entry;\n"
         "   - long-standing contradiction -> deprecate_entry the weaker one;\n"
-        "   - 3+ learnings confirming the same architecture decision -> "
+        "   - 3+ insights confirming the same architecture decision -> "
         "store_entry (type archi_decision) + pin_entry.\n"
         "   For each store_entry follow the standard rules: dedup via "
         "query_context first, English content, source 'observed_code' if "

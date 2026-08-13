@@ -101,19 +101,27 @@ rigoureuse dès que possible.
 
 ## 3. Valeurs provisoires (raisonnement de domaine, non mesurées)
 
-Aucune ancre publiée trouvée pour `archi_decision`, `convention` et
-`learning`. Résolus par **raisonnement de domaine** (option A) : ordre de
-grandeur cohérent avec les deux ancres mesurées, marqués « non mesurés ».
+Aucune ancre publiée trouvée pour `archi_decision`, `convention`, `insight`
+et `execution_result`. Résolus par **raisonnement de domaine** (option A) :
+ordre de grandeur cohérent avec les deux ancres mesurées, marqués « non
+mesurés ».
 
 | Type | λ/h (provisoire) | Demi-vie | Base |
 |------|------------------|----------|------|
 | `archi_decision` | 0.00008 | ~1 an | érosion architecturale lente (qualitatif) |
 | `convention` | 0.00016 | ~6 mois | change sur décision d'équipe |
-| `learning` | 0.004 | ~7 jours | le plus éphémère (« ad-hoc insight, execution result ») |
+| `insight` | 0.001 | ~1 mois | découverte durable (entre `doc` et `bug_pattern`) |
+| `execution_result` | 0.01 | ~3 jours | résultat de test/build, éphémère par conception |
+
+**Note (scission `learning`) :** l'ancien type `learning` regroupait deux
+durées de vie incompatibles (« ad-hoc insight » durable et « execution
+result » éphémère). Il a été scindé en `insight` (durable) et
+`execution_result` (éphémère), sans rétro-compatibilité (aucun projet ne
+l'utilise encore).
 
 **Options pour mesurer plus tard :** extraction GitHub ciblée (CHANGELOG,
 guides de migration, commits de refactor/dépréciation) pour
-archi_decision/convention ; learning reste le plus difficile (fourre-tout).
+archi_decision/convention/insight.
 
 ---
 
@@ -124,20 +132,20 @@ archi_decision/convention ; learning reste le plus difficile (fourre-tout).
 | `archi_decision` | 0.002 | 0.00008 | ~1 an | raisonnement |
 | `convention` | 0.003 | 0.00016 | ~6 mois | raisonnement |
 | `doc` | 0.004 | 0.00021 | ~4.5 mois | indicative (borne) |
+| `insight` | *(ex-learning 0.008)* | 0.001 | ~1 mois | raisonnement |
 | `bug_pattern` | 0.015 | 0.0016 | ~18 jours | **mesurée** |
-| `learning` | 0.008 | 0.004 | ~7 jours | raisonnement |
+| `execution_result` | *(ex-learning 0.008)* | 0.01 | ~3 jours | raisonnement |
 
 **Conclusion :** les anciens défauts étaient uniformément **trop
 agressifs** (demi-vies de 2 à 14 jours). Les nouvelles valeurs allongent
 les demi-vies d'un à deux ordres de grandeur, avec `bug_pattern` ancré sur
 une mesure (18 jours) et `doc` sur une borne indicative. L'ordre relatif
-reste archi > convention > doc > bug_pattern > learning (lent → rapide),
-mais `bug_pattern` passe désormais **plus lent** que `learning`, corrigeant
-une inversion de l'ancien défaut.
+est archi > convention > doc > insight > bug_pattern > execution_result
+(lent → rapide).
 
 *Note :* ces valeurs sont **appliquées dans le code** (`settings.py`) et
 documentées dans `wpm-config-reference.md`. Elles restent provisoires tant
-que `archi_decision`/`convention`/`learning` ne sont pas mesurées.
+que `archi_decision`/`convention`/`insight` ne sont pas mesurées.
 
 ---
 

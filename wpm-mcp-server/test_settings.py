@@ -121,7 +121,7 @@ with open(tmp4, "w") as f:
 settings = load_settings(tmp4).domain
 
 repo = Repository(conn=conn, embedder=_StubEmbedder(), settings=settings)
-result = repo.store_entry(type_="learning", content="test with custom default provenance", source="unknown_source_not_in_table")
+result = repo.store_entry(type_="insight", content="test with custom default provenance", source="unknown_source_not_in_table")
 assert result["provenance_score"] == 0.99, result
 print("OK: repository actually applies overridden settings, got provenance_score =", result["provenance_score"])
 

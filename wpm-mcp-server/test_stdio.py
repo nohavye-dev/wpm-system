@@ -101,7 +101,7 @@ async def main():
                     len(persist_prompt.messages) > 0,
                 )
 
-                # --- record_execution: non-trivial command stored as learning ---
+                # --- record_execution: non-trivial command stored as execution_result ---
                 rec_raw = await session.call_tool(
                     "record_execution",
                     {
@@ -112,8 +112,8 @@ async def main():
                 )
                 rec = json.loads(rec_raw.content[0].text)
                 check(
-                    "record_execution stores learning entry",
-                    rec.get("type") == "learning",
+                    "record_execution stores execution_result entry",
+                    rec.get("type") == "execution_result",
                     f"got {rec}",
                 )
                 if rec.get("entry_id"):

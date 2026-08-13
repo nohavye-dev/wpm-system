@@ -19,8 +19,9 @@
         "archi_decision": 0.00008,
         "convention": 0.00016,
         "doc": 0.00021,
-        "learning": 0.004,
-        "bug_pattern": 0.0016
+        "insight": 0.001,
+        "bug_pattern": 0.0016,
+        "execution_result": 0.01
       },
       "default_lambda": 0.001
     },

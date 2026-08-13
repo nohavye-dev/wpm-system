@@ -111,13 +111,13 @@ async def main():
             r = await session.call_tool(
                 "store_entry",
                 {
-                    "type": "learning",
+                    "type": "insight",
                     "content": "Pytest fixtures with session scope reduce runtime 40%",
                     "source": "agent_inference",
                 },
             )
             d4 = json.loads(r.content[0].text)
-            check("learning stored (low confidence)", d4.get("confidence") <= 0.4)
+            check("insight stored (low confidence)", d4.get("confidence") <= 0.4)
 
             # 3. link_entries
             print("\n3. link_entries")

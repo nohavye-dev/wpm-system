@@ -100,9 +100,9 @@ seule fois au démarrage.
 | `deprecate_entry(entry_id)` | Déprécier une entrée — exclue des résultats (réversible) |
 | `restore_entry(entry_id)` | Restaurer une entrée épinglée ou dépréciée en statut actif |
 | `list_entries(type?, status?, min_confidence?, max_confidence?, limit?, offset?)` | Liste paginée et filtrable des entrées avec leur confiance actuelle |
-| `record_execution(command, succeeded, session_id)` | Capturer un test/build/lint comme preuve forte : stocke une entrée `learning` (`tool_execution`) et la valide `execution_verified` en un seul appel. La commande doit matcher un pattern de vérification — les commandes triviales (`ls`, `cat`, `echo`, `grep`, `git status`) sont rejetées |
+| `record_execution(command, succeeded, session_id)` | Capturer un test/build/lint comme preuve forte : stocke une entrée `execution_result` (`tool_execution`) et la valide `execution_verified` en un seul appel. La commande doit matcher un pattern de vérification — les commandes triviales (`ls`, `cat`, `echo`, `grep`, `git status`) sont rejetées |
 
-`type` ∈ `doc`, `archi_decision`, `learning`, `convention`, `bug_pattern`.
+`type` ∈ `doc`, `archi_decision`, `insight`, `convention`, `bug_pattern`, `execution_result`.
 `evidence_type` ∈ `execution_verified`, `cross_reference`,
 `reuse_without_failure`, `agent_reasoning` (exclu du scoring — uniquement
 journalisé, selon la section 4 de la spécification).

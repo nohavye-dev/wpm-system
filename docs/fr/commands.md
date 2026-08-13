@@ -83,7 +83,7 @@ Affiche un tableau de bord de la santé de la mémoire persistante.
 
 - Appelle l'outil MCP `get_memory_stats` — un seul appel, lecture seule.
 - Présente les résultats en sections :
-  - **Total par type** (`archi_decision`, `convention`, `doc`, `learning`, `bug_pattern`)
+  - **Total par type** (`archi_decision`, `convention`, `doc`, `insight`, `bug_pattern`, `execution_result`)
   - **Distribution de confiance** : high (>0.7), medium (0.3-0.7), low (<0.3)
   - **⚠ Entrées jamais validées** — jamais confirmées par test, cross-reference ou réutilisation
   - **⚠ Contradictions actives** — paires d'entrées en conflit non résolu
@@ -118,7 +118,7 @@ Lit automatiquement, dans l'ordre :
 
 Pour chaque fait trouvé : déduplication via `query_context`, puis
 `store_entry(type, content, source="observed_code")`. Le prompt rend
-un résumé groupé par type (`archi_decision`, `convention`, `learning`).
+un résumé groupé par type (`archi_decision`, `convention`, `insight`).
 
 À utiliser une seule fois par projet, après `wpm enable --write-config`,
 pour peupler rapidement la mémoire avec ce qui existe déjà. La mémorisation
@@ -142,7 +142,7 @@ actionnable :
 - Convention validée 3+ fois → propose de l'épingler avec `pin_entry`
 - Contradiction non résolue depuis longtemps → propose de trancher et de
   déprécier l'entrée la plus faible
-- `learning` confirmant un choix structurel → propose de le solidifier
+- `insight` confirmant un choix structurel → propose de le solidifier
   en `archi_decision`
 
 Les actions sont exécutées automatiquement (pas de confirmation par

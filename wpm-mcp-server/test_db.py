@@ -58,7 +58,7 @@ import json
 conn.execute(
     "INSERT INTO entries (id, type, content, source, provenance_score, "
     "validation_score, last_validated_at, created_at) "
-    "VALUES ('test-1', 'learning', 'hello', 'agent_inference', 0.35, 0.0, "
+    "VALUES ('test-1', 'insight', 'hello', 'agent_inference', 0.35, 0.0, "
     "'2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00')"
 )
 vec = [0.0] + [0.01] * (EMBEDDING_DIM - 1)  # non-zero for cosine stability

@@ -166,8 +166,9 @@ validation, par type d'entrée.
     "archi_decision": 0.00008,
     "convention": 0.00016,
     "doc": 0.00021,
-    "learning": 0.004,
-    "bug_pattern": 0.0016
+    "insight": 0.001,
+    "bug_pattern": 0.0016,
+    "execution_result": 0.01
   },
   "default_lambda": 0.001
 }
@@ -175,8 +176,8 @@ validation, par type d'entrée.
 
 | Clé | Type | Rôle |
 |---|---|---|
-| `lambda_per_type` | objet `{type: float}` | Taux de décroissance (λ) par valeur de `type` (`doc`, `archi_decision`, `learning`, `convention`, `bug_pattern` — ce sont les seules valeurs valides pour `type` dans `store_entry`, contrairement à `source` ci-dessus). |
-| `default_lambda` | float | Utilisé si un type n'a pas d'entrée dans `lambda_per_type` (ne devrait pas arriver avec les 5 types standards, sert de filet de sécurité). |
+| `lambda_per_type` | objet `{type: float}` | Taux de décroissance (λ) par valeur de `type` (`doc`, `archi_decision`, `insight`, `convention`, `bug_pattern`, `execution_result` — ce sont les seules valeurs valides pour `type` dans `store_entry`, contrairement à `source` ci-dessus). |
+| `default_lambda` | float | Utilisé si un type n'a pas d'entrée dans `lambda_per_type` (ne devrait pas arriver avec les 6 types standards, sert de filet de sécurité). |
 
 Formule appliquée (voir `scoring.py::confidence_at`) :
 
@@ -186,8 +187,8 @@ confidence(t) = min(1, provenance_score + validation_score) × exp(−λ × heur
 
 Plus λ est **grand**, plus la confiance chute vite. Les demi-vies implicites
 sont : `archi_decision` ≈ 1 an, `convention` ≈ 6 mois, `doc` ≈ 4.5 mois,
-`bug_pattern` ≈ 18 jours, `learning` ≈ 7 jours. Ces valeurs sont calibrées
-sur des ancres externes mesurées — voir
+`insight` ≈ 1 mois, `bug_pattern` ≈ 18 jours, `execution_result` ≈ 3 jours.
+Ces valeurs sont calibrées sur des ancres externes mesurées — voir
 `new_spec/calibration-heuristique.md`.
 
 ### `domain.evidence`

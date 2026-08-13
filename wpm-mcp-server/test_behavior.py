@@ -96,7 +96,7 @@ rendered = behavior.format_project_rules(
         ],
         "related_context": [
             {
-                "type": "learning",
+                "type": "insight",
                 "content": "Tests run via pytest -q.",
                 "confidence": 0.5,
             }

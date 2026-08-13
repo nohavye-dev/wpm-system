@@ -14,9 +14,10 @@ from enum import StrEnum
 class EntryType(StrEnum):
     DOC = "doc"
     ARCHI_DECISION = "archi_decision"
-    LEARNING = "learning"
+    INSIGHT = "insight"
     CONVENTION = "convention"
     BUG_PATTERN = "bug_pattern"
+    EXECUTION_RESULT = "execution_result"
 
 
 class EvidenceType(StrEnum):
