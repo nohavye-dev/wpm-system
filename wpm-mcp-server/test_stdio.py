@@ -87,17 +87,17 @@ async def main():
                 prompts = await session.list_prompts()
                 prompt_names = [p.name for p in prompts.prompts]
                 for expected in (
-                    "wpm-persist",
-                    "wpm-review",
-                    "wpm-doc",
-                    "wpm-code",
-                    "wpm-bootstrap",
-                    "wpm-patterns",
+                    "persist",
+                    "audit",
+                    "learn",
+                    "map",
+                    "bootstrap",
+                    "patterns",
                 ):
                     check(f"prompt {expected} present", expected in prompt_names)
-                persist_prompt = await session.get_prompt("wpm-persist", {})
+                persist_prompt = await session.get_prompt("persist", {})
                 check(
-                    "wpm-persist prompt returns messages",
+                    "persist prompt returns messages",
                     len(persist_prompt.messages) > 0,
                 )
 

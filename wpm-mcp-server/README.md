@@ -127,14 +127,14 @@ prompts MCP :
 
 | Prompt | Rôle |
 |---|---|
-| `wpm-persist` | Checklist de fin de tâche : persister ce qui n'a pas encore été stocké |
-| `wpm-review` | Revue de la santé de la mémoire (conflits, entrées jamais validées, faibles) |
-| `wpm-doc(document_path)` | Ingest un document markdown, section par section (dédup ≥ 0.85, traduction EN) |
-| `wpm-code(scope)` | Cartographie du code en entrées de mémoire (conventions, patterns) |
-| `wpm-bootstrap` | Bootstrap initial d'un projet (README, docs, configs de lint, CI/CD) |
-| `wpm-patterns(type_filter)` | Analyse de patterns récurrents dans le code |
+| `persist` | Checklist de fin de tâche : persister ce qui n'a pas encore été stocké |
+| `audit` | Revue de la santé de la mémoire (conflits, entrées jamais validées, faibles) |
+| `learn(paths)` | Ingest un ou plusieurs documents markdown, section par section (dédup ≥ 0.85, traduction EN) |
+| `map(scopes)` | Cartographie de répertoires/fichiers en entrées de mémoire (conventions, patterns) |
+| `bootstrap` | Bootstrap initial d'un projet (README, docs, configs de lint, CI/CD) |
+| `patterns(type_filter)` | Analyse de patterns récurrents dans le code |
 
-Votre host les expose tels quels (dans opencode : `/wpm:wpm-doc:mcp`, etc.).
+Votre host les expose tels quels (dans opencode : `/wpm:learn:mcp`, etc.).
 
 ## Embeddings
 
@@ -260,7 +260,7 @@ pytest            # 12 fichiers de test à la racine (script-style via conftest)
 - La discipline du **working scope** (section 8 de la spécification : vidage
   avant compaction) était portée par les hooks du plugin OpenCode, supprimés
   dans cette version MCP-pure. Elle est remplacée par la discipline
-  write-as-you-go des règles 4/13 + le prompt `wpm-persist`.
+  write-as-you-go des règles 4/13 + le prompt `persist`.
 - Pas d'authentification/multi-location — suppose un seul fichier SQLite
   local par projet, conformément à la contrainte « local, fichier unique »
   de la spécification.

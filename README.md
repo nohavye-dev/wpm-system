@@ -13,8 +13,8 @@ Composant unique :
   `get_memory_stats`, `pin_entry`, `deprecate_entry`, `restore_entry`,
   `list_entries`, `record_execution`), 3 resources (`wpm://project-rules`,
   `wpm://memory-rules`, `wpm://verification-commands`), 6 prompts
-  (`wpm-persist`, `wpm-review`, `wpm-doc`, `wpm-code`, `wpm-bootstrap`,
-  `wpm-patterns`) et les règles d'usage dans `initialize.instructions`.
+  (`persist`, `audit`, `learn`, `map`, `bootstrap`,
+  `patterns`) et les règles d'usage dans `initialize.instructions`.
 
 Plus de plugin OpenCode, plus de hooks `experimental.*` : tout est exprimé
 avec des primitives MCP standard, donc le serveur fonctionne sur **n'importe
@@ -82,8 +82,8 @@ oriente son comportement : `initialize.instructions` embarque les règles
 d'usage (l'agent doit appeler `query_context` en préambule des réponses
 substantielle et lire `wpm://project-rules` au démarrage de session), la
 resource `wpm://project-rules` est recomputée depuis la mémoire et invalidée
-à chaque mutation, et les workflows `wpm-doc`, `wpm-code`, `wpm-review`,
-`wpm-bootstrap` et `wpm-patterns` sont des prompts MCP.
+à chaque mutation, et les workflows `learn`, `map`, `audit`,
+`bootstrap` et `patterns` sont des prompts MCP.
 
 ## Démarrage rapide
 
@@ -99,10 +99,10 @@ La documentation détaillée vit dans [`docs/fr/`](docs/fr/index.md) :
 - [`docs/fr/setup.md`](docs/fr/setup.md) — guide d'activation complet (installation, `wpm`, snippet MCP, redémarrage).
 - [`docs/fr/wpm-config-reference.md`](docs/fr/wpm-config-reference.md) — schéma `wpm.config.json` et substitutions par variables d'environnement.
 - [`docs/fr/memory-behavior-spec.md`](docs/fr/memory-behavior-spec.md) — comportement de l'agent : quand/comment écrire, valider, contredire, lire la mémoire.
-- [`docs/fr/commands.md`](docs/fr/commands.md) — workflows `wpm-doc`, `wpm-code`, `wpm-review`, `wpm-bootstrap` et `wpm-patterns` (prompts MCP).
+- [`docs/fr/commands.md`](docs/fr/commands.md) — workflows `learn`, `map`, `audit`, `bootstrap` et `patterns` (prompts MCP).
 - [`wpm-mcp-server/README.md`](wpm-mcp-server/README.md) — le serveur MCP.
 
 ## Limitations
 
 - Le document de spécification complet (modèle de poids, formules de récupération, working-scope) reste à conserver à côté du bundle ; les commentaires du code renvoient à ses sections.
-- Sans host, pas de push déterministe : la perte des hooks du plugin (compaction, auto-capture, nudge) est compensée par la discipline write-as-you-go (dans les règles) + le prompt `wpm-persist`.
+- Sans host, pas de push déterministe : la perte des hooks du plugin (compaction, auto-capture, nudge) est compensée par la discipline write-as-you-go (dans les règles) + le prompt `persist`.

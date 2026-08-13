@@ -1,8 +1,8 @@
-# Workflows `wpm-doc`, `wpm-code`, `wpm-review`, `wpm-bootstrap` et `wpm-patterns`
+# Workflows `learn`, `map`, `audit`, `bootstrap` et `patterns`
 
 Les cinq workflows sont des **prompts MCP** exposés par le serveur, invoqués
 manuellement par l'utilisateur. Dans opencode ils apparaissent comme commandes
-slash (ex. `/wpm:wpm-doc:mcp`) ; dans tout autre host MCP, comme des prompts
+slash (ex. `/wpm:learn:mcp`) ; dans tout autre host MCP, comme des prompts
 du serveur `wpm`. Ils offrent un moyen **contrôlé** d'intégrer de la
 documentation et du code dans la mémoire persistante du projet.
 
@@ -13,9 +13,9 @@ documentation et du code dans la mémoire persistante du projet.
 >   `validate_entry`…) — c'est le comportement par défaut, décrit dans
 >   [`memory-behavior-spec.md`](memory-behavior-spec.md). Les prompts ne le
 >   remplacent ni ne le bloquent.
-> - **Ingestion contrôlée (utilisateur, manuelle)** : `wpm-doc`,
->   `wpm-code` et `wpm-bootstrap` servent à l'apport massif et vérifié
->   d'un document complet, d'une cartographie du code ou d'un peuplement
+> - **Ingestion contrôlée (utilisateur, manuelle)** : `learn`,
+>   `map` et `bootstrap` servent à l'apport massif et vérifié
+>   de documents, d'une cartographie du code ou d'un peuplement
 >   initial. On ne les utilise pas pour des faits
 >   ponctuels rencontrés pendant une tâche.
 
@@ -26,13 +26,19 @@ pas activée. Le prompt le signale poliment : lancez
 `wpm enable --write-config` à la racine du projet, ajoutez l'entrée `mcp`
 affichée dans la configuration de votre host, puis redémarrez le host.
 
+Si aucun chemin n'est fourni à `learn` ou `map`, le prompt affiche
+**uniquement son usage** (la ligne `USAGE:` ci-dessous) et ne fait rien
+d'autre — il ne devine ni fichier ni périmètre.
+
 ---
 
-## `wpm-doc <chemin>`
+## `learn <chemins>`
 
-Ingère un document markdown existant dans la mémoire persistante.
+Ingère un ou plusieurs documents markdown existants dans la mémoire
+persistante. Les chemins sont séparés par des espaces (guillemets pour les
+chemins avec espaces) ; chaque fichier est traité dans l'ordre.
 
-- Le document est **découpé par sections** (`##`/`###`, ou paragraphes
+- Chaque document est **découpé par sections** (`##`/`###`, ou paragraphes
   logiques) — chaque section devient une entrée de mémoire candidate.
 - **Déduplication** : avant chaque écriture, `query_context` vérifie si le
   fait existe déjà (similarité ~0.85) → au lieu d'un doublon,
@@ -44,34 +50,34 @@ Ingère un document markdown existant dans la mémoire persistante.
   `source: "official_doc"`.
 - Les sections liées entre elles sont reliées via `link_entries` quand la
   relation est explicite.
-- Le prompt rend un **résumé** en fin de parcours : sections stockées,
-  dédupliquées/revalidées, ignorées (et pourquoi).
+- Le prompt rend un **résumé** en fin de parcours : par fichier, sections
+  stockées, dédupliquées/revalidées, ignorées (et pourquoi).
 
-Si aucun chemin n'est fourni, le prompt demande un chemin et s'arrête —
-il ne devine pas de fichier.
+Sans chemin : affiche l'usage et s'arrête — ne devine pas de fichier.
 
 ---
 
-## `wpm-code [scope]`
+## `map [scopes]`
 
 Cartographie l'architecture et les conventions de la base de code dans la
-mémoire persistante.
+mémoire persistante. Les scopes (répertoires ou fichiers) sont séparés par
+des espaces ; chacun est parcouru dans l'ordre.
 
-- Si `<scope>` est vide, tout le projet est cartographié ; sinon, le
-  sous-arbre nommé.
 - Ce n'est **pas un index fichier par fichier** : seuls quelques faits
   structurants durables sont extraits, toujours ancrés dans du code
   réellement lu (pas des noms de dossiers devinés).
 - Types utilisés : `archi_decision` (choix structurel observé),
   `convention` (règle suivie de façon cohérente), `bug_pattern` (problème
   connu documenté, jamais supposé), `source: "observed_code"`.
-- Même déduplication que `wpm-doc` (`query_context` avant écriture,
+- Même déduplication que `learn` (`query_context` avant écriture,
   `validate_entry` au lieu d'un doublon).
 - Le prompt rend un **résumé** : ce qui a été stocké (groupé par type),
   revalidé, et surtout ce qui a été envisagé puis **écarté** faute de
   confiance suffisante.
 
-## `wpm-review`
+Sans scope : affiche l'usage et s'arrête — ne devine pas de périmètre.
+
+## `audit`
 
 Affiche un tableau de bord de la santé de la mémoire persistante.
 
@@ -89,10 +95,10 @@ Affiche un tableau de bord de la santé de la mémoire persistante.
 
 ---
 
-## `wpm-bootstrap`
+## `bootstrap`
 
 Peuple la mémoire à partir des artefacts existants du projet — en une seule
-passe. C'est l'équivalent d'un `wpm-doc` + `wpm-code` généralisé, mais
+passe. C'est l'équivalent d'un `learn` + `map` généralisé, mais
 appliqué à tout le projet.
 
 Lit automatiquement, dans l'ordre :
@@ -120,7 +126,7 @@ incrémentale au fil du travail continue ensuite normalement.
 
 ---
 
-## `wpm-patterns [type]`
+## `patterns [type]`
 
 Analyse la mémoire pour détecter des patterns récurrents et proposer
 des améliorations — conventions manquantes, décisions d'architecture
@@ -147,8 +153,8 @@ le résultat négatif est valide et signalé clairement.
 ## Notes
 
 - Les cinq prompts sont déclarés dans `wpm-mcp-server` sous les mêmes noms
-  (`wpm-doc`, `wpm-code`, `wpm-review`, `wpm-bootstrap`, `wpm-patterns`), à
-  côté de `wpm-persist` (checklist de fin de tâche).
+  (`learn`, `map`, `audit`, `bootstrap`, `patterns`), à
+  côté de `persist` (checklist de fin de tâche).
 - Lire le résumé renvoyé : des sections/faits écartés volontairement (trop
   vagues, trop incertains) indiquent un travail de sélection, pas un échec.
 - Après une ingestion, vous pouvez renforcer une entrée par des preuves

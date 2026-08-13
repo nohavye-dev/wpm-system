@@ -11,8 +11,8 @@ server works with any MCP host:
   notification) on every mutation;
 - record_execution captures test/build/lint results as execution_verified
   evidence without relying on a tool.execute.after hook;
-- the /wpm-* workflows are exposed as MCP prompts (wpm-persist, wpm-review,
-  wpm-doc, wpm-code, wpm-bootstrap, wpm-patterns).
+- the wpm workflows are exposed as MCP prompts (persist, audit, learn, map,
+  bootstrap, patterns).
 
 Host-agnostic activation: the server is active when it can resolve a database
 path — from wpm.config.json (relative to its own location, not the host's
@@ -450,7 +450,7 @@ def verification_commands() -> str:
 # --- prompts ----------------------------------------------------------------
 
 @mcp.prompt(
-    name="wpm-persist",
+    name="persist",
     description="End-of-task persistence checklist: persist any durable facts from the session that were not yet stored.",
 )
 def wpm_persist() -> str:
@@ -466,10 +466,10 @@ def wpm_persist() -> str:
 
 
 @mcp.prompt(
-    name="wpm-review",
+    name="audit",
     description="Review the health of the project's persistent memory (read-only dashboard).",
 )
-def wpm_review() -> str:
+def wpm_audit() -> str:
     return (
         "You are reviewing the health of this project's persistent memory system.\n"
         "\n"
@@ -508,25 +508,32 @@ def wpm_review() -> str:
 
 
 @mcp.prompt(
-    name="wpm-doc",
-    description="Ingest a markdown document into persistent memory, chunked by section.",
+    name="learn",
+    description="Ingest one or more markdown documents into persistent memory, chunked by section.",
 )
-def wpm_doc(document_path: str) -> str:
+def wpm_learn(paths: str = "") -> str:
     return (
-        "You are ingesting a markdown document into the project's persistent "
+        "You are ingesting markdown documents into the project's persistent "
         "memory system (the wpm MCP server: store_entry, query_context, "
         "validate_entry, contradict_entry, link_entries).\n"
         "\n"
-        "Document to ingest: {path}\n"
+        "USAGE: learn <path-to-doc.md> [more-docs.md ...] — ingest one or "
+        "more markdown files, section by section, into persistent memory.\n"
+        "\n"
+        "Paths: {paths}\n"
+        "\n"
+        "If no path is given, reply with this usage message and do NOT call "
+        "any tool.\n"
         "\n"
         "Follow these steps exactly:\n"
         "\n"
-        "1. Read the file at that path. If it does not exist, say so and "
-        "stop — do not guess a file.\n"
+        "1. Treat {paths} as a space-separated list of files. Process each "
+        "file in order. If a file does not exist, say so and move on to the "
+        "next — do not guess a file.\n"
         "\n"
-        "2. Split it into sections along its ##/### headings (or logical "
-        "paragraphs if it has no headings). Each section becomes ONE "
-        "candidate memory entry. Do NOT store the whole file as a single "
+        "2. For each file, split it into sections along its ##/### headings "
+        "(or logical paragraphs if it has no headings). Each section becomes "
+        "ONE candidate memory entry. Do NOT store a whole file as a single "
         "entry — this destroys retrieval granularity.\n"
         "\n"
         "3. For each section, before storing:\n"
@@ -548,27 +555,32 @@ def wpm_doc(document_path: str) -> str:
         "4. Link related sections to each other with link_entries when one "
         "section clearly depends on or refines another — don't over-link.\n"
         "\n"
-        "5. Report back a short summary: how many sections stored as new "
-        "entries, how many deduplicated/revalidated instead, and any section "
-        "skipped and why.\n"
+        "5. Report back a short summary: for each file, how many sections "
+        "stored as new entries, how many deduplicated/revalidated instead, "
+        "and any section skipped and why.\n"
         "\n"
         "Do not ask for confirmation before each individual store_entry call "
-        "— work through the whole document, then report the summary at the end."
-    ).format(path=document_path)
+        "— work through the whole list, then report the summary at the end."
+    ).format(paths=paths)
 
 
 @mcp.prompt(
-    name="wpm-code",
-    description="Map the existing codebase's architecture and conventions into persistent memory.",
+    name="map",
+    description="Map the structure, architecture and conventions of the given code directories/files into persistent memory.",
 )
-def wpm_code(scope: str = "") -> str:
-    scope_text = scope.strip() if scope else "(the whole project)"
+def wpm_map(scopes: str = "") -> str:
     return (
         "You are mapping the structure of this codebase into the project's "
         "persistent memory system (the wpm MCP server: store_entry, "
         "query_context, validate_entry, contradict_entry, link_entries).\n"
         "\n"
-        "Scope to map: {scope}\n"
+        "USAGE: map <path-or-dir> [more-paths ...] — survey the given "
+        "directories/files and store durable structural facts.\n"
+        "\n"
+        "Scopes to map: {scopes}\n"
+        "\n"
+        "If no scope is given, reply with this usage message and do NOT call "
+        "any tool.\n"
         "\n"
         "This is NOT a file-by-file index — that would flood memory with "
         "noise and give no retrieval value. You are extracting a small number "
@@ -577,14 +589,15 @@ def wpm_code(scope: str = "") -> str:
         "\n"
         "Follow these steps:\n"
         "\n"
-        "1. Survey the structure — list the directory tree of the scope "
+        "1. Treat {scopes} as a space-separated list of directories/files. "
+        "For each one, survey the structure — list its directory tree "
         "(respecting .gitignore; skip build artifacts, node_modules, "
         "bin/obj, dist, .venv, etc). Identify the main layers/modules and "
         "what each is responsible for.\n"
         "\n"
         "2. Read enough real code to ground your findings — key entry points, "
         "the most central classes/modules per layer, existing README/docs in "
-        "the scope, project/config files. Do not infer architecture purely "
+        "each scope, project/config files. Do not infer architecture purely "
         "from folder names without checking the code actually matches.\n"
         "\n"
         "3. Identify durable facts, each becoming ONE candidate entry:\n"
@@ -617,11 +630,11 @@ def wpm_code(scope: str = "") -> str:
         "\n"
         "Do not ask for confirmation before each individual store_entry call "
         "— do the full survey, then report the summary at the end."
-    ).format(scope=scope_text)
+    ).format(scopes=scopes)
 
 
 @mcp.prompt(
-    name="wpm-bootstrap",
+    name="bootstrap",
     description="Bootstrap the project's persistent memory from existing artifacts (README, docs, configs, CI, structure).",
 )
 def wpm_bootstrap() -> str:
@@ -684,7 +697,7 @@ def wpm_bootstrap() -> str:
 
 
 @mcp.prompt(
-    name="wpm-patterns",
+    name="patterns",
     description="Analyze memory for recurring patterns and suggest (and execute) new conventions or architecture decisions.",
 )
 def wpm_patterns(type_filter: str = "") -> str:

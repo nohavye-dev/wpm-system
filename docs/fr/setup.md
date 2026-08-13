@@ -6,8 +6,8 @@ WPM est un **serveur MCP pur** : plus de plugin OpenCode, plus de hooks. Le
 serveur Python (`wpm-mcp-server`) expose la mémoire (11 outils), les règles
 d'usage (dans `initialize.instructions` + resource `wpm://memory-rules`), les
 règles du projet (resource `wpm://project-rules`) et les workflows
-(prompts `wpm-persist`, `wpm-review`, `wpm-doc`, `wpm-code`, `wpm-bootstrap`,
-`wpm-patterns`) via le protocole MCP standard. Il fonctionne avec **n'importe
+(prompts `persist`, `audit`, `learn`, `map`, `bootstrap`,
+`patterns`) via le protocole MCP standard. Il fonctionne avec **n'importe
 quel host MCP**.
 
 Le serveur est **inerte par projet** : sans `wpm.config.json` (ou sans

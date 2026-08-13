@@ -98,7 +98,7 @@ list_entries, record_execution). Follow these rules every turn:
 
 13. SESSION DISCIPLINE. Keep the same session_id for the whole task — the
     anti-loop dedup depends on it. Before a task ends or the session goes
-    idle, do a final pass (or invoke the wpm-persist prompt): is there any
+    idle, do a final pass (or invoke the persist MCP prompt): is there any
     decision/result/pattern not yet persisted? If so, write it now.
 
 14. WRITE MEMORY ANYTIME. Memory write tools (store_entry, validate_entry,
@@ -110,10 +110,10 @@ list_entries, record_execution). Follow these rules every turn:
     context compaction — do not assume you will remember it later.
 
 15. INCREMENTAL MEMORY IS ALWAYS FREE. Persist durable facts as they
-    emerge during normal work. The wpm-doc, wpm-code, wpm-bootstrap,
-    wpm-patterns and wpm-review MCP prompts are user-controlled workflows for
-    bulk ingestion (a full document, a codebase survey) — do not wait for
-    them to memorize, and do not use them for mid-task facts.
+    emerge during normal work. The learn, map, bootstrap, patterns and
+    audit MCP prompts are user-controlled workflows for bulk ingestion (a
+    full document, a codebase survey) — do not wait for them to memorize,
+    and do not use them for mid-task facts.
 
 16. RECORD EXECUTIONS. After running a test, build, or lint command, call
     record_execution(command, succeeded, session_id) so the result is
