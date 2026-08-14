@@ -9,7 +9,7 @@ MCP (OpenCode, Claude Desktop, etc.).
 
 ## Documentation
 
-- [`setup.md`](setup.md) — guide d'activation : couvre l'installation globale (`install.sh`) et le flux par projet `wpm enable` / `wpm enable --write-config` / `wpm disable` / `wpm uninstall`, l'entrée `mcp` à ajouter dans votre host, et le redémarrage après chaque étape.
+- [`setup.md`](setup.md) — guide d'activation : couvre l'installation globale (`install.sh`), l'enregistrement unique du serveur dans le host, et le flux par projet `wpm enable` / `wpm disable` / `wpm uninstall`, avec le redémarrage après chaque étape.
 - [`wpm-config-reference.md`](wpm-config-reference.md) — référence du schéma `wpm.config.json` : `db_path` obligatoire, sections optionnelles (`confidence_threshold`, `verification_command_patterns`, `domain`), et substitutions par variables d'environnement.
 - [`memory-behavior-spec.md`](memory-behavior-spec.md) — comportement de l'agent : quand et comment écrire/valider/contredire/lire la mémoire, et le rôle des commandes d'ingestion.
 - [`commands.md`](commands.md) — workflows `learn`, `map`, `audit`, `bootstrap` et `patterns` (prompts MCP) : ingestion contrôlée de documents, cartographie du code, revue de la santé de la mémoire, bootstrap initial du projet, et analyse de patterns.

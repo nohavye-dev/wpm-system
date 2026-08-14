@@ -39,8 +39,8 @@ cp "$BUNDLE_DIR/scripts/wpm" "$BIN_DIR/wpm"
 chmod +x "$BIN_DIR/wpm"
 sed -i "1s|^#!/usr/bin/env python3|#!$DATA_DIR/venv/bin/python3|" "$BIN_DIR/wpm"
 
-printf 'wpm installed. In each project: wpm enable --write-config\n'
-printf 'then add the MCP server snippet printed by "wpm enable" to your host config.\n'
+printf 'wpm installed. In each project: wpm enable\n'
+printf 'then register the MCP server once in opencode — see docs/fr/setup.md\n'
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
   printf 'add %s to your PATH\n' "$BIN_DIR"
 fi

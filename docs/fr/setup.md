@@ -13,8 +13,10 @@ quel host MCP**.
 Le serveur est **inerte par projet** : sans `wpm.config.json` (ou sans
 `WPM_DB_PATH`), il démarre, liste ses outils, mais chaque appel renvoie une
 erreur claire « wpm is not activated in this project ». L'activation d'un
-projet = un `wpm.config.json` à sa racine + une entrée `mcp` dans la
-configuration de votre host qui pointe vers ce fichier.
+projet = un `wpm.config.json` à sa racine. Le serveur est enregistré **une
+seule fois** dans le host (globalement), avec un répertoire de travail ancré
+au projet (`cwd: "."` pour opencode) : il détecte alors le `wpm.config.json`
+du projet automatiquement.
 
 - `wpm.config.json` **absent** + pas de `WPM_DB_PATH` → serveur inerte.
 - `wpm.config.json` **présent** → les 11 outils mémoire sont exposés à
@@ -45,20 +47,11 @@ Depuis la racine du projet concerné :
 wpm enable
 ```
 
-`wpm enable` **n'écrit rien** : il affiche le snippet `mcp` prêt à coller
-dans votre configuration de host (avec le chemin du venv et
-`WPM_CONFIG_PATH` pointant vers le `wpm.config.json` du projet).
+`wpm enable` écrit `wpm.config.json` à la racine du projet (avec
+confirmation ; `--yes` pour sauter la confirmation) :
 
-Pour aussi écrire le fichier de config (avec confirmation) :
-
-```bash
-wpm enable --write-config
-```
-
-Ce que fait `--write-config` :
-1. Confirme l'écriture de `wpm.config.json` à la racine du projet
-   (`--yes` pour sauter la confirmation) ; `db_path` par défaut `.wpm/wpm.db`
-   s'il est absent — les clés existantes sont préservées
+1. `db_path` par défaut `.wpm/wpm.db` s'il est absent — les clés existantes
+   sont préservées
 2. Crée le répertoire de la base et l'ajoute au `.gitignore` du projet
 3. Crée la base de données (schéma SQLite seul — le modèle d'embedding n'est
    pas téléchargé ici)
@@ -71,16 +64,17 @@ Ce que fait `--write-config` :
 Pour stocker la base dans un sous-dossier autre que `.wpm/` :
 
 ```bash
-wpm enable .memory --write-config   # → db_path ".memory/wpm.db"
+wpm enable .memory   # → db_path ".memory/wpm.db"
 ```
 
 Le `db_dir` ne définit le chemin que lors d'une **première activation** : si
 un `db_path` existe déjà dans `wpm.config.json`, il est préservé et `db_dir`
 est ignoré.
 
-### Brancher le serveur dans le host
+## Enregistrer le serveur MCP (une fois, global)
 
-Collez le snippet affiché par `wpm enable`. Pour opencode (projet ou global) :
+Après l'installation, enregistrez le serveur dans la configuration globale
+d'opencode (`~/.config/opencode/opencode.json`) :
 
 ```json
 {
@@ -88,9 +82,7 @@ Collez le snippet affiché par `wpm enable`. Pour opencode (projet ou global) :
     "wpm": {
       "type": "local",
       "command": ["~/.local/share/wpm-system/venv/bin/python", "-m", "wpm_mcp_server"],
-      "environment": {
-        "WPM_CONFIG_PATH": "/abs/path/to/project/wpm.config.json"
-      }
+      "cwd": "."
     }
   },
   "permission": {
@@ -99,18 +91,16 @@ Collez le snippet affiché par `wpm enable`. Pour opencode (projet ou global) :
 }
 ```
 
+`cwd: "."` lance le serveur avec comme répertoire de travail le **projet
+ouvert** (résolu depuis le workspace opencode). Le serveur y cherche alors
+`wpm.config.json` automatiquement : un projet avec config est activé, un
+projet sans config reste inerte.
+
 Le bloc `permission` est spécifique à opencode : il permet à l'agent de
-persister la mémoire (outils `wpm_*`) **même en mode plan**. Les autres
-hosts (Claude Desktop, etc.) acceptent le même bloc `mcp` et ignorent
-`permission`.
+persister la mémoire (outils `wpm_*`) **même en mode plan**.
 
-Redémarrez ensuite votre host : les serveurs MCP sont configurés une seule
+Redémarrez ensuite opencode : les serveurs MCP sont configurés une seule
 fois au démarrage.
-
-> **Note** : `WPM_CONFIG_PATH` rend l'activation indépendante du répertoire
-> de travail avec lequel le host lance le serveur — un `db_path` relatif
-> dans la config est résolu par rapport au répertoire du fichier, pas par
-> rapport au cwd du host.
 
 ## Désactiver sur un projet
 
@@ -119,8 +109,8 @@ wpm disable
 ```
 
 Supprime `wpm.config.json` du projet. Les données (`.wpm/wpm.db`) sont
-**conservées**. Retirez ensuite l'entrée `mcp` « wpm » de votre
-configuration de host (elle reste active sinon) et redémarrez le host.
+**conservées**. L'entrée `mcp` globale reste en place — le serveur devient
+simplement inerte pour ce projet (plus de config trouvée).
 
 ## Désinstallation complète
 
@@ -138,8 +128,8 @@ ou, depuis la racine du dépôt :
 `install.sh uninstall` délègue à la commande `wpm uninstall` si le binaire
 `wpm` existe, sinon au script du bundle `scripts/wpm uninstall` ; il ne
 signale « non installé » que si ce script est lui aussi absent. Supprime le
-venv serveur, les commandes globales et la commande `wpm`. Retirez ensuite
-les entrées `mcp` « wpm » de vos configurations de host.
+venv serveur et la commande `wpm`. Retirez ensuite l'entrée `mcp` « wpm »
+de votre configuration globale d'opencode.
 
 ## `wpm search` — interroger la mémoire depuis le terminal
 
@@ -149,7 +139,7 @@ wpm search "constructor parameter object pattern"
 
 Recherche les entrées pertinentes via l'API `query_context` et affiche les
 résultats formatés pour un humain. Fonctionne uniquement dans un projet
-où `wpm enable --write-config` a été exécuté.
+où `wpm enable` a été exécuté.
 
 Options :
 ```bash
@@ -179,12 +169,12 @@ aperçu du contenu.
   `db_path` (choix du dossier/nom de la base), `confidence_threshold`
   (seuil d'injection des project-rules), `verification_command_patterns`
   (regex ajoutées pour `record_execution`), `domain` (tuning avancé du
-  scoring). `wpm enable --write-config` les préserve et ne remplit que les
-  clés absentes.
+  scoring). `wpm enable` les préserve et ne remplit que les clés absentes.
 - Après toute modification de la config de host (`opencode.json`,
   `wpm.config.json`, `install.sh`), **redémarrez votre host** : la config
   n'est chargée qu'une fois au démarrage.
 - Le serveur se lance avec `python -m wpm_mcp_server` (interpréteur du venv
-  `~/.local/share/wpm-system/venv/bin/python`) et lit `WPM_CONFIG_PATH`
-  (défaut `wpm.config.json` dans le cwd). `WPM_DB_PATH` passe devant
+  `~/.local/share/wpm-system/venv/bin/python`) et cherche `wpm.config.json`
+  dans son répertoire de travail (le projet, via `cwd: "."`). `WPM_CONFIG_PATH`
+  reste disponible comme override explicite ; `WPM_DB_PATH` passe devant
   `db_path` ; `WPM_EMBEDDING_MODEL` change le modèle d'embedding.

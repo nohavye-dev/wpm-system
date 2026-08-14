@@ -2,14 +2,15 @@
 
 ## Où vit la config
 
-`wpm.config.json` se trouve à la **racine du projet**. C'est la **marqueur
+`wpm.config.json` se trouve à la **racine du projet**. C'est le **marqueur
 d'activation** du serveur MCP : sans lui (ou sans `WPM_DB_PATH`), le serveur
 démarre en mode **inerte** — il liste ses outils mais chaque appel renvoie
 une erreur claire « wpm is not activated in this project ». L'activation
-réelle passe par une entrée `mcp` dans la configuration de **votre host**
-(`opencode.json` par exemple), qui lance le serveur avec
-`WPM_CONFIG_PATH` pointant vers ce fichier. Voir
-[`setup.md`](setup.md) pour le snippet exact.
+réelle passe par l'enregistrement **global** du serveur dans la
+configuration de votre host (`opencode.json`), lancé avec `cwd: "."` pour que
+son répertoire de travail soit le projet — il y trouve alors
+`wpm.config.json` automatiquement. Voir
+[`setup.md`](setup.md) pour le bloc `mcp` exact.
 
 - Fichier **absent** + pas de `WPM_DB_PATH` → serveur inerte.
 - Fichier **présent** (ou `WPM_DB_PATH` défini) → le serveur expose les
@@ -18,7 +19,7 @@ réelle passe par une entrée `mcp` dans la configuration de **votre host**
   `pin_entry`, `deprecate_entry`, `restore_entry`, `list_entries`,
   `record_execution`.
 
-Le fichier est normalement écrit par `wpm enable --write-config` (qui remplit
+Le fichier est normalement écrit par `wpm enable` (qui remplit
 `db_path` par défaut `.wpm/wpm.db` s'il est absent) et supprimé par
 `wpm disable` (les données sont conservées). Il peut aussi être localisé via
 `WPM_CONFIG_PATH`.
@@ -41,7 +42,7 @@ Une clé absente garde sa valeur par défaut ; le fichier peut être partiel. Un
 
 Chemin vers le fichier SQLite. Un chemin **relatif est résolu par rapport au
 répertoire qui contient `wpm.config.json`** (pas le répertoire de travail du
-host, sur lequel le serveur n'a aucun contrôle) — `wpm enable --write-config`
+host, sur lequel le serveur n'a aucun contrôle) — `wpm enable`
 écrit `.wpm/wpm.db` s'il est absent (les clés existantes — dont `db_path` —
 sont préservées). Le chemin doit pointer **à l'intérieur de ce répertoire** :
 `wpm enable` refuse un `db_path` qui en sort (chemin absolu externe, ou
@@ -126,7 +127,7 @@ avoir déjà inséré des entrées nécessite de ré-embedder la base (supprimez
 
 ## `domain` — configuration avancée (scoring et retrieval) [optionnel]
 
-Section **optionnelle** de tuning avancé du scoring, composée de 6 sous-sections : `provenance`, `decay`, `evidence`, `validation`, `retrieval`, `expansion`. Elle est **préservée par `wpm enable --write-config`** si elle existe déjà dans le fichier. Uniquement lue par le serveur Python. **À laisser de côté sauf besoin explicite de tuning** — les 6 sous-sections suivantes ne concernent que le calcul du score de confiance et du retrieval, pas le fonctionnement de base.
+Section **optionnelle** de tuning avancé du scoring, composée de 6 sous-sections : `provenance`, `decay`, `evidence`, `validation`, `retrieval`, `expansion`. Elle est **préservée par `wpm enable`** si elle existe déjà dans le fichier. Uniquement lue par le serveur Python. **À laisser de côté sauf besoin explicite de tuning** — les 6 sous-sections suivantes ne concernent que le calcul du score de confiance et du retrieval, pas le fonctionnement de base.
 
 ### `domain.provenance`
 
@@ -312,18 +313,18 @@ du seuil de création automatique de liens implicites.
 ## Lancement du serveur
 
 Le serveur est lancé par **votre host MCP** via une entrée `mcp` dans sa
-configuration (`opencode.json` par exemple) — ce n'est ni un plugin, ni une
-constante en dur. La commande et l'environnement sont décidés là :
+configuration globale (`opencode.json`) — ce n'est ni un plugin, ni une
+constante en dur. La commande et le répertoire de travail sont décidés là :
 
 | Élément | Valeur recommandée |
 |---|---|
 | `command` | `~/.local/share/wpm-system/venv/bin/python -m wpm_mcp_server` (chemin respectant `XDG_DATA_HOME`) |
-| `environment.WPM_CONFIG_PATH` | chemin absolu du `wpm.config.json` du projet |
+| `cwd` | `"."` — lance le serveur dans le **projet ouvert** (résolu depuis le workspace opencode) |
 
-`wpm enable` affiche ce snippet prêt à coller. Le serveur résout un
-`db_path` relatif par rapport au répertoire de `wpm.config.json` (pas le
-répertoire de travail du host), donc l'entrée `mcp` fonctionne quel que
-soit le répertoire de travail avec lequel le host lance le serveur.
+`cwd: "."` ancre le serveur au projet : il y cherche `wpm.config.json`
+automatiquement, et résout un `db_path` relatif par rapport à ce répertoire
+(pas le répertoire de travail par défaut du host). `WPM_CONFIG_PATH` reste
+disponible comme override explicite si besoin.
 
 ---
 

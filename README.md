@@ -36,20 +36,20 @@ quel host MCP** (OpenCode, Claude Desktop, etc.).
 
 Le serveur est global mais **inerte par projet** : il ne s'active que si un
 `wpm.config.json` existe dans le projet (ou si `WPM_DB_PATH` est défini).
-L'activation = ce fichier + une entrée `mcp` dans la configuration de votre
-host (`opencode.json` par exemple).
+L'activation = ce fichier à la racine du projet. Le serveur est enregistré
+**une fois** dans le host (globalement), avec un répertoire de travail ancré
+au projet (`cwd: "."`).
 
 ```bash
-wpm enable                      # affiche le snippet mcp à coller dans le host (n'écrit rien)
-wpm enable --write-config       # + écrit wpm.config.json (db_path ".wpm/wpm.db" s'il est absent), crée le dossier de la base + la base (schéma), l'ajoute au .gitignore (demande confirmation ; --yes pour sauter)
-wpm enable .memory --write-config   # dossier de base personnalisé → db_path ".memory/wpm.db"
+wpm enable                      # écrit wpm.config.json (db_path ".wpm/wpm.db" s'il est absent), crée le dossier de la base + la base (schéma), l'ajoute au .gitignore (demande confirmation ; --yes pour sauter)
+wpm enable .memory              # dossier de base personnalisé → db_path ".memory/wpm.db"
                                  # la base doit vivre dans le projet : refuse un db_path qui en sort
-wpm disable                     # supprime wpm.config.json, conserve les données (db_path) sur place ; retirez ensuite l'entrée mcp du host
+wpm disable                     # supprime wpm.config.json, conserve les données (db_path) sur place
 wpm uninstall                   # suppression globale complète (demande confirmation) ; --force pour sauter la confirmation
 ```
 
-Le snippet affiché par `wpm enable` (à coller dans `opencode.json`, projet
-ou global) :
+Enregistrez le serveur une fois dans la configuration globale d'opencode
+(`~/.config/opencode/opencode.json`) :
 
 ```json
 {
@@ -57,9 +57,7 @@ ou global) :
     "wpm": {
       "type": "local",
       "command": ["~/.local/share/wpm-system/venv/bin/python", "-m", "wpm_mcp_server"],
-      "environment": {
-        "WPM_CONFIG_PATH": "/abs/path/to/project/wpm.config.json"
-      }
+      "cwd": "."
     }
   },
   "permission": {
@@ -68,14 +66,16 @@ ou global) :
 }
 ```
 
-Le bloc `permission` est spécifique à opencode : il permet à l'agent de
-persister la mémoire (outils `wpm_*`) **même en mode plan**. Les autres
-hosts (Claude Desktop, etc.) acceptent le même bloc `mcp` et ignorent
-`permission`.
+`cwd: "."` lance le serveur avec comme répertoire de travail le **projet
+ouvert** ; il y cherche `wpm.config.json` automatiquement (projet activé) ou
+reste inerte (projet sans config).
 
-**Redémarrez votre host** après `install.sh`, `wpm enable --write-config`,
-`wpm disable` ou toute modification de la config du host — la configuration
-est lue une seule fois au démarrage.
+Le bloc `permission` est spécifique à opencode : il permet à l'agent de
+persister la mémoire (outils `wpm_*`) **même en mode plan**.
+
+**Redémarrez votre host** après `install.sh`, `wpm enable`, `wpm disable` ou
+toute modification de la config du host — la configuration est lue une seule
+fois au démarrage.
 
 Lorsqu'il est actif, le serveur expose les 11 outils de mémoire à l'LLM et
 oriente son comportement : `initialize.instructions` embarque les règles
@@ -88,15 +88,15 @@ resource `wpm://project-rules` est recomputée depuis la mémoire et invalidée
 ## Démarrage rapide
 
 1. `./install.sh`
-2. `wpm enable --write-config` à la racine du projet
-3. Collez le snippet affiché dans `opencode.json`
+2. Enregistrez le serveur `wpm` dans `~/.config/opencode/opencode.json` (bloc `mcp` + `cwd: "."` ci-dessus)
+3. `wpm enable` à la racine du projet
 4. Redémarrez votre host
 
 ## Documentation
 
 La documentation détaillée vit dans [`docs/fr/`](docs/fr/index.md) :
 
-- [`docs/fr/setup.md`](docs/fr/setup.md) — guide d'activation complet (installation, `wpm`, snippet MCP, redémarrage).
+- [`docs/fr/setup.md`](docs/fr/setup.md) — guide d'activation complet (installation, enregistrement du serveur, `wpm`, redémarrage).
 - [`docs/fr/wpm-config-reference.md`](docs/fr/wpm-config-reference.md) — schéma `wpm.config.json` et substitutions par variables d'environnement.
 - [`docs/fr/memory-behavior-spec.md`](docs/fr/memory-behavior-spec.md) — comportement de l'agent : quand/comment écrire, valider, contredire, lire la mémoire.
 - [`docs/fr/commands.md`](docs/fr/commands.md) — workflows `learn`, `map`, `audit`, `bootstrap` et `patterns` (prompts MCP).

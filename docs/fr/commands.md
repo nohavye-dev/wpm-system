@@ -23,8 +23,8 @@ documentation et du code dans la mémoire persistante du projet.
 
 Si `wpm.config.json` n'existe pas à la racine du projet, la mémoire n'est
 pas activée. Le prompt le signale poliment : lancez
-`wpm enable --write-config` à la racine du projet, ajoutez l'entrée `mcp`
-affichée dans la configuration de votre host, puis redémarrez le host.
+`wpm enable` à la racine du projet (le serveur MCP doit déjà être enregistré
+globalement dans votre host), puis redémarrez le host.
 
 Si aucun chemin n'est fourni à `learn` ou `map`, le prompt affiche
 **uniquement son usage** (la ligne `USAGE:` ci-dessous) et ne fait rien
@@ -120,7 +120,7 @@ Pour chaque fait trouvé : déduplication via `query_context`, puis
 `store_entry(type, content, source="observed_code")`. Le prompt rend
 un résumé groupé par type (`archi_decision`, `convention`, `insight`).
 
-À utiliser une seule fois par projet, après `wpm enable --write-config`,
+À utiliser une seule fois par projet, après `wpm enable`,
 pour peupler rapidement la mémoire avec ce qui existe déjà. La mémorisation
 incrémentale au fil du travail continue ensuite normalement.
 
