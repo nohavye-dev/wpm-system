@@ -79,11 +79,18 @@ fois au démarrage.
 
 Lorsqu'il est actif, le serveur expose les 11 outils de mémoire à l'LLM et
 oriente son comportement : `initialize.instructions` embarque les règles
-d'usage (l'agent doit appeler `query_context` en préambule des réponses
-substantielle et lire `wpm://project-rules` au démarrage de session), la
+d'usage sous forme de **pyramide** (3 règles d'or MEMORY FIRST / WRITE AS
+YOU GO / PROOF BEFORE VALIDATION, une séquence de démarrage obligatoire,
+puis les 16 règles détaillées en « QUAND X → FAIS Y »), la
 resource `wpm://project-rules` est recomputée depuis la mémoire et invalidée
 à chaque mutation, et les workflows `learn`, `map`, `audit`,
 `bootstrap` et `patterns` sont des prompts MCP.
+
+Les outils qui mutent ou lisent la mémoire renvoient en plus un **rappel
+ciblé** dans leur résultat (`tool_result`) : `store_entry` rappelle de
+dédupliquer avant d'écrire et de valider une fois confirmé, `query_context`
+rappelle de vérifier les `conflicts` avant de s'appuyer sur un `direct_match`.
+Les outils en lecture seule restent silencieux pour ne pas diluer le signal.
 
 ## Démarrage rapide
 

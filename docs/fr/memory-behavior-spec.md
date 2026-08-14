@@ -10,6 +10,20 @@ Rappel : une partie de ces règles est déjà embarquée dans les
 descriptions des outils MCP eux-mêmes (`store_entry`, `validate_entry`...)
 et vue à chaque appel — donc appliquée même sans lire ce document.
 
+Les règles injectées par le serveur sont organisées en **pyramide** : trois
+règles d'or (MEMORY FIRST, WRITE AS YOU GO, PROOF BEFORE VALIDATION), une
+**séquence de démarrage** obligatoire (lire `wpm://project-rules` →
+`query_context` avant toute lecture → `store_entry` dès fait durable →
+`validate_entry` avec preuve externe), puis les 16 règles détaillées
+formulées en « QUAND X → FAIS Y ».
+
+En plus, certains résultats d'outils portent un **rappel ciblé** relu au
+moment précis de l'action : `store_entry` renvoie un rappel de
+déduplication (si aucune `query_context` n'a précédé) et de validation ;
+`query_context` renvoie un rappel de vérification des `conflicts` lorsqu'ils
+sont non vides. Ces rappels sont du « pull renforcé » — ils orientent, ils
+ne contraignent pas ; la discipline décrite ci-dessous reste la référence.
+
 ---
 
 ## 1. Principe général

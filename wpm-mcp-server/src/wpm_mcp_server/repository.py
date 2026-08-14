@@ -33,7 +33,9 @@ class Repository:
     settings: DomainSettings = field(default_factory=DomainSettings)
 
     # --- store_entry -----------------------------------------------------
-    def store_entry(self, *, type_: str, content: str, source: str) -> dict[str, Any]:
+    def store_entry(
+        self, *, type_: str, content: str, source: str, session_id: str | None = None
+    ) -> dict[str, Any]:
         entry_type = EntryType(type_)  # raises ValueError -> caller maps to MCP error
         entry_id = str(uuid.uuid4())
         timestamp = now_iso()
@@ -48,7 +50,7 @@ class Repository:
             """,
             (entry_id, entry_type.value, content, source, provenance_score, timestamp, timestamp),
         )
-        self._log_event(entry_id, EventType.CREATED, evidence_type=None, evidence_ref=None, session_id=None)
+        self._log_event(entry_id, EventType.CREATED, evidence_type=None, evidence_ref=None, session_id=session_id)
 
         embedding = self.embedder.embed(content)
         self.conn.execute(
@@ -116,6 +118,7 @@ class Repository:
         query: str,
         min_confidence: float = 0.0,
         token_budget: int = 2000,
+        session_id: str | None = None,
     ) -> dict[str, Any]:
         query_embedding = self.embedder.embed(query)
 
@@ -180,7 +183,7 @@ class Repository:
         conflicts = self._collect_conflicts([e["entry_id"] for e in direct_matches])
 
         for e in direct_matches:
-            self._log_event(e["entry_id"], EventType.REFERENCED, evidence_type=None, evidence_ref=None, session_id=None)
+            self._log_event(e["entry_id"], EventType.REFERENCED, evidence_type=None, evidence_ref=None, session_id=session_id)
         self.conn.commit()
 
         return {

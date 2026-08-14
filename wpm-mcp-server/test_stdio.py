@@ -99,6 +99,16 @@ async def main():
                 check("list_entries present", "list_entries" in names)
                 check("record_execution present", "record_execution" in names)
 
+                query_desc = ""
+                for t in tools.tools:
+                    if t.name == "query_context":
+                        query_desc = t.description or ""
+                check(
+                    "query_context description has BEFORE trigger",
+                    "before" in query_desc.lower() and "grep" in query_desc.lower(),
+                    query_desc,
+                )
+
                 # --- initialize instructions carry the behavior rules ---
                 inst = getattr(init, "instructions", "") or ""
                 check(
@@ -232,6 +242,16 @@ async def main():
                     store.get("provenance_score") == 0.9,
                     f"got {store.get('provenance_score')}",
                 )
+                check(
+                    "store_entry reminder: MEMORY FIRST when no prior query",
+                    "MEMORY FIRST" in store.get("reminder", ""),
+                    f"got {store.get('reminder')}",
+                )
+                check(
+                    "store_entry reminder: validate once confirmed",
+                    "validate_entry" in store.get("reminder", ""),
+                    f"got {store.get('reminder')}",
+                )
                 entry_id = store["entry_id"]
 
                 # --- query: direct semantic match ---
@@ -293,6 +313,11 @@ async def main():
                 store2 = json.loads(store2_raw.content[0].text)
                 second_id = store2["entry_id"]
                 check("second entry stored", "entry_id" in store2)
+                check(
+                    "store_entry after query has no MEMORY FIRST reminder",
+                    "MEMORY FIRST" not in store2.get("reminder", ""),
+                    f"got {store2.get('reminder')}",
+                )
 
                 contradict_raw = await session.call_tool(
                     "contradict_entry",
@@ -317,6 +342,11 @@ async def main():
                 check(
                     "conflict surfaced in query",
                     len(query2.get("conflicts", [])) > 0,
+                )
+                check(
+                    "query_context reminder on conflicts",
+                    "conflicts" in query2.get("reminder", "").lower(),
+                    f"got {query2.get('reminder')}",
                 )
 
                 # --- link entries ---
@@ -366,6 +396,15 @@ async def main():
                     err2.get("error") is True,
                     f"got {err2}",
                 )
+
+                # --- read-only tools are silent (no reminder) ---
+                stats_raw = await session.call_tool("get_memory_stats", {})
+                stats = json.loads(stats_raw.content[0].text)
+                check("get_memory_stats has no reminder", "reminder" not in stats)
+
+                list_raw = await session.call_tool("list_entries", {"limit": 5})
+                listing = json.loads(list_raw.content[0].text)
+                check("list_entries has no reminder", "reminder" not in listing)
 
     finally:
         for f in [".stdio_test.db", ".stdio_test.db-wal", ".stdio_test.db-shm"]:

@@ -45,6 +45,23 @@ check(
     "rules mention record_execution",
     "record_execution" in behavior.MEMORY_USAGE_RULES,
 )
+check(
+    "rules open with a golden-rules pyramid",
+    "GOLDEN RULES" in behavior.MEMORY_USAGE_RULES,
+)
+check(
+    "rules include a startup sequence",
+    "STARTUP SEQUENCE" in behavior.MEMORY_USAGE_RULES,
+)
+check(
+    "startup sequence names the project-rules resource",
+    "wpm://project-rules" in behavior.MEMORY_USAGE_RULES,
+)
+check(
+    "rules use WHEN/DO trigger phrasing",
+    "WHEN you are about to read a file" in behavior.MEMORY_USAGE_RULES
+    and "DO call query_context" in behavior.MEMORY_USAGE_RULES,
+)
 
 # --- response language builder ---
 check(

@@ -18,35 +18,62 @@ _MEMORY_USAGE_RULES_TEMPLATE = """<wpm-memory-rules>
 You have access to the project's persistent weighted memory via the wpm MCP
 server (store_entry, query_context, validate_entry, contradict_entry,
 link_entries, get_memory_stats, pin_entry, deprecate_entry, restore_entry,
-list_entries, record_execution). Follow these rules every turn:
+list_entries, record_execution). Follow these rules every turn.
+
+GOLDEN RULES — the three non-negotiable principles, in priority order:
+
+1. MEMORY FIRST. WHEN you are about to read a file or search the codebase,
+   DO call query_context on the topic BEFORE reading. The answer may already
+   be in memory (e.g. a known bug pattern is recoverable via query_context
+   instead of re-reading the code). WHEN you start any substantive answer,
+   DO query the current topic before answering from reasoning alone.
+
+2. WRITE AS YOU GO. WHEN a durable fact emerges — a decision taken, a
+   convention identified, a test result, an understood bug pattern — DO call
+   store_entry immediately. DO NOT defer persistence to the end of the task:
+   unpersisted facts are silently lost at context compaction.
+
+3. PROOF BEFORE VALIDATION. WHEN you validate_entry or contradict_entry, DO
+   provide external, checkable evidence (a test log, a file path, another
+   entry). NEVER use agent_reasoning to raise a score.
+
+STARTUP SEQUENCE — at session start, in this order:
+
+1. Read the wpm://project-rules resource to load the project's conventions.
+2. Call query_context on the current topic before reading any file.
+3. Store every durable fact as soon as it emerges (store_entry).
+4. Validate each stored fact with external evidence (validate_entry) once it
+   is confirmed.
+
+DETAILED RULES
 
 1. RELIABILITY OVER COMPLETENESS. A wrong or artificially boosted entry is
    worse than a missing one — it silently misleads future query_context
    calls. Prefer an underpopulated memory to a polluted one.
 
-2. MEMORY FIRST. Before reading files or searching the codebase, call
-   query_context to check whether the answer already exists in persistent
-   memory. Do the same at the start of any substantive answer: query the
-   current topic before answering from reasoning alone. Read the
-   wpm://project-rules resource at session start to load the project's
-   conventions. Then verify: if the entry is high-confidence (>0.7) and
+2. MEMORY FIRST. WHEN you are about to read a file, grep, or search the
+   codebase, DO call query_context on the topic BEFORE doing so — the answer
+   may already be in persistent memory. DO the same at the start of any
+   substantive answer: query the current topic before answering from
+   reasoning alone. Then verify: if the entry is high-confidence (>0.7) and
    recently validated, trust it. If it is old, low-confidence, or has active
    conflicts, confirm against the actual code before relying on it.
 
 3. CONTENT MUST BE IN ENGLISH for stored memory entries (embedding
     consistency). Translate before storing, not after. However, {response_clause}
 
-4. WRITE AS YOU GO, NOT IN BATCH. As soon as a durable fact exists — an
+4. WRITE AS YOU GO, NOT IN BATCH. WHEN a durable fact exists — an
    architecture decision taken, a convention identified, a test result, an
-   understood bug pattern — store it immediately via store_entry. Do not
+   understood bug pattern — DO store it immediately via store_entry. DO NOT
    defer it to the end of the task: unpersisted facts are silently lost at
-   context compaction. But do not store anything: skip transient details,
+   context compaction. But DO NOT store anything: skip transient details,
    unverified hypotheses, and facts already obvious in the code. Ask: will
    this still be true and useful in several weeks?
 
-5. DEDUP BEFORE WRITING. Before any store_entry, run a quick query_context
-   on the topic. If a very similar entry already exists, do NOT create a
-   duplicate — call validate_entry on the existing one instead.
+5. DEDUP BEFORE WRITING. WHEN you are about to call store_entry, DO run a
+   quick query_context on the topic first. If a very similar entry already
+   exists, DO NOT create a duplicate — call validate_entry on the existing
+   one instead.
 
 6. CHOOSE THE RIGHT TYPE. doc = explanatory/reference content;
    archi_decision = structural choice observed in code or decided;
@@ -65,13 +92,13 @@ list_entries, record_execution). Follow these rules every turn:
    starting confidence). If it is an assumption, use agent_inference even
    if it seems solid.
 
-8. EVIDENCE HIERARCHY (validate_entry / contradict_entry). Evidence must
-   point to something external and checkable (a test log, a file path,
-   another entry). execution_verified > cross_reference >
-   reuse_without_failure; agent_reasoning NEVER moves the score and must
-   not be used to inflate confidence — if you have no real evidence, do
-   not validate at all. Do not re-validate the same fact repeatedly to
-   inflate a score.
+8. EVIDENCE HIERARCHY (validate_entry / contradict_entry). WHEN you validate
+   or contradict, DO point evidence at something external and checkable (a
+   test log, a file path, another entry). execution_verified >
+   cross_reference > reuse_without_failure; agent_reasoning NEVER moves the
+   score and must not be used to inflate confidence — if you have no real
+   evidence, DO NOT validate at all. DO NOT re-validate the same fact
+   repeatedly to inflate a score.
 
 9. NEVER DELETE OR SILENTLY OVERWRITE a contradicted entry. Use
    contradict_entry with external evidence; the old entry stays, its score

@@ -21,6 +21,7 @@ tools, but every tool returns a clear "not activated" error.
 """
 
 import os
+import uuid
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
@@ -74,6 +75,28 @@ mcp = FastMCP(
 _repo: Repository | None = None
 _project_rules_cache: str | None = None
 
+# Session tracking: the server runs stdio (one process per session), so a
+# single generated id labels this session's events in entry_events, and an
+# in-memory flag records whether a query_context has occurred since the last
+# store_entry — the signal behind the rule-5 (dedup before write) reminder.
+_session_id = str(uuid.uuid4())
+_queried_since_last_store = False
+
+_REMINDER_DEDUP = (
+    "potential_contradictions found: compare the candidate contents and prefer "
+    "validate_entry on an existing near-duplicate over creating a new entry"
+)
+_REMINDER_MEMORY_FIRST = (
+    "MEMORY FIRST: run query_context on this topic before storing to avoid a duplicate"
+)
+_REMINDER_VALIDATE = (
+    "this entry is unvalidated: call validate_entry with external evidence once it is confirmed"
+)
+_REMINDER_CONFLICTS = (
+    "conflicts found: check them before relying on a direct_match — never "
+    "present a contested fact as settled without flagging it"
+)
+
 _verification_patterns, _invalid_patterns = compile_verification_patterns(
     _settings.verification_command_patterns or []
 )
@@ -113,7 +136,7 @@ async def _on_memory_mutated(ctx: Context | None) -> None:
         "bug_pattern, or execution_result). CONTENT MUST BE IN ENGLISH. "
         "'source' should be one of: official_doc, observed_code, "
         "tool_execution, agent_inference (unknown sources get a neutral "
-        "default confidence). Before storing, run query_context on the "
+        "default confidence). Immediately BEFORE this call, run query_context on the "
         "topic: if a near-duplicate already exists, call validate_entry on "
         "it instead of creating a duplicate. Only store durable facts that "
         "will still be true and useful in weeks. Returns the new entry_id "
@@ -122,8 +145,19 @@ async def _on_memory_mutated(ctx: Context | None) -> None:
     )
 )
 async def store_entry(ctx: Context, type: str, content: str, source: str) -> dict:
+    global _queried_since_last_store
     try:
-        result = get_repo().store_entry(type_=type, content=content, source=source)
+        result = get_repo().store_entry(
+            type_=type, content=content, source=source, session_id=_session_id
+        )
+        reminders = []
+        if result.get("potential_contradictions"):
+            reminders.append(_REMINDER_DEDUP)
+        elif not _queried_since_last_store:
+            reminders.append(_REMINDER_MEMORY_FIRST)
+        reminders.append(_REMINDER_VALIDATE)
+        result["reminder"] = " ".join(reminders)
+        _queried_since_last_store = False
         await _on_memory_mutated(ctx)
         return result
     except (ValueError, WpmError, RuntimeError) as exc:
@@ -136,8 +170,9 @@ async def store_entry(ctx: Context, type: str, content: str, source: str) -> dic
     description=(
         "Hybrid retrieval: vector similarity + confidence weighting + graph "
         "centrality, plus 1-hop graph expansion for associative recall. "
-        "Call this tool at the start of every substantive answer and before "
-        "reading files or searching the codebase (MEMORY FIRST). Query text "
+        "WHEN you are about to read a file, run grep, or search the codebase "
+        "with bash/glob, call this tool BEFORE doing so (MEMORY FIRST); call "
+        "it too at the start of every substantive answer. Query text "
         "should be in English for best similarity matching. Returns "
         "direct_matches (strong hits), related_context (associative, "
         "lower-confidence recall via linked entries), and conflicts (entries "
@@ -146,10 +181,18 @@ async def store_entry(ctx: Context, type: str, content: str, source: str) -> dic
     )
 )
 def query_context(query: str, min_confidence: float = 0.0, token_budget: int = 2000) -> dict:
+    global _queried_since_last_store
     try:
-        return get_repo().query_context(
-            query=query, min_confidence=min_confidence, token_budget=token_budget
+        result = get_repo().query_context(
+            query=query,
+            min_confidence=min_confidence,
+            token_budget=token_budget,
+            session_id=_session_id,
         )
+        _queried_since_last_store = True
+        if result.get("conflicts"):
+            result["reminder"] = _REMINDER_CONFLICTS
+        return result
     except (ValueError, WpmError, RuntimeError) as exc:
         return {"error": True, "message": str(exc)}
 
@@ -270,7 +313,9 @@ async def record_execution(ctx: Context, command: str, succeeded: bool, session_
                 f"Directory: {_config_dir}",
             ]
         )
-        store_result = repo.store_entry(type_="execution_result", content=content, source="tool_execution")
+        store_result = repo.store_entry(
+            type_="execution_result", content=content, source="tool_execution", session_id=_session_id
+        )
         entry_id = store_result["entry_id"]
         if succeeded:
             validation = repo.validate_entry(
