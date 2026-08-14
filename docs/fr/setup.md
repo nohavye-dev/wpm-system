@@ -2,13 +2,18 @@
 
 ## Principe
 
-WPM est un **serveur MCP pur** : plus de plugin OpenCode, plus de hooks. Le
-serveur Python (`wpm-mcp-server`) expose la mémoire (11 outils), les règles
-d'usage (dans `initialize.instructions` + resource `wpm://memory-rules`), les
-règles du projet (resource `wpm://project-rules`) et les workflows
-(prompts `persist`, `audit`, `learn`, `map`, `bootstrap`,
-`patterns`) via le protocole MCP standard. Il fonctionne avec **n'importe
-quel host MCP**.
+WPM est un **serveur MCP pur** : plus de plugin OpenCode obligatoire, plus de
+hooks. Le serveur Python (`wpm-mcp-server`) expose la mémoire (11 outils),
+les règles d'usage (dans `initialize.instructions` + resource
+`wpm://memory-rules`), les règles du projet (resource `wpm://project-rules`)
+et les workflows (prompts `persist`, `audit`, `learn`, `map`,
+`bootstrap`, `patterns`) via le protocole MCP standard. Il fonctionne avec
+**n'importe quel host MCP**.
+
+Un **plugin OpenCode optionnel** (`wpm plugin install`) ré-injecte une carte
+de règles compacte à chaque tour pour lutter contre la dilution du contexte
+(voir [« Plugin optionnel (anti-dilution) »](#plugin-optionnel-anti-dilution)).
+Le serveur reste entièrement autonome sans lui.
 
 Le serveur est **inerte par projet** : sans `wpm.config.json` (ou sans
 `WPM_DB_PATH`), il démarre, liste ses outils, mais chaque appel renvoie une
@@ -38,6 +43,9 @@ Ce que fait `install.sh` :
 2. Pré-télécharge le modèle d'embedding (~80 MB) pour un premier démarrage
    hors-ligne
 3. Installe la commande `wpm` dans `~/.local/bin` (ou `$XDG_BIN_HOME`)
+4. Met en place le plugin OpenCode optionnel
+   (`~/.local/share/wpm-system/plugin.ts`, installé à la demande via
+   `wpm plugin install`)
 
 ## Activer sur un projet
 
@@ -101,6 +109,39 @@ persister la mémoire (outils `wpm_*`) **même en mode plan**.
 
 Redémarrez ensuite opencode : les serveurs MCP sont configurés une seule
 fois au démarrage.
+
+## Plugin optionnel (anti-dilution)
+
+Le serveur MCP injecte les règles d'usage **une seule fois** en début de
+session (`initialize.instructions`). En condition réelle, ces règles se
+**diluent** à mesure que le contexte grossit : après quelques messages, l'agent
+cesse de les suivre. Un serveur MCP pur ne peut pas y remédier — il ne voit
+pas le contexte et ne peut pas ré-injecter d'instruction à chaque tour (limite
+du protocole, documentée dans `new_spec/mcp-llm-behavior.md`).
+
+Le plugin optionnel ajoute ce push déterministe, côté OpenCode uniquement :
+
+```bash
+wpm plugin install      # copie plugin.ts dans ~/.config/opencode/plugins/
+wpm plugin uninstall    # le retire
+```
+
+Puis redémarrer OpenCode. Le plugin est **inerte par projet** : sans
+`wpm.config.json` à la racine, aucun hook n'agit. Quand il est actif, il :
+
+- injecte une carte de règles compacte (`<wpm-memory>`) dans le prompt
+  système à **chaque tour** (`experimental.chat.system.transform`) ;
+- ré-injecte la carte + un rappel « persiste tout fait durable non stocké »
+  dans le résumé de **compaction** (`experimental.session.compacting`) ;
+- journalise un rappel de fin de session (`session.idle`).
+
+Le prérequis : le serveur doit être enregistré sous le nom `wpm` (les outils
+sont alors `wpm_query_context`, `wpm_store_entry`, …). Si vous l'enregistrez
+sous un autre nom, adaptez la constante `SERVER_NAME` en tête de `plugin.ts`.
+
+> Les hooks `experimental.*` sont non stabilisés et peuvent être ignorés
+> silencieusement selon la version d'OpenCode. Ils ont été vérifiés sur
+> OpenCode 1.18.11.
 
 ## Désactiver sur un projet
 

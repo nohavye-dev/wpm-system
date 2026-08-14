@@ -119,6 +119,42 @@ def cmd_uninstall(force: bool = False) -> None:
     print("note: remove any 'wpm' MCP server entry from your host configurations")
 
 
+# ── plugin ──────────────────────────────────────────────────────────────
+
+def _opencode_plugin_dir() -> Path:
+    config_home = os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
+    return Path(config_home) / "opencode" / "plugins"
+
+
+def cmd_plugin(action: str, source: str | None) -> None:
+    plugin_dir = _opencode_plugin_dir()
+    target = plugin_dir / "wpm-plugin.ts"
+
+    if action == "install":
+        src = Path(source) if source else Path(DATA_DIR) / "plugin.ts"
+        if not src.exists():
+            print(
+                f"wpm: plugin source not found at {src}\n"
+                "Re-run ./install.sh (which copies plugin.ts), or pass "
+                "--source <path/to/plugin.ts>.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, target)
+        print(f"wpm: plugin installed to {target}")
+        print("wpm: restart opencode for it to take effect")
+    elif action == "uninstall":
+        if target.exists():
+            target.unlink()
+            print(f"wpm: plugin removed ({target})")
+        else:
+            print("wpm: plugin not installed")
+    else:
+        print(f"wpm: unknown plugin action: {action}", file=sys.stderr)
+        sys.exit(1)
+
+
 # ── search ──────────────────────────────────────────────────────────────
 
 def cmd_search(args: argparse.Namespace) -> None:
@@ -231,6 +267,10 @@ def main() -> None:
     p.add_argument("--min-confidence", "-c", type=float, default=None,
                    help="Minimum confidence threshold (default: no filter)")
 
+    pl = sub.add_parser("plugin", help="Install/uninstall the optional OpenCode plugin")
+    pl.add_argument("action", choices=["install", "uninstall"])
+    pl.add_argument("--source", help="Path to plugin.ts (default: the copy shipped by install.sh)")
+
     args = parser.parse_args()
 
     if args.command == "enable":
@@ -241,6 +281,8 @@ def main() -> None:
         cmd_uninstall(args.force)
     elif args.command == "search":
         cmd_search(args)
+    elif args.command == "plugin":
+        cmd_plugin(args.action, args.source)
     else:
         parser.print_usage()
         sys.exit(1)

@@ -5,9 +5,9 @@ une mémoire persistante **pondérée par la confiance** : les décisions
 d'architecture, conventions et patterns découverts dans une session ne sont
 pas perdus à la suivante.
 
-Composant unique :
+Deux composants :
 
-- `wpm-mcp-server/` — serveur MCP Python. Source de vérité : scoring,
+- `wpm-mcp-server/` — serveur MCP Python, la source de vérité : scoring,
   décroissance (decay), expansion de graphe, les 11 outils (`store_entry`,
   `query_context`, `validate_entry`, `contradict_entry`, `link_entries`,
   `get_memory_stats`, `pin_entry`, `deprecate_entry`, `restore_entry`,
@@ -15,10 +15,13 @@ Composant unique :
   `wpm://memory-rules`, `wpm://verification-commands`), 6 prompts
   (`persist`, `audit`, `learn`, `map`, `bootstrap`,
   `patterns`) et les règles d'usage dans `initialize.instructions`.
+- `wpm-opencode-plugin/` — plugin OpenCode **optionnel** (un seul fichier,
+  `wpm plugin install`) qui ré-injecte une carte de règles compacte à chaque
+  tour pour lutter contre la dilution du contexte.
 
-Plus de plugin OpenCode, plus de hooks `experimental.*` : tout est exprimé
-avec des primitives MCP standard, donc le serveur fonctionne sur **n'importe
-quel host MCP** (OpenCode, Claude Desktop, etc.).
+Le serveur est **100 % MCP standard** et fonctionne sur **n'importe quel host
+MCP** (OpenCode, Claude Desktop, etc.). Le plugin est une optimisation
+OpenCode-only, optionnelle et non nécessaire au fonctionnement.
 
 ## Installation
 
@@ -92,6 +95,14 @@ dédupliquer avant d'écrire et de valider une fois confirmé, `query_context`
 rappelle de vérifier les `conflicts` avant de s'appuyer sur un `direct_match`.
 Les outils en lecture seule restent silencieux pour ne pas diluer le signal.
 
+En condition réelle, les règles injectées une seule fois se diluent à mesure
+que le contexte grossit. Le **plugin optionnel** y remédie en ré-injectant
+une carte compacte à chaque tour et à chaque compaction :
+
+```bash
+wpm plugin install      # opt-in, requiert le serveur enregistré sous le nom "wpm"
+```
+
 ## Démarrage rapide
 
 1. `./install.sh`
@@ -112,4 +123,4 @@ La documentation détaillée vit dans [`docs/fr/`](docs/fr/index.md) :
 ## Limitations
 
 - Le document de spécification complet (modèle de poids, formules de récupération, working-scope) reste à conserver à côté du bundle ; les commentaires du code renvoient à ses sections.
-- Sans host, pas de push déterministe : la perte des hooks du plugin (compaction, auto-capture, nudge) est compensée par la discipline write-as-you-go (dans les règles) + le prompt `persist`.
+- Sans host, pas de push déterministe : la perte des hooks du plugin (compaction, auto-capture, nudge) est compensée par la discipline write-as-you-go (dans les règles) + le prompt `persist`. Le plugin optionnel `wpm-opencode-plugin` rétablit ce push déterministe pour OpenCode.
