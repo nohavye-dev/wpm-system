@@ -117,8 +117,12 @@ Lit automatiquement, dans l'ordre :
    seuls)
 
 Pour chaque fait trouvé : déduplication via `query_context`, puis
-`store_entry(type, content, source="observed_code")`. Le prompt rend
-un résumé groupé par type (`archi_decision`, `convention`, `insight`).
+`store_entry` avec la `source` qui reflète la nature de la preuve
+(règle n°7, ne jamais sur-déclarer) : `official_doc` pour les faits lus
+dans le README ou la documentation, `observed_code` pour les faits lus
+directement dans les configs, le CI ou le code, `agent_inference` pour
+toute déduction. Le prompt rend un résumé groupé par type
+(`archi_decision`, `convention`, `insight`).
 
 À utiliser une seule fois par projet, après `wpm enable`,
 pour peupler rapidement la mémoire avec ce qui existe déjà. La mémorisation
