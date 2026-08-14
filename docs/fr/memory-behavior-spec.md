@@ -31,6 +31,13 @@ et casse le retrieval. Traduire avant de stocker, pas après. En revanche,
 vos réponses, résumés et rapports **doivent utiliser la même langue que
 l'utilisateur** — ne basculez pas en anglais pour la sortie.
 
+Sauf si une langue est **fixée dans la config** : la clé top-level
+`response_language` de `wpm.config.json` (ou `WPM_RESPONSE_LANGUAGE`) impose
+alors la langue de **sortie** (ex. `"response_language": "french"` → répondez
+toujours en français). Cette règle s'applique aux réponses et rapports
+uniquement ; le stockage reste toujours en anglais. Voir
+[`wpm-config-reference.md`](wpm-config-reference.md).
+
 ---
 
 ## 3. Quand écrire (`store_entry`)

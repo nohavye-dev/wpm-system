@@ -1,6 +1,7 @@
 {
   "db_path": ".wpm/wpm.db",
   "confidence_threshold": 0.5,
+  "response_language": "auto",
   "verification_command_patterns": [
     "\\bmy-custom-runner\\b"
   ],

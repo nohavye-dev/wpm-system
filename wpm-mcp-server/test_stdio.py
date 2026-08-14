@@ -21,6 +21,56 @@ def check(label, cond, detail=""):
         print(f"  FAIL {label}" + (f": {detail}" if detail else ""))
 
 
+async def main_language():
+    global pass_count, fail_count
+    params = StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "wpm_mcp_server"],
+        env={
+            "WPM_DB_PATH": ".stdio_test_lang.db",
+            "WPM_RESPONSE_LANGUAGE": "french",
+            "PYTHONPATH": "src",
+        },
+    )
+    try:
+        async with stdio_client(params) as (read, write):
+            async with ClientSession(read, write) as session:
+                init = await session.initialize()
+
+                inst = getattr(init, "instructions", "") or ""
+                check(
+                    "initialize.instructions reflect configured language",
+                    "written in french" in inst,
+                    f"len={len(inst)}",
+                )
+
+                tools = await session.list_tools()
+                store_desc = ""
+                for t in tools.tools:
+                    if t.name == "store_entry":
+                        store_desc = t.description or ""
+                check(
+                    "tool description carries the language note",
+                    "french" in store_desc and "Respond to the user" in store_desc,
+                    store_desc,
+                )
+
+                rules_resource = await session.read_resource("wpm://memory-rules")
+                rules_text = rules_resource.contents[0].text
+                check(
+                    "memory-rules resource reflects configured language",
+                    "written in french" in rules_text,
+                )
+    finally:
+        for f in [".stdio_test_lang.db", ".stdio_test_lang.db-wal", ".stdio_test_lang.db-shm"]:
+            if os.path.exists(f):
+                os.remove(f)
+
+    print(f"\n{pass_count} passed, {fail_count} failed")
+    if fail_count > 0:
+        sys.exit(1)
+
+
 async def main():
     global pass_count, fail_count
     params = StdioServerParameters(
@@ -315,3 +365,4 @@ async def main():
 
 
 asyncio.run(main())
+asyncio.run(main_language())

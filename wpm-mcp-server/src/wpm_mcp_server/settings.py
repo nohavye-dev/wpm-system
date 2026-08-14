@@ -127,6 +127,13 @@ class Settings:
     # commands count as strong proof (execution_verified). Used by the
     # record_execution tool.
     verification_command_patterns: list[str] | None = None
+    # Optional, default None (auto). Language of the agent's conversational
+    # responses, summaries and reports — NOT the stored memory content, which
+    # stays English for embedding consistency. None (or "auto") = follow the
+    # user's language. A fixed value (e.g. "french") forces the output
+    # language. Written as an English language name to match the English
+    # server instructions. Overridable via WPM_RESPONSE_LANGUAGE.
+    response_language: str | None = None
 
     # Advanced — see DomainSettings docstring.
     domain: DomainSettings = field(default_factory=DomainSettings)
@@ -206,6 +213,25 @@ def load_settings(config_path: str | Path | None = None) -> Settings:
     return settings
 
 
+def resolve_response_language(
+    config_value: str | None, env_value: str | None
+) -> str | None:
+    """Resolve the effective response language: env overrides config, and
+    "auto"/empty means "follow the user's language" (None).
+
+    The returned value is the raw language name (kept free-form so any
+    language works); callers inject it verbatim into English prose, so an
+    English name ("french") is recommended but not enforced here.
+    """
+    value = env_value if env_value is not None and env_value.strip() else config_value
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped or stripped.lower() == "auto":
+        return None
+    return stripped
+
+
 def _validate_settings(settings: Settings) -> None:
     """Fail fast on an out-of-range/mistyped scalar instead of silently
     misbehaving downstream (confidence_threshold feeds the project-rules
@@ -230,3 +256,10 @@ def _validate_settings(settings: Settings) -> None:
                 "verification_command_patterns: expected a list of non-empty "
                 f"strings, got {patterns!r}"
             )
+
+    rl = settings.response_language
+    if rl is not None and (not isinstance(rl, str) or not rl.strip()):
+        raise ValueError(
+            "response_language: expected a non-empty string (e.g. \"french\") "
+            f"or null/\"auto\", got {rl!r}"
+        )

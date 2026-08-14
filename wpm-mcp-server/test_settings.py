@@ -5,7 +5,7 @@ import json
 import tempfile
 import os
 
-from wpm_mcp_server.settings import load_settings
+from wpm_mcp_server.settings import load_settings, resolve_response_language
 
 # 1. No file -> defaults
 s = load_settings("/tmp/does_not_exist.json")
@@ -201,5 +201,49 @@ try:
 except ValueError as exc:
     print("OK: removed 'embedding' section raised:", exc)
 os.remove(tmp_emb)
+
+# 11. response_language: default None, loads a string, auto/empty normalize,
+# invalid types raise, and resolve_response_language applies env > config
+s_def = load_settings("/tmp/does_not_exist.json")
+assert s_def.response_language is None
+print("OK: response_language defaults to None (auto)")
+
+tmp_rl = tempfile.mktemp(suffix=".json")
+with open(tmp_rl, "w") as f:
+    json.dump({"db_path": ".wpm/wpm.db", "response_language": "french"}, f)
+s_rl = load_settings(tmp_rl)
+assert s_rl.response_language == "french"
+print("OK: response_language fixed value loads")
+os.remove(tmp_rl)
+
+# "auto" is a valid non-empty string in the file (normalized at resolve time)
+tmp_auto = tempfile.mktemp(suffix=".json")
+with open(tmp_auto, "w") as f:
+    json.dump({"response_language": "auto"}, f)
+s_auto = load_settings(tmp_auto)
+assert s_auto.response_language == "auto"
+print("OK: response_language 'auto' accepted in config")
+os.remove(tmp_auto)
+
+for bad_rl in ("", "   ", 3, True, ["french"]):
+    tmp_rl_bad = tempfile.mktemp(suffix=".json")
+    with open(tmp_rl_bad, "w") as f:
+        json.dump({"response_language": bad_rl}, f)
+    try:
+        load_settings(tmp_rl_bad)
+        raise AssertionError(f"should have raised for response_language={bad_rl!r}")
+    except ValueError as exc:
+        print(f"OK: bad response_language {bad_rl!r} raised:", exc)
+    os.remove(tmp_rl_bad)
+
+# resolve_response_language: env > config, auto/empty -> None
+assert resolve_response_language(None, None) is None
+assert resolve_response_language("french", None) == "french"
+assert resolve_response_language("french", "german") == "german"  # env wins
+assert resolve_response_language("french", "  ") == "french"      # blank env ignored
+assert resolve_response_language("auto", None) is None
+assert resolve_response_language("Auto", None) is None
+assert resolve_response_language(" french ", None) == "french"    # stripped
+print("OK: resolve_response_language precedence and normalization")
 
 print("ALL SETTINGS TESTS OK")

@@ -46,6 +46,41 @@ check(
     "record_execution" in behavior.MEMORY_USAGE_RULES,
 )
 
+# --- response language builder ---
+check(
+    "MEMORY_USAGE_RULES is the auto (None) variant",
+    behavior.MEMORY_USAGE_RULES == behavior.build_memory_usage_rules(None),
+)
+auto_rules = behavior.build_memory_usage_rules(None)
+check(
+    "auto clause follows the user's language",
+    "same language as the user" in auto_rules,
+)
+fixed_rules = behavior.build_memory_usage_rules("french")
+check(
+    "fixed clause names the language",
+    "MUST be written in french" in fixed_rules,
+    fixed_rules,
+)
+check(
+    "fixed clause keeps storage English",
+    "CONTENT MUST BE IN ENGLISH" in fixed_rules,
+)
+check(
+    "fixed rules are still substantial",
+    len(fixed_rules) > 2000,
+)
+check(
+    "language note empty when auto",
+    behavior.build_language_note(None) == "",
+)
+note = behavior.build_language_note("french")
+check(
+    "language note mentions the language",
+    "french" in note and "Respond to the user" in note,
+    note,
+)
+
 # --- verification command matching ---
 patterns, invalid = behavior.compile_verification_patterns([r"\bwpm\bcheck", "[invalid"])
 check("built-in patterns compile", len(patterns) >= len(behavior.VERIFICATION_COMMAND_PATTERNS))

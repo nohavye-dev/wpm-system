@@ -70,6 +70,44 @@ dans le fichier.
 
 ---
 
+## `response_language` — langue des réponses de l'agent [optionnel]
+
+Clé **top-level** optionnelle (défaut absent = `auto`), lue et validée par
+le serveur. Elle fixe la langue des **réponses conversationnelles, résumés
+et rapports** de l'agent — **pas** le contenu stocké en mémoire, qui reste
+toujours en anglais (cohérence des embeddings).
+
+- **Absente, `null` ou `"auto"`** (défaut) : l'agent répond dans **la même
+  langue que l'utilisateur** qui pose la question (comportement historique).
+- **Valeur fixe** (ex. `"french"`) : l'agent répond **toujours** dans cette
+  langue, quelle que soit la langue utilisée dans la mémoire ou dans les
+  instructions du serveur.
+
+```json
+"response_language": "french"
+```
+
+La valeur est un nom de langue en **anglais** (`"french"`, `"spanish"`,
+`"german"`, `"japanese"`, …) pour rester cohérent avec le contenu du serveur,
+lui-même en anglais. Le champ est libre (n'importe quelle chaîne non vide) :
+un LLM comprend aussi bien `"french"` que `"français"`, mais l'anglais est la
+convention recommandée. Aucune liste fermée n'est imposée, donc toute langue
+est possible.
+
+Cette langue est rappelée à l'agent par plusieurs canaux MCP :
+- `initialize.instructions` (règle n°3, lue une fois par session) ;
+- la resource `wpm://memory-rules` (re-lisible à la demande) ;
+- une ligne ajoutée à la description des 11 outils (relue à **chaque**
+  décision d'appel d'outil).
+
+Surcharge par variable d'environnement : `WPM_RESPONSE_LANGUAGE` (ex.
+`WPM_RESPONSE_LANGUAGE=french`), qui passe devant la valeur du fichier.
+
+⚠️ Comme tout le reste de la config, la valeur est lue **au démarrage** du
+serveur : la changer exige un redémarrage du host.
+
+---
+
 ## `verification_command_patterns` — ajouts de commandes de preuve forte [optionnel]
 
 Clé **top-level** optionnelle (défaut `[]` : aucun ajout), lue et validée par
@@ -344,6 +382,7 @@ Avec une section `domain` optionnelle :
 ```json
 {
   "db_path": ".wpm/wpm.db",
+  "response_language": "french",
   "domain": {
     "retrieval": {
       "weight_similarity": 0.6
@@ -360,6 +399,7 @@ Avec une section `domain` optionnelle :
 |---|---|
 | `WPM_CONFIG_PATH` | quel fichier JSON est lu (chemin du fichier lui-même, pas une clé à l'intérieur) |
 | `WPM_DB_PATH` | `db_path` |
+| `WPM_RESPONSE_LANGUAGE` | `response_language` |
 | `WPM_EMBEDDING_MODEL` | modèle d'embedding (défaut `all-MiniLM-L6-v2`) |
 
 Les clés de `domain` n'ont pas de variable d'env — cette section n'est

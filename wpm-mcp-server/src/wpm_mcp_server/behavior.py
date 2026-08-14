@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 
-MEMORY_USAGE_RULES = """<wpm-memory-rules>
+_MEMORY_USAGE_RULES_TEMPLATE = """<wpm-memory-rules>
 You have access to the project's persistent weighted memory via the wpm MCP
 server (store_entry, query_context, validate_entry, contradict_entry,
 link_entries, get_memory_stats, pin_entry, deprecate_entry, restore_entry,
@@ -34,10 +34,7 @@ list_entries, record_execution). Follow these rules every turn:
    conflicts, confirm against the actual code before relying on it.
 
 3. CONTENT MUST BE IN ENGLISH for stored memory entries (embedding
-    consistency). Translate before storing, not after. However, your
-    conversational responses, summaries, and reports MUST use the same
-    language as the user asking questions — do not switch to English
-    for output.
+    consistency). Translate before storing, not after. However, {response_clause}
 
 4. WRITE AS YOU GO, NOT IN BATCH. As soon as a durable fact exists — an
    architecture decision taken, a convention identified, a test result, an
@@ -126,6 +123,49 @@ list_entries, record_execution). Follow these rules every turn:
     hand. Do not call it for trivial commands (ls, cat, echo, grep, git
     status/diff): exit 0 on those proves nothing about correctness.
 </wpm-memory-rules>"""
+
+
+def _response_clause(response_language: str | None) -> str:
+    """Rule-3 output-language clause, injected into English prose."""
+    if response_language:
+        return (
+            "your conversational responses, summaries, and reports MUST be "
+            f"written in {response_language}, regardless of the language used "
+            "in memory or in these instructions"
+        )
+    return (
+        "your conversational responses, summaries, and reports MUST use the "
+        "same language as the user asking questions — do not switch to English "
+        "for output"
+    )
+
+
+def build_memory_usage_rules(response_language: str | None = None) -> str:
+    """Render the 16 usage rules with the configured output-language clause.
+
+    The base template stays English (stored content must be English); only
+    rule 3's output clause varies. None = follow the user's language.
+    """
+    return _MEMORY_USAGE_RULES_TEMPLATE.format(
+        response_clause=_response_clause(response_language)
+    )
+
+
+MEMORY_USAGE_RULES = build_memory_usage_rules()
+
+
+def build_language_note(response_language: str | None) -> str:
+    """Short suffix for tool descriptions so the output language is re-read
+    at every tool-call decision. Empty when auto (rule 3 already covers it),
+    so a fixed language does not add noise to the descriptions."""
+    if not response_language:
+        return ""
+    return (
+        f" Respond to the user in {response_language} — your conversational "
+        f"responses, summaries and reports must be written in "
+        f"{response_language}."
+    )
+
 
 PROJECT_RULES_QUERY = (
     "What are the project rules and conventions: commit message format, "

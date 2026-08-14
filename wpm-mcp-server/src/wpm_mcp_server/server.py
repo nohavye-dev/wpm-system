@@ -28,7 +28,8 @@ from mcp.server.fastmcp.server import Context
 
 from wpm_mcp_server import db
 from wpm_mcp_server.behavior import (
-    MEMORY_USAGE_RULES,
+    build_language_note,
+    build_memory_usage_rules,
     PROJECT_RULES_QUERY,
     PROJECT_RULES_TOKEN_BUDGET,
     VERIFICATION_COMMAND_PATTERNS,
@@ -39,7 +40,7 @@ from wpm_mcp_server.behavior import (
 )
 from wpm_mcp_server.embeddings import get_provider
 from wpm_mcp_server.repository import WpmError, Repository
-from wpm_mcp_server.settings import load_settings
+from wpm_mcp_server.settings import load_settings, resolve_response_language
 
 NOT_ACTIVATED_MESSAGE = (
     "wpm is not activated in this project: run 'wpm enable' at the project "
@@ -53,6 +54,12 @@ _config_dir = _config_path.resolve().parent if _has_config else Path.cwd()
 
 _settings = load_settings(_config_path)
 
+_response_language = resolve_response_language(
+    _settings.response_language, os.environ.get("WPM_RESPONSE_LANGUAGE")
+)
+_memory_usage_rules = build_memory_usage_rules(_response_language)
+_language_note = build_language_note(_response_language)
+
 _db_path = os.environ.get("WPM_DB_PATH") or _settings.db_path
 if _db_path:
     DB_PATH = db.resolve_within_root(_db_path, _config_dir)
@@ -61,7 +68,7 @@ else:
 
 mcp = FastMCP(
     name="wpm-server",
-    instructions=MEMORY_USAGE_RULES,
+    instructions=_memory_usage_rules,
 )
 
 _repo: Repository | None = None
@@ -111,7 +118,7 @@ async def _on_memory_mutated(ctx: Context | None) -> None:
         "it instead of creating a duplicate. Only store durable facts that "
         "will still be true and useful in weeks. Returns the new entry_id "
         "and its initial confidence — this entry starts unvalidated; call "
-        "validate_entry with real evidence once it is confirmed."
+        "validate_entry with real evidence once it is confirmed." + _language_note
     )
 )
 async def store_entry(ctx: Context, type: str, content: str, source: str) -> dict:
@@ -135,7 +142,7 @@ async def store_entry(ctx: Context, type: str, content: str, source: str) -> dic
         "direct_matches (strong hits), related_context (associative, "
         "lower-confidence recall via linked entries), and conflicts (entries "
         "with an active 'contradicts' link) — always check conflicts before "
-        "relying on a direct_match."
+        "relying on a direct_match." + _language_note
     )
 )
 def query_context(query: str, min_confidence: float = 0.0, token_budget: int = 2000) -> dict:
@@ -158,7 +165,7 @@ def query_context(query: str, min_confidence: float = 0.0, token_budget: int = 2
         "confidence). evidence_ref should point to what proves it (a test "
         "log, a file path, another entry_id). session_id is required for "
         "dedup: repeated validation of the same entry within one session "
-        "only counts once."
+        "only counts once." + _language_note
     )
 )
 async def validate_entry(
@@ -184,7 +191,7 @@ async def validate_entry(
         "NEVER deletes either entry — only lowers entry_id's validation_score "
         "(contradiction lowers the score faster than a confirmation raises "
         "it) and creates a visible 'contradicts' link so future "
-        "query_context calls surface the conflict instead of hiding it."
+        "query_context calls surface the conflict instead of hiding it." + _language_note
     )
 )
 async def contradict_entry(
@@ -210,7 +217,7 @@ async def contradict_entry(
         "'related' links are created automatically by store_entry above a "
         "similarity threshold — use this tool for relationships the "
         "similarity search would not infer on its own (e.g. a dependency "
-        "between an architecture decision and a convention)."
+        "between an architecture decision and a convention)." + _language_note
     )
 )
 async def link_entries(
@@ -241,7 +248,7 @@ async def link_entries(
         "eslint, plus any configured verification_command_patterns). Call "
         "this right after running such a command — do not use it for trivial "
         "commands (ls, cat, echo, grep, git status) whose exit 0 proves "
-        "nothing. session_id must be the current session id."
+        "nothing. session_id must be the current session id." + _language_note
     )
 )
 async def record_execution(ctx: Context, command: str, succeeded: bool, session_id: str) -> dict:
@@ -292,7 +299,7 @@ async def record_execution(ctx: Context, command: str, succeeded: bool, session_
         "company/project policy, or an entry that has been validated repeatedly "
         "across many sessions and is now considered settled. DO NOT use for: "
         "recent insights, bug patterns that may be fixed, entries with active "
-        "contradictions. Pinning is reversible via restore_entry."
+        "contradictions. Pinning is reversible via restore_entry." + _language_note
     )
 )
 async def pin_entry(ctx: Context, entry_id: str) -> dict:
@@ -311,7 +318,7 @@ async def pin_entry(ctx: Context, entry_id: str) -> dict:
         "entry is confirmed, the code/module it references no longer exists, "
         "or it describes a bug pattern that has been fixed. DO NOT use for: "
         "entries you are unsure about. Deprecation is reversible via "
-        "restore_entry, but prefer caution."
+        "restore_entry, but prefer caution." + _language_note
     )
 )
 async def deprecate_entry(ctx: Context, entry_id: str) -> dict:
@@ -327,7 +334,7 @@ async def deprecate_entry(ctx: Context, entry_id: str) -> dict:
     description=(
         "Restore a pinned or deprecated entry back to active status. "
         "USE WHEN: a deprecation was premature, the entry is relevant again, "
-        "or a pin is no longer warranted."
+        "or a pin is no longer warranted." + _language_note
     )
 )
 async def restore_entry(ctx: Context, entry_id: str) -> dict:
@@ -346,7 +353,7 @@ async def restore_entry(ctx: Context, entry_id: str) -> dict:
         "include them). Optional filters: type (doc/archi_decision/insight/"
         "convention/bug_pattern/execution_result), status (active/pinned/deprecated), "
         "min_confidence, max_confidence. limit max 200, default 50. "
-        "Sorted by confidence descending. Returns entries + total for pagination."
+        "Sorted by confidence descending. Returns entries + total for pagination." + _language_note
     )
 )
 def list_entries(type: str | None = None, status: str | None = None,
@@ -368,7 +375,7 @@ def list_entries(type: str | None = None, status: str | None = None,
         "(low <0.3 / medium 0.3-0.7 / high >0.7), entries never validated, "
         "active contradictions, 5 lowest-confidence entries, and the last 10 "
         "events. Read-only diagnostic — use this before relying heavily on "
-        "memory, or when you suspect stale/contradicted entries."
+        "memory, or when you suspect stale/contradicted entries." + _language_note
     )
 )
 def get_memory_stats() -> dict:
@@ -421,7 +428,7 @@ def project_rules() -> str:
     mime_type="text/markdown",
 )
 def memory_rules() -> str:
-    return MEMORY_USAGE_RULES
+    return _memory_usage_rules
 
 
 @mcp.resource(
