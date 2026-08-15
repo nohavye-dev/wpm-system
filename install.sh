@@ -39,12 +39,16 @@ cp "$BUNDLE_DIR/scripts/wpm" "$BIN_DIR/wpm"
 chmod +x "$BIN_DIR/wpm"
 sed -i "1s|^#!/usr/bin/env python3|#!$DATA_DIR/venv/bin/python3|" "$BIN_DIR/wpm"
 
-printf 'staging optional OpenCode plugin...\n'
+printf 'installing optional OpenCode plugin (default: global)...\n'
 cp "$BUNDLE_DIR/wpm-opencode-plugin/plugin.ts" "$DATA_DIR/plugin.ts"
+PLUGIN_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins"
+mkdir -p "$PLUGIN_DIR"
+cp "$BUNDLE_DIR/wpm-opencode-plugin/plugin.ts" "$PLUGIN_DIR/wpm-plugin.ts"
 
 printf 'wpm installed. In each project: wpm enable\n'
-printf 'then register the MCP server once in opencode — see docs/fr/setup.md\n'
-printf 'optional anti-dilution plugin: wpm plugin install\n'
+printf 'the MCP server is registered automatically by the plugin (no opencode.json entry needed)\n'
+printf 'restart opencode after enabling a project\n'
+printf 'plugin control: wpm plugin install / wpm plugin uninstall\n'
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
   printf 'add %s to your PATH\n' "$BIN_DIR"
 fi

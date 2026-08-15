@@ -3,6 +3,12 @@
 Basé sur la spécification MCP (dernière révision publiée : `2025-11-25`, schema.ts faisant foi).
 Référence : https://modelcontextprotocol.io/specification/2025-11-25
 
+> **Note** — ce document explore les options pour rester 100 % MCP et
+> portable. Le projet a finalement retenu l'autre branche : OpenCode comme
+> host unique, avec le push déterministe porté par le plugin (hooks
+> `experimental.*`), voir `prompting-optimization-guide.md`. Ce
+> document reste utile comme référence des primitives MCP.
+
 ---
 
 ## Vue d'ensemble : les primitives et leur moment d'injection

@@ -216,8 +216,7 @@ async def main():
                 "store_entry",
                 {"type": "not_a_valid_type", "content": "x", "source": "agent_inference"},
             )
-            d = json.loads(r.content[0].text)
-            check("invalid type rejected", d.get("error") is True)
+            check("invalid type rejected", r.isError is True)
 
             r = await session.call_tool(
                 "link_entries",

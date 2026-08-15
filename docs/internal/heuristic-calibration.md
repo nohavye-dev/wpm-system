@@ -4,7 +4,7 @@ Document de référence pour calibrer les paramètres du modèle de confiance
 (decay λ, provenance, poids de preuve) sur des **mesures publiées**, plutôt
 que sur des valeurs devinées.
 
-Complément du document [`viabilite-et-validation.md`](viabilite-et-validation.md),
+Complément du document [`viability-and-validation.md`](viability-and-validation.md),
 qui décrit la méthode générale (bancs d'essai, fonction objectif, niveaux 1-4).
 
 ---
@@ -144,7 +144,7 @@ est archi > convention > doc > insight > bug_pattern > execution_result
 (lent → rapide).
 
 *Note :* ces valeurs sont **appliquées dans le code** (`settings.py`) et
-documentées dans `wpm-config-reference.md`. Elles restent provisoires tant
+documentées dans `configuration.md`. Elles restent provisoires tant
 que `archi_decision`/`convention`/`insight` ne sont pas mesurées.
 
 ---

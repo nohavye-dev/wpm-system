@@ -3,6 +3,14 @@
 Document de réflexion sur l'avenir du projet WPM, la viabilité de son
 architecture, et la façon de valider son modèle de confiance.
 
+> **Note historique** — ce document a été écrit avant le pivot. Depuis, le
+> projet a tranché : **OpenCode comme host unique**, plugin installé par
+> défaut qui enregistre le serveur MCP et les permissions (plus de
+> déclaration manuelle). Les paragraphes sur la « portabilité » et le
+> « découplage du plugin » décrivent donc une piste qui n'a **pas** été
+> retenue ; le reste (validation de l'heuristique, fragilité des hooks
+> `experimental.*`) reste d'actualité.
+
 ---
 
 ## 1. Évaluation du projet
@@ -68,7 +76,7 @@ pas dépendre d'une seule plateforme.
 
 ### Ce qui est le produit (indépendant des hooks)
 
-Les **10 outils MCP** (`store_entry`, `query_context`, etc.). Ils ne
+Les **11 outils MCP** (`store_entry`, `query_context`, etc.). Ils ne
 dépendent *pas* du plugin : ce sont des fonctions du serveur Python,
 exposables par une simple entrée `mcp` dans `opencode.json` — la voie
 standard que le projet a justement évitée en lançant le serveur lui-même
@@ -86,8 +94,8 @@ Sans plugin, on perd :
 Le seul vrai argument pour les hooks est le **déterminisme** : l'injection
 des règles et la sécurité à la compaction sont garanties, pas laissées au
 bon vouloir du LLM. Mais on a vu en test que le LLM suit les règles assez
-fidèlement (règle 3 « write as you go » + règle 12 « passe finale »
-couvrent l'essentiel).
+fidèlement (la règle d'or « write as you go » + la passe finale couvrent
+l'essentiel).
 
 ### Verdict
 

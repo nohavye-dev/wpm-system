@@ -2,8 +2,8 @@
 """wpm — Weighted Persistent Memory CLI.
 
 `wpm enable` writes wpm.config.json for the current project (with
-confirmation). Register the MCP server once in your host — see
-docs/fr/setup.md.
+confirmation). The MCP server is registered automatically by the OpenCode
+plugin (installed globally by install.sh) — no opencode.json entry needed.
 """
 
 from __future__ import annotations
@@ -75,7 +75,7 @@ def cmd_enable(db_dir: str | None, assume_yes: bool) -> None:
     conn.close()
 
     print(f"wpm: activated (wpm.config.json written, db_path={data['db_path']})")
-    print("wpm: now register the MCP server once in opencode — see docs/fr/setup.md")
+    print("wpm: the MCP server is registered by the OpenCode plugin — restart opencode")
 
 
 # ── disable ─────────────────────────────────────────────────────────────
@@ -98,7 +98,7 @@ def cmd_disable() -> None:
 
 def cmd_uninstall(force: bool = False) -> None:
     if not force:
-        print("This will remove the server venv, data and the 'wpm' binary.")
+        print("This will remove the server venv, data, the 'wpm' binary and the OpenCode plugin.")
         try:
             answer = input("Continue? [y/N] ")
         except (EOFError, KeyboardInterrupt):
@@ -114,6 +114,11 @@ def cmd_uninstall(force: bool = False) -> None:
     wpm_bin = Path(BIN_DIR) / "wpm"
     if wpm_bin.exists():
         wpm_bin.unlink()
+
+    plugin_dir = _opencode_plugin_dir()
+    plugin_target = plugin_dir / "wpm-plugin.ts"
+    if plugin_target.exists():
+        plugin_target.unlink()
 
     print("wpm: fully uninstalled")
     print("note: remove any 'wpm' MCP server entry from your host configurations")
@@ -248,11 +253,63 @@ def _print_text(result: dict) -> None:
             print("Conflicts: none")
 
 
+# ── record-execution ────────────────────────────────────────────────────
+
+def _parse_bool(value: str) -> bool:
+    return value.strip().lower() in ("true", "1", "yes")
+
+
+def cmd_record_execution(args: argparse.Namespace) -> None:
+    config_path = _resolve_wpm_config()
+    if not config_path.exists():
+        print("wpm: not activated here. Run 'wpm enable' first.", file=sys.stderr)
+        sys.exit(1)
+
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    db_path_raw = config.get("db_path", "")
+    if not db_path_raw:
+        sys.exit(1)  # silent — this runs unattended from the plugin
+
+    db_path = _contained_in_project(db_path_raw)
+    if not db_path.exists():
+        sys.exit(1)  # silent — nothing recorded yet
+
+    import logging
+    import warnings
+    logging.root.handlers.clear()
+    logging.root.addHandler(logging.NullHandler())
+    logging.root.setLevel(logging.CRITICAL)
+    warnings.filterwarnings("ignore")
+
+    from wpm_mcp_server import db
+    from wpm_mcp_server.behavior import (
+        compile_verification_patterns, looks_like_verification_command,
+    )
+    from wpm_mcp_server.embeddings import get_provider
+    from wpm_mcp_server.repository import Repository
+    from wpm_mcp_server.settings import load_settings
+
+    settings = load_settings(config_path)
+    patterns, _ = compile_verification_patterns(settings.verification_command_patterns or [])
+    if not looks_like_verification_command(args.command, patterns):
+        sys.exit(0)  # not a verification command — silently skip, not an error
+
+    conn = db.connect(str(db_path))
+    repo = Repository(conn=conn, embedder=get_provider(), settings=settings.domain)
+    content = f"Command executed: {args.command}\nResult: {'success' if args.succeeded else 'failure'}"
+    stored = repo.store_entry(type_="execution_result", content=content,
+                               source="tool_execution", session_id=args.session_id)
+    if args.succeeded:
+        repo.validate_entry(entry_id=stored["entry_id"], evidence_type="execution_verified",
+                             evidence_ref=args.command, session_id=args.session_id)
+    conn.close()
+
+
 # ── main ────────────────────────────────────────────────────────────────
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="wpm")
-    sub = parser.add_subparsers(dest="command")
+    sub = parser.add_subparsers(dest="subcommand")
 
     p = sub.add_parser("enable", help="Activate wpm in this project (writes wpm.config.json)")
     p.add_argument("db_dir", nargs="?", default=None)
@@ -267,21 +324,29 @@ def main() -> None:
     p.add_argument("--min-confidence", "-c", type=float, default=None,
                    help="Minimum confidence threshold (default: no filter)")
 
-    pl = sub.add_parser("plugin", help="Install/uninstall the optional OpenCode plugin")
+    r = sub.add_parser("record-execution", help="Record a verification command result as memory (unattended)")
+    r.add_argument("command", help="The shell command that was run")
+    r.add_argument("--succeeded", type=_parse_bool, default=False,
+                   help="Whether the command exited successfully (true/false)")
+    r.add_argument("--session-id", default=None, help="Session id for event attribution")
+
+    pl = sub.add_parser("plugin", help="Reinstall/uninstall the OpenCode plugin (installed by default via install.sh)")
     pl.add_argument("action", choices=["install", "uninstall"])
     pl.add_argument("--source", help="Path to plugin.ts (default: the copy shipped by install.sh)")
 
     args = parser.parse_args()
 
-    if args.command == "enable":
+    if args.subcommand == "enable":
         cmd_enable(args.db_dir, args.yes)
-    elif args.command == "disable":
+    elif args.subcommand == "disable":
         cmd_disable()
-    elif args.command == "uninstall":
+    elif args.subcommand == "uninstall":
         cmd_uninstall(args.force)
-    elif args.command == "search":
+    elif args.subcommand == "search":
         cmd_search(args)
-    elif args.command == "plugin":
+    elif args.subcommand == "record-execution":
+        cmd_record_execution(args)
+    elif args.subcommand == "plugin":
         cmd_plugin(args.action, args.source)
     else:
         parser.print_usage()

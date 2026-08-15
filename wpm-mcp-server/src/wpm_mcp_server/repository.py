@@ -530,7 +530,27 @@ class Repository:
             ).fetchall()
         ]
 
-        return {
+        pin_candidates_rows = self.conn.execute(
+            """
+            SELECT e.id, e.type, e.provenance_score, e.validation_score,
+                   e.last_validated_at, e.status, COUNT(ev.id) AS validation_count
+            FROM entries e
+            JOIN entry_events ev ON ev.entry_id = e.id AND ev.event_type = 'validated'
+            WHERE e.status = 'active' AND e.type IN ('archi_decision', 'convention')
+            GROUP BY e.id
+            HAVING validation_count >= 3
+            """
+        ).fetchall()
+        pin_candidates = [
+            row["id"] for row in pin_candidates_rows
+            if confidence_at(
+                entry_type=EntryType(row["type"]), provenance_score=row["provenance_score"],
+                validation_score=row["validation_score"], last_validated_at=row["last_validated_at"],
+                status=row["status"], settings=self.settings,
+            ) > 0.7
+        ]
+
+        stats = {
             "total_entries": total,
             "by_type": by_type,
             "confidence_distribution": distribution,
@@ -539,6 +559,13 @@ class Repository:
             "lowest_confidence": lowest,
             "recent_activity": recent,
         }
+        if pin_candidates:
+            stats["pin_candidates"] = pin_candidates
+            stats["reminder"] = (
+                f"{len(pin_candidates)} entries validated 3+ times could be "
+                "pinned via pin_entry."
+            )
+        return stats
 
     def list_entries(
         self,

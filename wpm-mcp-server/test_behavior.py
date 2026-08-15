@@ -27,10 +27,18 @@ def check(label, cond, detail=""):
 
 # --- memory rules text ---
 check(
-    "rules are substantial (>=15 rules)",
+    "rules are compact but present (golden rules + standing policies)",
     behavior.MEMORY_USAGE_RULES.count("<wpm-memory-rules>") >= 1
-    and len(behavior.MEMORY_USAGE_RULES) > 2000,
+    and len(behavior.MEMORY_USAGE_RULES) > 500,
     f"len={len(behavior.MEMORY_USAGE_RULES)}",
+)
+check(
+    "detailed rules folded out of instructions",
+    "DETAILED RULES" not in behavior.MEMORY_USAGE_RULES,
+)
+check(
+    "standing policies present",
+    "STANDING POLICIES" in behavior.MEMORY_USAGE_RULES,
 )
 check(
     "rules mention write-as-you-go discipline",
@@ -80,12 +88,12 @@ check(
     fixed_rules,
 )
 check(
-    "fixed clause keeps storage English",
-    "CONTENT MUST BE IN ENGLISH" in fixed_rules,
+    "content-in-English rule moved out of instructions",
+    "CONTENT MUST BE IN ENGLISH" not in fixed_rules,
 )
 check(
     "fixed rules are still substantial",
-    len(fixed_rules) > 2000,
+    len(fixed_rules) > 500,
 )
 check(
     "language note empty when auto",

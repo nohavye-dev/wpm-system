@@ -1,9 +1,10 @@
-"""Behavioral content and pure helpers for the pure-MCP server.
+"""Behavioral content and pure helpers for the MCP layer.
 
-Host-agnostic replacement for the old opencode plugin's rules.ts and
-project-context.ts: the usage rules injected through initialize.instructions,
-the verification-command patterns powering record_execution, and the
-project-rules formatting used by the wpm://project-rules resource.
+Holds the usage rules injected through initialize.instructions (a reduced
+set — 3 golden rules + standing policies — with the full rule detail living
+in tool/prompt descriptions), the verification-command patterns powering
+record_execution, and the project-rules formatting used by the
+wpm://project-rules resource.
 
 Kept in English on purpose: stored content must be English (embedding
 consistency), and this module must stay free of import side effects so it
@@ -45,110 +46,24 @@ STARTUP SEQUENCE — at session start, in this order:
 4. Validate each stored fact with external evidence (validate_entry) once it
    is confirmed.
 
-DETAILED RULES
+STANDING POLICIES (apply across all tools, not tied to a single call):
 
 1. RELIABILITY OVER COMPLETENESS. A wrong or artificially boosted entry is
-   worse than a missing one — it silently misleads future query_context
-   calls. Prefer an underpopulated memory to a polluted one.
+   worse than a missing one. Prefer an underpopulated memory to a
+   polluted one.
 
-2. MEMORY FIRST. WHEN you are about to read a file, grep, or search the
-   codebase, DO call query_context on the topic BEFORE doing so — the answer
-   may already be in persistent memory. DO the same at the start of any
-   substantive answer: query the current topic before answering from
-   reasoning alone. Then verify: if the entry is high-confidence (>0.7) and
-   recently validated, trust it. If it is old, low-confidence, or has active
-   conflicts, confirm against the actual code before relying on it.
+2. WRITE MEMORY ANYTIME. Memory write tools MUST be used whenever a
+   durable fact emerges — in plan mode, build mode, or any other mode.
+   Plan mode is NOT a reason to defer persistence. If the host blocks the
+   write, retry immediately or switch to a build/agent mode.
 
-3. CONTENT MUST BE IN ENGLISH for stored memory entries (embedding
-    consistency). Translate before storing, not after. However, {response_clause}
+Every other rule (type/source selection, dedup, evidence hierarchy,
+reading query results, pin/deprecate, links, English-only content,
+end-of-session persistence, recording executions) lives in the description
+of the relevant tool or prompt — re-read it there at the moment of the
+decision.
 
-4. WRITE AS YOU GO, NOT IN BATCH. WHEN a durable fact exists — an
-   architecture decision taken, a convention identified, a test result, an
-   understood bug pattern — DO store it immediately via store_entry. DO NOT
-   defer it to the end of the task: unpersisted facts are silently lost at
-   context compaction. But DO NOT store anything: skip transient details,
-   unverified hypotheses, and facts already obvious in the code. Ask: will
-   this still be true and useful in several weeks?
-
-5. DEDUP BEFORE WRITING. WHEN you are about to call store_entry, DO run a
-   quick query_context on the topic first. If a very similar entry already
-   exists, DO NOT create a duplicate — call validate_entry on the existing
-   one instead.
-
-6. CHOOSE THE RIGHT TYPE. doc = explanatory/reference content;
-   archi_decision = structural choice observed in code or decided;
-   convention = consistent naming/style/process rule (not a one-off);
-   insight = discovered understanding of how something actually works,
-   durable for weeks/months (investigated, not read from a doc, not a
-   decision or a rule);
-   bug_pattern = known issue and its cause, with proof — never a guess;
-   execution_result = result of a test/build/lint run (use record_execution,
-   not store_entry — short-lived by design).
-   Do not force a fact into the last-used type.
-
-7. NEVER OVER-DECLARE source. official_doc (read & cited), observed_code
-   (seen directly in the code), tool_execution (actually ran a
-   command/test), agent_inference (your deduction, no direct proof — low
-   starting confidence). If it is an assumption, use agent_inference even
-   if it seems solid.
-
-8. EVIDENCE HIERARCHY (validate_entry / contradict_entry). WHEN you validate
-   or contradict, DO point evidence at something external and checkable (a
-   test log, a file path, another entry). execution_verified >
-   cross_reference > reuse_without_failure; agent_reasoning NEVER moves the
-   score and must not be used to inflate confidence — if you have no real
-   evidence, DO NOT validate at all. DO NOT re-validate the same fact
-   repeatedly to inflate a score.
-
-9. NEVER DELETE OR SILENTLY OVERWRITE a contradicted entry. Use
-   contradict_entry with external evidence; the old entry stays, its score
-   drops (faster than a confirmation raises it — do not compensate by
-   re-validating right after).
-
-10. READ RESULTS DIFFERENTLY. query_context returns direct_matches
-    (most reliable), related_context (1-hop graph recall, less reliable —
-    mention cautiously), and conflicts (entries with an active
-    contradiction). ALWAYS check conflicts before relying on a direct_match;
-    never present a contested fact as settled without flagging it.
-
-11. PIN AND DEPRECATE SPARINGLY. Pin only architecture decisions and
-    conventions that are project-defining and immutable — never pin
-    insights or bug_patterns. When a contradiction is resolved in favor
-    of one entry, deprecate the contradicted entry rather than leaving it
-    to decay. After reviewing memory with get_memory_stats, consider
-    pinning high-confidence entries validated 3+ times across sessions,
-    and consider deprecating entries below the confidence threshold that
-    have been actively contradicted.
-
-12. LINKS. Only use link_entries for relationships similarity cannot infer
-    (depends_on, refines). Do not over-link; contradicts is covered by
-    contradict_entry.
-
-13. SESSION DISCIPLINE. Keep the same session_id for the whole task — the
-    anti-loop dedup depends on it. Before a task ends or the session goes
-    idle, do a final pass (or invoke the persist MCP prompt): is there any
-    decision/result/pattern not yet persisted? If so, write it now.
-
-14. WRITE MEMORY ANYTIME. Memory write tools (store_entry, validate_entry,
-    contradict_entry, pin_entry, deprecate_entry, restore_entry,
-    record_execution) MUST be used whenever a durable fact emerges — in
-    plan mode, build mode, or any other mode. Plan mode is NOT a reason to
-    defer persistence. If the host blocks the write, retry immediately or
-    switch to a build/agent mode. An unpersisted fact is lost forever at
-    context compaction — do not assume you will remember it later.
-
-15. INCREMENTAL MEMORY IS ALWAYS FREE. Persist durable facts as they
-    emerge during normal work. The learn, map, bootstrap, patterns and
-    audit MCP prompts are user-controlled workflows for bulk ingestion (a
-    full document, a codebase survey) — do not wait for them to memorize,
-    and do not use them for mid-task facts.
-
-16. RECORD EXECUTIONS. After running a test, build, or lint command, call
-    record_execution(command, succeeded, session_id) so the result is
-    stored as an execution_result entry and, on success, validated as
-    execution_verified — rather than doing store_entry + validate_entry by
-    hand. Do not call it for trivial commands (ls, cat, echo, grep, git
-    status/diff): exit 0 on those proves nothing about correctness.
+OUTPUT LANGUAGE. {response_clause}
 </wpm-memory-rules>"""
 
 
@@ -168,10 +83,10 @@ def _response_clause(response_language: str | None) -> str:
 
 
 def build_memory_usage_rules(response_language: str | None = None) -> str:
-    """Render the 16 usage rules with the configured output-language clause.
+    """Render the usage rules with the configured output-language clause.
 
     The base template stays English (stored content must be English); only
-    rule 3's output clause varies. None = follow the user's language.
+    the output-language clause varies. None = follow the user's language.
     """
     return _MEMORY_USAGE_RULES_TEMPLATE.format(
         response_clause=_response_clause(response_language)

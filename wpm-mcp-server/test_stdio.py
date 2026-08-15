@@ -374,11 +374,10 @@ async def main():
                         "source": "agent_inference",
                     },
                 )
-                err = json.loads(err_raw.content[0].text)
                 check(
                     "invalid type returns error",
-                    err.get("error") is True,
-                    f"got {err}",
+                    err_raw.isError is True,
+                    f"got {err_raw.content[0].text if err_raw.content else ''}",
                 )
 
                 # --- error: link nonexistent entry ---

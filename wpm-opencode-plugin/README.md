@@ -1,28 +1,35 @@
 # wpm-opencode-plugin
 
-Couche **optionnelle** OpenCode qui ajoute le push déterministe qu'un
-serveur MCP pur ne peut pas fournir. Sans elle, le serveur wpm est
-entièrement fonctionnel mais sa conformité repose sur des règles injectées
-une seule fois en début de session : elles se **diluent** à mesure que le
-contexte grossit (observé en condition réelle : les règles ne sont plus
-suivies après les 3-4 premiers messages).
+Le plugin OpenCode de WPM, **installé par défaut** par `install.sh` dans
+`~/.config/opencode/plugins/`. Il fait deux choses qu'un serveur MCP pur ne
+peut pas faire :
 
-Le plugin ré-injecte une carte de règles compacte au **bas** du contexte, là
-où le modèle porte son attention.
+1. **Enregistrer le serveur** — à partir du `wpm.config.json` du projet, le
+   hook `config` déclare le serveur MCP `wpm` et la permission `wpm_*` dans
+   la configuration d'OpenCode : aucune entrée `mcp` manuelle dans
+   `opencode.json`.
+2. **Pousser de façon déterministe** — les règles se diluent dans un long
+   contexte ; le plugin les ré-injecte au bon moment.
 
 ## Ce qu'il fait
 
-- **`experimental.chat.system.transform`** — injecte la carte d'or
-  (MEMORY FIRST / WRITE AS YOU GO / PROOF BEFORE VALIDATION, avec les noms
-  `wpm_*`) dans le prompt système à **chaque tour**.
-- **`experimental.session.compacting`** — ré-injecte la carte + un rappel
-  « persiste tout fait durable non stocké » dans le résumé de compaction.
-- **`event` (`session.idle`)** — journalise un rappel de fin de session.
+- **`config`** — enregistre le serveur MCP `wpm` (venv `python -m
+  wpm_mcp_server`, `WPM_CONFIG_PATH` pointé sur le projet) + permission
+  `wpm_*` (`allow`).
+- **`experimental.chat.system.transform`** — ré-injecte la carte de règles
+  compacte à chaque tour.
+- **`experimental.session.compacting`** — rappelle de persister ce qui ne
+  l'est pas avant compaction.
+- **`tool.execute.after`** — capture les commandes de test/build/lint
+  (`wpm record-execution`) sans dépendre du LLM ; suit les `query_context`.
+- **`tool.execute.before`** — nudge « memory first » conditionnel avant une
+  lecture/`grep`/`glob` sans `query_context` récent.
+- **`event` (`session.idle`)** — déclenche la passe de persistance de fin de
+  session.
 
-Il est **inerte par projet** : sans `wpm.config.json` à la racine, aucun hook
-n'agit. Le serveur MCP reste autonome sans lui.
+## Installation
 
-## Installation (opt-in)
+Installé par défaut par `install.sh`. Réinstallation / retrait manuel :
 
 ```bash
 wpm plugin install      # copie plugin.ts dans ~/.config/opencode/plugins/
@@ -33,17 +40,12 @@ Puis redémarrer OpenCode.
 
 ## Prérequis
 
-- Le serveur MCP doit être enregistré sous le nom `wpm` dans `opencode.json`
-  (les outils sont alors `wpm_query_context`, `wpm_store_entry`, …). Si vous
-  l'enregistrez sous un autre nom, adaptez la constante `SERVER_NAME` en tête
-  de `plugin.ts`.
-- Le projet doit avoir `wpm.config.json` (`wpm enable`).
+- Un `wpm.config.json` à la racine du projet (`wpm enable`).
+- Le venv du serveur installé (`install.sh`).
 
 ## Avertissement
 
-Les hooks `experimental.*` sont non stabilisés et peuvent être ignorés
-silencieusement par OpenCode si leur nom change. Ils ont été vérifiés sur
-OpenCode 1.18.11 (`experimental.chat.system.transform` et
-`experimental.session.compacting`). Après installation, confirmez que le hook
-se déclenche en surveillant les logs du service `wpm-plugin` pendant une
-vraie session.
+Les hooks `experimental.*` ne sont **pas stabilisés** côté OpenCode et
+peuvent être ignorés silencieusement selon la version (vérifiés sur
+1.18.11). Après chaque montée de version d'OpenCode, confirmez que les hooks
+se déclenchent (logs du service `wpm-plugin` pendant une vraie session).

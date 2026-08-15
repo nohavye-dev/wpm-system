@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Measure wpm rule-5 (dedup-before-write) compliance from entry_events.
+"""Measure wpm rule compliance from a wpm database.
 
-Reads a wpm database and, for each session_id seen in entry_events, reports
-how many entries were stored without a preceding query_context (REFERENCED
-event) in the same session — the observable, server-side proxy for the
-MEMORY FIRST / DEDUP BEFORE WRITING rules. Mirrors the in-memory enforcement
-used by the store_entry tool: a store is a violation when no query_context
-has occurred since the previous store.
+Reads a wpm database and reports three observable, server-side proxies:
+
+- rule 5 (dedup-before-write): for each session_id, how many entries were
+  stored without a preceding query_context (REFERENCED event);
+- rule 8 (evidence hierarchy): the proportion of validate_entry calls using
+  agent_reasoning vs. external evidence;
+- rule 3/reliability: the proportion of entries never validated, or
+  validated only by agent_reasoning.
 
 Usage: python3 wpm_metrics.py <path-to-wpm.db>
 """
@@ -49,6 +51,43 @@ def analyze(rows: list[tuple]) -> dict:
     return sessions
 
 
+def analyze_evidence_types(rows: list[tuple]) -> dict:
+    """rows: (event_type, evidence_type) from entry_events."""
+    counts = defaultdict(int)
+    for event_type, evidence_type in rows:
+        if event_type == "validated":
+            counts[evidence_type or "unknown"] += 1
+    total = sum(counts.values())
+    return {
+        "counts": dict(counts),
+        "agent_reasoning_rate": (
+            round(counts.get("agent_reasoning", 0) / total, 4) if total else None
+        ),
+    }
+
+
+def analyze_never_validated(entry_rows: list[tuple], event_rows: list[tuple]) -> dict:
+    """entry_rows: (id,); event_rows: (entry_id, event_type, evidence_type)."""
+    validated = defaultdict(set)
+    for entry_id, event_type, evidence_type in event_rows:
+        if event_type == "validated":
+            validated[entry_id].add(evidence_type or "unknown")
+
+    total = len(entry_rows)
+    never = sum(1 for (entry_id,) in entry_rows if entry_id not in validated)
+    agent_reasoning_only = sum(
+        1
+        for (entry_id,) in entry_rows
+        if entry_id in validated and validated[entry_id] == {"agent_reasoning"}
+    )
+    return {
+        "total_entries": total,
+        "never_validated": never,
+        "agent_reasoning_only": agent_reasoning_only,
+        "never_validated_rate": round(never / total, 4) if total else None,
+    }
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         print(__doc__)
@@ -59,6 +98,13 @@ def main() -> None:
     try:
         rows = conn.execute(
             "SELECT session_id, event_type FROM entry_events ORDER BY rowid ASC"
+        ).fetchall()
+        evidence_rows = conn.execute(
+            "SELECT event_type, evidence_type FROM entry_events"
+        ).fetchall()
+        entry_rows = conn.execute("SELECT id FROM entries").fetchall()
+        event_rows = conn.execute(
+            "SELECT entry_id, event_type, evidence_type FROM entry_events"
         ).fetchall()
     finally:
         conn.close()
@@ -77,6 +123,8 @@ def main() -> None:
                 round(total_violations / total_stores, 4) if total_stores else None
             ),
         },
+        "evidence_types": analyze_evidence_types(evidence_rows),
+        "validation_coverage": analyze_never_validated(entry_rows, event_rows),
     }
     print(json.dumps(summary, indent=2))
 

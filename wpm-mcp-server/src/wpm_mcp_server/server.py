@@ -1,18 +1,22 @@
-"""Pure-MCP memory server (FastMCP): tools, resources, prompts, instructions.
+"""Memory server (FastMCP): tools, resources, prompts, instructions.
 
-Replaces the old opencode plugin. Everything the plugin used to do through
-opencode-specific hooks is now expressed with standard MCP primitives so the
-server works with any MCP host:
+One of two complementary layers. OpenCode is the single target host, so
+wpm splits its behavior between:
 
-- the 16 usage rules live in initialize.instructions (read once per session)
-  and are re-readable via the wpm://memory-rules resource;
-- project rules/conventions are exposed as the wpm://project-rules resource,
-  recomputed from memory and invalidated (with a resources/updated
-  notification) on every mutation;
-- record_execution captures test/build/lint results as execution_verified
-  evidence without relying on a tool.execute.after hook;
-- the wpm workflows are exposed as MCP prompts (persist, audit, learn, map,
-  bootstrap, patterns).
+- this MCP layer (declarative, read by the model): a reduced set of usage
+  rules in initialize.instructions (3 golden rules + a handful of standing
+  policies, re-readable via the wpm://memory-rules resource), tool
+  descriptions, JSON schemas, and targeted `tool_result` reminders;
+- the wpm-opencode-plugin layer (event-driven, triggered by the host):
+  `experimental.chat.system.transform`, `experimental.session.compacting`,
+  `tool.execute.before/after`, and `event` (`session.idle`).
+
+Project rules/conventions are exposed as the wpm://project-rules resource,
+recomputed from memory and invalidated (with a resources/updated
+notification) on every mutation. record_execution remains a tool, but rule
+16 is primarily enforced deterministically by the plugin's
+tool.execute.after hook (which shells out to `wpm record-execution`), so it
+no longer depends on the model remembering to call this tool.
 
 Host-agnostic activation: the server is active when it can resolve a database
 path — from wpm.config.json (relative to its own location, not the host's
@@ -23,6 +27,7 @@ tools, but every tool returns a clear "not activated" error.
 import os
 import uuid
 from pathlib import Path
+from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.server import Context
@@ -42,6 +47,14 @@ from wpm_mcp_server.behavior import (
 from wpm_mcp_server.embeddings import get_provider
 from wpm_mcp_server.repository import WpmError, Repository
 from wpm_mcp_server.settings import load_settings, resolve_response_language
+
+EntryType = Literal[
+    "doc", "archi_decision", "insight", "convention",
+    "bug_pattern", "execution_result",
+]
+EntrySource = Literal[
+    "official_doc", "observed_code", "tool_execution", "agent_inference",
+]
 
 NOT_ACTIVATED_MESSAGE = (
     "wpm is not activated in this project: run 'wpm enable' at the project "
@@ -132,19 +145,24 @@ async def _on_memory_mutated(ctx: Context | None) -> None:
 
 @mcp.tool(
     description=(
-        "Store a new memory entry (doc, archi_decision, insight, convention, "
-        "bug_pattern, or execution_result). CONTENT MUST BE IN ENGLISH. "
-        "'source' should be one of: official_doc, observed_code, "
-        "tool_execution, agent_inference (unknown sources get a neutral "
-        "default confidence). Immediately BEFORE this call, run query_context on the "
-        "topic: if a near-duplicate already exists, call validate_entry on "
-        "it instead of creating a duplicate. Only store durable facts that "
-        "will still be true and useful in weeks. Returns the new entry_id "
-        "and its initial confidence — this entry starts unvalidated; call "
-        "validate_entry with real evidence once it is confirmed." + _language_note
+        "Store one durable memory entry. CONTENT MUST BE IN ENGLISH. "
+        "type: doc=explanatory content | archi_decision=structural choice "
+        "(observed or decided) | convention=consistent naming/style/process "
+        "rule | insight=discovered understanding, durable for weeks (not a "
+        "decision) | bug_pattern=known issue+cause WITH PROOF | "
+        "execution_result=use record_execution instead, not this tool. "
+        "source: official_doc=read & cited | observed_code=seen directly in "
+        "code | tool_execution=actually ran a command | agent_inference=your "
+        "deduction, no direct proof. "
+        "Immediately BEFORE this call, run query_context on the topic: if a "
+        "near-duplicate already exists, call validate_entry on it instead of "
+        "creating a duplicate. Only store facts still true and useful in "
+        "weeks. Returns the new entry_id and its initial confidence — this "
+        "entry starts unvalidated; call validate_entry with real evidence "
+        "once it is confirmed." + _language_note
     )
 )
-async def store_entry(ctx: Context, type: str, content: str, source: str) -> dict:
+async def store_entry(ctx: Context, type: EntryType, content: str, source: EntrySource) -> dict:
     global _queried_since_last_store
     try:
         result = get_repo().store_entry(
@@ -190,8 +208,16 @@ def query_context(query: str, min_confidence: float = 0.0, token_budget: int = 2
             session_id=_session_id,
         )
         _queried_since_last_store = True
+        reminders = []
+        if result.get("related_context"):
+            reminders.append(
+                "related_context is 1-hop associative recall — lower "
+                "confidence than direct_matches, mention it cautiously."
+            )
         if result.get("conflicts"):
-            result["reminder"] = _REMINDER_CONFLICTS
+            reminders.append(_REMINDER_CONFLICTS)
+        if reminders:
+            result["reminder"] = " ".join(reminders)
         return result
     except (ValueError, WpmError, RuntimeError) as exc:
         return {"error": True, "message": str(exc)}
@@ -466,9 +492,10 @@ def project_rules() -> str:
     "wpm://memory-rules",
     name="Memory usage rules",
     description=(
-        "The 16 rules governing how to use persistent memory: when to store, "
-        "validate, contradict, dedup, pin and deprecate. Same content as the "
-        "server instructions — re-read them if in doubt."
+        "The memory usage rules: golden rules + standing policies. Same "
+        "content as the server instructions — the full per-tool detail lives "
+        "in each tool/prompt description; re-read it there at the moment of "
+        "the decision."
     ),
     mime_type="text/markdown",
 )
@@ -503,7 +530,10 @@ def verification_commands() -> str:
 
 @mcp.prompt(
     name="persist",
-    description="End-of-task persistence checklist: persist any durable facts from the session that were not yet stored.",
+    description=(
+        "End-of-task persistence checklist — call this yourself when a task "
+        "or session is wrapping up, don't wait for the user to ask."
+    ),
 )
 def wpm_persist() -> str:
     return (
@@ -561,7 +591,12 @@ def wpm_audit() -> str:
 
 @mcp.prompt(
     name="learn",
-    description="Ingest one or more markdown documents into persistent memory, chunked by section.",
+    description=(
+        "Ingest one or more markdown documents into persistent memory, "
+        "chunked by section. This is for bulk ingestion of an existing "
+        "document — it does not replace storing facts incrementally as "
+        "they emerge during normal work."
+    ),
 )
 def wpm_learn(paths: str = "") -> str:
     return (
@@ -618,7 +653,12 @@ def wpm_learn(paths: str = "") -> str:
 
 @mcp.prompt(
     name="map",
-    description="Map the structure, architecture and conventions of the given code directories/files into persistent memory.",
+    description=(
+        "Map the structure, architecture and conventions of the given code "
+        "directories/files into persistent memory. This is a bulk codebase "
+        "survey — it does not replace storing facts incrementally as they "
+        "emerge during normal work."
+    ),
 )
 def wpm_map(scopes: str = "") -> str:
     return (
@@ -687,7 +727,12 @@ def wpm_map(scopes: str = "") -> str:
 
 @mcp.prompt(
     name="bootstrap",
-    description="Bootstrap the project's persistent memory from existing artifacts (README, docs, configs, CI, structure).",
+    description=(
+        "Bootstrap the project's persistent memory from existing artifacts "
+        "(README, docs, configs, CI, structure). This is a one-time initial "
+        "population — it does not replace storing facts incrementally as "
+        "they emerge during normal work."
+    ),
 )
 def wpm_bootstrap() -> str:
     return (
@@ -754,7 +799,12 @@ def wpm_bootstrap() -> str:
 
 @mcp.prompt(
     name="patterns",
-    description="Analyze memory for recurring patterns and suggest (and execute) new conventions or architecture decisions.",
+    description=(
+        "Analyze memory for recurring patterns and suggest (and execute) new "
+        "conventions or architecture decisions. This is a bulk metacognitive "
+        "analysis — it does not replace storing facts incrementally as they "
+        "emerge during normal work."
+    ),
 )
 def wpm_patterns(type_filter: str = "") -> str:
     filter_text = type_filter.strip() or "ALL entry types"
