@@ -4,8 +4,8 @@ Document de référence pour calibrer les paramètres du modèle de confiance
 (decay λ, provenance, poids de preuve) sur des **mesures publiées**, plutôt
 que sur des valeurs devinées.
 
-Complément du document [`viability-and-validation.md`](viability-and-validation.md),
-qui décrit la méthode générale (bancs d'essai, fonction objectif, niveaux 1-4).
+Décrit la méthode générale de calibration (bancs d'essai, fonction objectif,
+niveaux 1-4).
 
 ---
 

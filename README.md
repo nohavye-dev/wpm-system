@@ -83,5 +83,4 @@ Et des workflows prêts à l'emploi : `learn`, `map`, `bootstrap`, `audit`,
 ## En phase d'essais
 
 Les points à surveiller : la **stabilité des hooks OpenCode** (`experimental.*`)
-et la **validation du modèle de confiance** sur de vrais projets. Voir
-[`docs/internal/viability-and-validation.md`](docs/internal/viability-and-validation.md).
+et la **validation du modèle de confiance** sur de vrais projets.
