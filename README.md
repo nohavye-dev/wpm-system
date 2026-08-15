@@ -8,6 +8,8 @@ pendant une session ne sont pas perdus à la suivante — et surtout, on sait
 > WPM est en **phase d'essais** : l'idée est prometteuse, l'ingénierie est
 > propre, mais le modèle de confiance reste à valider sur de vrais projets.
 
+- [`Vitrine et documentation`](https://nohavye-dev.github.io/wpm-site/) — lien vers le site vitrine du projet et sa documentation.
+
 ---
 
 ## Pourquoi WPM ?
@@ -32,9 +34,9 @@ information porte un **score de confiance** qui évolue dans le temps.
 - **Rappel au bon moment** — recherche hybride (sémantique + graphe) pour
   ressortir le bon souvenir quand il compte.
 
-👉 Le détail vulgarisé de ces concepts : [`docs/concepts.md`](docs/concepts.md).
-
 ---
+
+
 
 ## Démarrage en 3 commandes
 
@@ -70,11 +72,6 @@ Et des workflows prêts à l'emploi : `learn`, `map`, `bootstrap`, `audit`,
 
 ## Documentation
 
-- [`docs/concepts.md`](docs/concepts.md) — **concepts et fonctionnement, vulgarisés**.
-- [`docs/setup.md`](docs/setup.md) — installation, activation, désinstallation.
-- [`docs/workflows.md`](docs/workflows.md) — les workflows `learn`, `map`, `bootstrap`, `audit`, `patterns`.
-- [`docs/agent-behavior.md`](docs/agent-behavior.md) — ce que l'agent doit faire (référence).
-- [`docs/configuration.md`](docs/configuration.md) — référence `wpm.config.json`.
 - [`wpm-mcp-server/README.md`](wpm-mcp-server/README.md) — le serveur, côté technique.
 - [`docs/internal/`](docs/internal/) — notes de conception internes (validation, calibration).
 

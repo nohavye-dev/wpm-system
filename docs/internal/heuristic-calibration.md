@@ -143,9 +143,9 @@ une mesure (18 jours) et `doc` sur une borne indicative. L'ordre relatif
 est archi > convention > doc > insight > bug_pattern > execution_result
 (lent → rapide).
 
-*Note :* ces valeurs sont **appliquées dans le code** (`settings.py`) et
-documentées dans `configuration.md`. Elles restent provisoires tant
-que `archi_decision`/`convention`/`insight` ne sont pas mesurées.
+*Note :* ces valeurs sont **appliquées dans le code** (`settings.py`).
+Elles restent provisoires tant que `archi_decision`/`convention`/`insight`
+ne sont pas mesurées.
 
 ---
 

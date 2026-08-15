@@ -7,7 +7,7 @@ scoring, décroissance, expansion de graphe, outils MCP.
 > **Présentation vs technique** — les sections « Outils », « Resources »,
 > « Prompts » et « Configuration » ci-dessous sont techniques. Pour
 > comprendre *pourquoi* tout cela existe, voir
-> [`docs/concepts.md`](../docs/concepts.md).
+> `docs/concepts.md`.
 
 ---
 
@@ -97,7 +97,7 @@ Dans OpenCode : commandes slash `/wpm:learn:mcp`, etc.
 
 ## Configuration
 
-Voir [`docs/configuration.md`](../docs/configuration.md) pour le détail de
+Voir `docs/configuration.md` pour le détail de
 `wpm.config.json`. `wpm enable` écrit ce fichier (avec `db_path` par
 défaut), `wpm disable` le supprime.
 
