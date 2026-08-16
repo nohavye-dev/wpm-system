@@ -8,7 +8,9 @@ pendant une session ne sont pas perdus à la suivante — et surtout, on sait
 > WPM est en **phase d'essais** : l'idée est prometteuse, l'ingénierie est
 > propre, mais le modèle de confiance reste à valider sur de vrais projets.
 
-- [`Vitrine et documentation`](https://nohavye-dev.github.io/wpm-site/) — lien vers le site vitrine du projet et sa documentation.
+## Documentation
+
+- Site web du projet : [WPM — Weighted Persistent Memory](https://nohavye-dev.github.io/wpm-site/)
 
 ---
 

@@ -9,6 +9,10 @@ scoring, décroissance, expansion de graphe, outils MCP.
 > comprendre *pourquoi* tout cela existe, voir
 > `docs/concepts.md`.
 
+## Documentation
+
+- Site web du projet : [WPM — Weighted Persistent Memory](https://nohavye-dev.github.io/wpm-site/)
+
 ---
 
 ## Présentation

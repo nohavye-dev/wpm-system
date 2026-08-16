@@ -11,6 +11,10 @@ peut pas faire :
 2. **Pousser de façon déterministe** — les règles se diluent dans un long
    contexte ; le plugin les ré-injecte au bon moment.
 
+## Documentation
+
+- Site web du projet : [WPM — Weighted Persistent Memory](https://nohavye-dev.github.io/wpm-site/)
+
 ## Ce qu'il fait
 
 - **`config`** — enregistre le serveur MCP `wpm` (venv `python -m
