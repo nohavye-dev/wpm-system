@@ -10,3 +10,4 @@ node_modules/
 .env
 .venv/
 .pytest_cache/
+docs/public

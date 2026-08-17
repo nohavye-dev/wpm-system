@@ -40,13 +40,25 @@ information porte un **score de confiance** qui évolue dans le temps.
 
 
 
-## Démarrage en 3 commandes
+## Installation
 
 ```bash
-./install.sh        # 1. installe le serveur + le plugin (global, une fois)
-wpm enable          # 2. active la mémoire sur ce projet (écrit wpm.config.json)
-                    # 3. redémarrez OpenCode — c'est tout.
+curl -fsSL https://raw.githubusercontent.com/nohavye-dev/wpm-system/main/install.sh | bash
 ```
+
+## Démarrage
+
+Dans chaque projet où vous voulez activer WPM :
+
+```bash
+wpm enable
+```
+
+Cette commande crée un fichier `wpm.config.json` à la racine du projet
+et initialise la base de données locale (`.wpm/wpm.db`). Elle ajoute
+automatiquement le répertoire de données au `.gitignore`.
+
+Puis redémarrez OpenCode — c'est tout.
 
 **Zéro configuration OpenCode.** Le plugin s'installe tout seul, enregistre
 le serveur MCP et les permissions à votre place : pas d'entrée `mcp` à
@@ -75,7 +87,7 @@ Et des workflows prêts à l'emploi : `learn`, `map`, `bootstrap`, `audit`,
 ## Documentation
 
 - [`wpm-mcp-server/README.md`](wpm-mcp-server/README.md) — le serveur, côté technique.
-- [`docs/internal/`](docs/internal/) — notes de conception internes (validation, calibration).
+- [`docs/internals/`](docs/internal/) — notes de conception internes (validation, calibration).
 
 ---
 
@@ -83,3 +95,16 @@ Et des workflows prêts à l'emploi : `learn`, `map`, `bootstrap`, `audit`,
 
 Les points à surveiller : la **stabilité des hooks OpenCode** (`experimental.*`)
 et la **validation du modèle de confiance** sur de vrais projets.
+
+---
+
+## Pour les mainteneurs
+
+Avant de pousser des modifications, régénérez le checksum :
+
+```bash
+scripts/update-source-checksum.sh
+```
+
+Puis commitez le `SHA256SUMS` mis à jour. Sans cela, l'installation par
+`curl | bash` échouera sur un échec de vérification.

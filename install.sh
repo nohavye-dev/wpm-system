@@ -1,19 +1,35 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE_REF="${WPM_SOURCE_REF:-main}"
+REPO_URL="${WPM_REPO_URL:-https://github.com/nohavye-dev/wpm-system}"
+SOURCE_TARBALL="${WPM_SOURCE_TARBALL:-$REPO_URL/archive/refs/heads/$SOURCE_REF.tar.gz}"
+SOURCE_SHA256SUMS="${WPM_SOURCE_SHA256SUMS:-$REPO_URL/raw/$SOURCE_REF/SHA256SUMS}"
+
+BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-}")" && pwd 2>/dev/null || true)"
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/wpm-system"
 BIN_DIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
 
-if [ "${1:-}" = "uninstall" ]; then
-  if [ -x "$BIN_DIR/wpm" ]; then
-    exec "$BIN_DIR/wpm" uninstall
+if [ ! -f "$BUNDLE_DIR/wpm-mcp-server/pyproject.toml" ]; then
+  printf 'source bundle not found locally — downloading from %s (%s)...\n' "$REPO_URL" "$SOURCE_REF"
+  if ! command -v curl >/dev/null 2>&1; then
+    printf 'curl is required to install directly from GitHub\n' >&2
+    exit 1
   fi
-  if [ -x "$BUNDLE_DIR/scripts/wpm" ]; then
-    exec "$BUNDLE_DIR/scripts/wpm" uninstall
+  TMP_DIR="$(mktemp -d)"
+  trap 'rm -rf "$TMP_DIR"' EXIT
+  curl -fsSL "$SOURCE_TARBALL" -o "$TMP_DIR/source.tar.gz"
+  curl -fsSL "$SOURCE_SHA256SUMS" -o "$TMP_DIR/SHA256SUMS"
+  tar -xz -C "$TMP_DIR" -f "$TMP_DIR/source.tar.gz" --strip-components=1
+  if ! (cd "$TMP_DIR" && sha256sum -c SHA256SUMS --status); then
+    printf 'checksum verification failed — the downloaded source bundle was corrupted or tampered with\n' >&2
+    exit 1
   fi
-  printf 'wpm is not installed\n' >&2
-  exit 1
+  BUNDLE_DIR="$TMP_DIR"
+  if [ ! -f "$BUNDLE_DIR/wpm-mcp-server/pyproject.toml" ]; then
+    printf 'invalid source bundle\n' >&2
+    exit 1
+  fi
 fi
 
 printf 'creating server venv...\n'
