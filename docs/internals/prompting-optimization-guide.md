@@ -14,7 +14,7 @@ d'outils de l'host (`read`, `grep`, `bash`...), pas seulement ceux de wpm.
 Deux couches complémentaires :
 
 - **Couche MCP** (déclarative, lue par le modèle) : `instructions`,
-  descriptions de tools, schéma JSON, `tool_result`, `prompts/get`.
+  descriptions de tools, schéma JSON, `tool_result`.
 - **Couche plugin** (événementielle, déclenchée par l'host) :
   `experimental.chat.system.transform`, `experimental.session.compacting`,
   `tool.execute.before/after`, `event` (`session.idle`).
@@ -43,7 +43,7 @@ Fichiers concernés : `behavior.py` + `server.py` (couche MCP),
 | 12 | Links | instructions + description `link_entries` | **description `link_entries`** (déjà fait) | supprimer des instructions |
 | 13 | Session discipline (fin de tâche) | instructions | **hook `event: session.idle`** (plugin) | voir §9.3 — déclenchement actif, plus seulement un log |
 | 14 | Write memory anytime (plan mode) | instructions | **instructions** | garder (override transversal, pas de tool précis) |
-| 15 | Incremental ≠ bulk workflows | instructions | **description de chaque prompt bulk** | voir §5.2 |
+| 15 | Incremental ≠ bulk workflows | instructions | **description de chaque commande bulk** (plugin) | voir §5.2 |
 | 16 | Record executions | instructions + description `record_execution` | **hook `tool.execute.after`** (plugin) | voir §9.1 — le plugin voit l'exécution shell, wpm non |
 
 Résultat attendu : `_MEMORY_USAGE_RULES_TEMPLATE` passe d'environ 16
@@ -91,7 +91,7 @@ STANDING POLICIES (apply across all tools, not tied to a single call):
 Every other rule (type/source selection, dedup, evidence hierarchy,
 reading query results, pin/deprecate, links, English-only content,
 end-of-session persistence) lives in the description of the relevant
-tool or prompt — re-read it there at the moment of the decision.
+tool — re-read it there at the moment of the decision.
 </wpm-memory-rules>
 ```
 
@@ -218,60 +218,55 @@ if pin_candidates:
     stats["reminder"] = f"{len(pin_candidates)} entries validated 3+ times could be pinned via pin_entry."
 ```
 
-**Nuance à noter** : le prompt `patterns` (server.py, ligne 755) exécute
-déjà cette même règle de façon active — "convention validated 3+ times ->
-pin_entry" y est explicitement câblé et exécuté automatiquement à
+**Nuance à noter** : la commande `/wpm-patterns` (plugin.ts, `WPM_COMMANDS`)
+exécute déjà cette même règle de façon active — "convention validated 3+
+times -> pin_entry" y est explicitement câblé et exécuté automatiquement à
 l'invocation. Le changement ci-dessus n'est donc pas la seule couverture
-de la règle 11, juste un signal léger visible sans invoquer `patterns`
+de la règle 11, juste un signal léger visible sans invoquer `/wpm-patterns`
 explicitement. Priorité plus basse que je ne l'avais indiqué au tour
 précédent — voir §10.
 
 ---
 
-## 5. Prompts : le canal sous-exploité
+## 5. Prompts : le canal sous-exploité — puis migrés en commandes slash
 
-### 5.1 Règle 13 — le pass de fin de tâche appartient au prompt `persist`
+Historiquement, les règles 13 et 15 ont d'abord été déplacées vers des
+prompts MCP (`persist`, `audit`, `learn`, `map`, `bootstrap`, `patterns`).
+Cette étape est **dépassée** : côté OpenCode, un prompt MCP s'expose comme
+commande slash `/wpm:xxx:mcp`, sans contrôle du texte affiché à
+l'exécution ni enregistrement par le plugin.
 
-Le prompt `persist` existe déjà (ligne 504-517) et porte déjà la bonne
-sémantique. Le problème n'est pas le prompt lui-même, mais le fait que
-la règle 13 des `instructions` redise la même chose en amont, dès le
-début de session — donc diluée avant le moment où elle compte. Une fois
-la règle 13 retirée des `instructions` (§1), le prompt `persist` reste
-le seul porteur de cette règle, déclenché explicitement en fin de tâche
-plutôt que rappelé de mémoire.
+**Décision finale (migration)** : les 6 workflows sont sortis du serveur
+MCP (les `@mcp.prompt` de `server.py` ont été supprimés) et déplacés dans
+`wpm-opencode-plugin/plugin.ts` comme commandes slash natives
+(`/wpm-persist`, `/wpm-audit`, `/wpm-learn`, `/wpm-map`, `/wpm-bootstrap`,
+`/wpm-patterns`) :
 
-Vérifier aussi que la description du prompt (ligne 506) mentionne
-explicitement quand l'invoquer, pour que le modèle sache le déclencher
-sans intervention utilisateur :
+- enregistrées par le hook `config` (`config.command`), donc exposées dans
+  le picker `/` comme n'importe quelle commande OpenCode ;
+- masquées à l'exécution par `command.execute.before` : la part texte du
+  template est marquée `synthetic: true` (invisible dans l'UI, mais
+  injectée dans le contexte modèle) et remplacée en tête de `parts` par un
+  label court visible `/wpm-<commande> [args]`;
+- les templates utilisent `$ARGUMENTS` (substitution native des arguments)
+  et référencent les outils MCP par leur nom complet `wpm_<tool>`.
 
-```python
-description=(
-    "End-of-task persistence checklist — call this yourself when a task "
-    "or session is wrapping up, don't wait for the user to ask."
-),
-```
+### 5.1 Règle 13 — le pass de fin de tâche appartient à `/wpm-persist`
 
-### 5.2 Règle 15 — répartir la mise en garde dans chaque prompt bulk
+`PERSIST_PROMPT_TEXT` (plugin.ts) est la **source de vérité unique** du
+pass de fin de tâche : il est poussé par le hook `session.idle` (via
+`client.session.prompt`) et réutilisé tel quel comme template de la
+commande `/wpm-persist`. La description de la commande
+(`WPM_COMMANDS["wpm-persist"].description`) indique explicitement quand
+l'invoquer — « call this yourself when a task or session is wrapping
+up » — pour que le modèle la déclenche sans intervention utilisateur.
 
-Actuellement une seule mention en `instructions` doit couvrir 5 prompts
-différents (`learn`, `map`, `bootstrap`, `patterns`, `audit`), invoqués
-potentiellement bien après le début de session. Ajouter une ligne dédiée
-dans la description de **chacun** :
+### 5.2 Règle 15 — répartir la mise en garde dans chaque commande bulk
 
-```python
-@mcp.prompt(
-    name="learn",
-    description=(
-        "Ingest one or more markdown documents into persistent memory, "
-        "chunked by section. This is for bulk ingestion of an existing "
-        "document — it does not replace storing facts incrementally as "
-        "they emerge during normal work."
-    ),
-)
-```
-
-Répéter la clause finale (adaptée) pour `map`, `bootstrap`, `patterns`.
-`audit` est read-only, la clause ne s'y applique pas.
+Chaque commande bulk (`learn`, `map`, `bootstrap`, `patterns`) porte sa
+clause « bulk ≠ incremental » dans sa description
+(`WPM_COMMANDS[*].description`), relue au moment où la commande est
+invoquée. `audit` est read-only, la clause ne s'y applique pas.
 
 ---
 
@@ -324,7 +319,8 @@ chaque changement vérifiable plutôt qu'esthétique.
    couvertes ailleurs ; mesurer l'impact avec `wpm_metrics.py` avant/après
    sur une même charge de sessions si possible.
 3. **§4 (reminders `tool_result`)** — extensions ciblées, faible risque.
-4. **§5 (prompts)** — clarifications de description, faible risque.
+4. **§5 (commandes slash)** — migration des prompts MCP en commandes
+   slash natives + masquage `synthetic`, faible risque.
 5. **§6 (mesure)** — à mettre en place en parallèle du reste, pas après :
    c'est ce qui permet de juger si les étapes 1-4 ont vraiment amélioré
    la conformité ou juste raccourci le texte.
@@ -495,10 +491,11 @@ event: async ({ event }) => {
 }
 ```
 
-`PERSIST_PROMPT_TEXT` peut reprendre le contenu du prompt MCP `persist`
-(server.py, `wpm_persist()`) pour éviter une troisième version du même
-texte. `noReply: false` pour que le modèle traite effectivement la
-demande au lieu qu'elle reste un message silencieux.
+`PERSIST_PROMPT_TEXT` est désormais la source de vérité unique du texte de
+fin de tâche : il alimente le hook `session.idle` et la commande `/wpm-persist`
+(voir §5), évitant une troisième version du même texte. `noReply: false`
+pour que le modèle traite effectivement la demande au lieu qu'elle reste un
+message silencieux.
 
 ### 9.4 Un artefact du pivot à corriger : le docstring de `server.py`
 
@@ -539,11 +536,11 @@ montée de version plutôt que de supposer que ça continue de fonctionner.
 6. **§9.3 (`session.idle` actif)** — faible risque, gain direct sur la
    règle 13.
 7. **§4.1 (reminder `related_context`)** — gain fin, faible risque.
-8. **§5 (descriptions de prompts)** — gains fins côté MCP.
+8. **§5 (descriptions de commandes)** — gains fins côté plugin.
 9. **§9.2 (nudge conditionnel `memory first`)** — le plus risqué (état
    par session à maintenir correctement), à valider en dernier.
 10. **§4.2 (pin_candidates dans get_memory_stats)** — priorité revue à la
-    baisse : le prompt `patterns` couvre déjà activement cette règle:
+    baisse : la commande `/wpm-patterns` couvre déjà activement cette règle:
     utile seulement comme signal passif complémentaire.
 11. **§6 (mesure)** — en parallèle de tout le reste, pas après : c'est ce
     qui permet de juger si les changements 1 à 10 améliorent réellement

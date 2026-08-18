@@ -4,8 +4,8 @@ Le serveur de mémoire persistante **pondérée par la confiance**, implémentat
 Python (SQLite + sqlite-vec + ONNX). C'est la **source de vérité** du projet :
 scoring, décroissance, expansion de graphe, outils MCP.
 
-> **Présentation vs technique** — les sections « Outils », « Resources »,
-> « Prompts » et « Configuration » ci-dessous sont techniques. Pour
+> **Présentation vs technique** — les sections « Outils », « Resources »
+> et « Configuration » ci-dessous sont techniques. Pour
 > comprendre *pourquoi* tout cela existe, voir
 > `docs/concepts.md`.
 
@@ -17,7 +17,7 @@ scoring, décroissance, expansion de graphe, outils MCP.
 
 ## Présentation
 
-Le serveur expose la mémoire via MCP : 11 outils, 3 resources, 6 prompts.
+Le serveur expose la mémoire via MCP : 11 outils, 3 resources.
 Il est lancé **par le plugin OpenCode** (qui l'enregistre automatiquement à
 partir de `wpm.config.json`) — pas besoin de le déclarer à la main. Sans
 activation (pas de `wpm.config.json` ni `WPM_DB_PATH`), il démarre inerte :
@@ -86,16 +86,13 @@ rejetée par le schéma avant même d'atteindre le code.
 
 ## Prompts
 
-| Prompt | Rôle |
-|---|---|
-| `persist` | Checklist de fin de tâche |
-| `audit` | Revue de la santé de la mémoire |
-| `learn(paths)` | Ingest de documents markdown, section par section |
-| `map(scopes)` | Cartographie de répertoires/fichiers |
-| `bootstrap` | Peuplement initial (README, docs, configs, CI) |
-| `patterns(type_filter)` | Analyse de patterns récurrents |
-
-Dans OpenCode : commandes slash `/wpm:learn:mcp`, etc.
+Les workflows `persist`, `audit`, `learn`, `map`, `bootstrap`, `patterns`
+ne sont plus des prompts MCP : le serveur n'en expose aucun. Ils ont été
+migrés vers le plugin OpenCode (`wpm-opencode-plugin`) comme commandes
+slash natives `/wpm-persist`, `/wpm-audit`, `/wpm-learn`, `/wpm-map`,
+`/wpm-bootstrap`, `/wpm-patterns` — enregistrées via le hook `config`
+(`config.command`) et masquées à l'exécution (part synthétique + label
+court) par `command.execute.before`.
 
 ---
 

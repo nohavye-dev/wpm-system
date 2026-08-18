@@ -79,8 +79,9 @@ Une fois activé, votre agent peut :
   `deprecate_entry`, `restore_entry`) ;
 - lire les **règles du projet** recomposées depuis la mémoire.
 
-Et des workflows prêts à l'emploi : `learn`, `map`, `bootstrap`, `audit`,
-`patterns`.
+Et des workflows prêts à l'emploi, en commandes slash enregistrées par le
+plugin : `/wpm-learn`, `/wpm-map`, `/wpm-bootstrap`, `/wpm-audit`,
+`/wpm-patterns` (et le pass de fin de tâche `/wpm-persist`).
 
 ---
 

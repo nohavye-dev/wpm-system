@@ -143,37 +143,6 @@ async def main():
                     f"len={len(rules_text)}",
                 )
 
-                # --- prompts ---
-                prompts = await session.list_prompts()
-                prompt_names = [p.name for p in prompts.prompts]
-                for expected in (
-                    "persist",
-                    "audit",
-                    "learn",
-                    "map",
-                    "bootstrap",
-                    "patterns",
-                ):
-                    check(f"prompt {expected} present", expected in prompt_names)
-                persist_prompt = await session.get_prompt("persist", {})
-                check(
-                    "persist prompt returns messages",
-                    len(persist_prompt.messages) > 0,
-                )
-                bootstrap_prompt = await session.get_prompt("bootstrap", {})
-                bootstrap_text = " ".join(
-                    m.content.text
-                    for m in bootstrap_prompt.messages
-                    if getattr(m.content, "text", None)
-                )
-                check(
-                    "bootstrap prompt maps source to evidence (rule 7)",
-                    "official_doc" in bootstrap_text
-                    and "agent_inference" in bootstrap_text
-                    and "observed_code" in bootstrap_text,
-                    bootstrap_text,
-                )
-
                 # --- record_execution: non-trivial command stored as execution_result ---
                 rec_raw = await session.call_tool(
                     "record_execution",

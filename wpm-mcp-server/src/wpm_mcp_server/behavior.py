@@ -2,7 +2,7 @@
 
 Holds the usage rules injected through initialize.instructions (a reduced
 set — 3 golden rules + standing policies — with the full rule detail living
-in tool/prompt descriptions), the verification-command patterns powering
+in tool descriptions), the verification-command patterns powering
 record_execution, and the project-rules formatting used by the
 wpm://project-rules resource.
 
