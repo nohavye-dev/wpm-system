@@ -51,7 +51,8 @@ const PERSIST_PROMPT_TEXT =
   `${SERVER_NAME}_store_entry or ${SERVER_NAME}_record_execution, persist them now. ` +
   "Do not invent evidence, do not store transient details or trivia, and do " +
   "not validate anything without external proof. If nothing remains to " +
-  'persist, reply exactly: "nothing to persist".'
+  'persist, reply exactly: "Nothing to persist." else give a summary of ' +
+  'what was persisted and say exactly: "Persistence complete."'
 
 function isEnabled(directory: string): boolean {
   return existsSync(join(directory, "wpm.config.json"))
@@ -97,7 +98,7 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
     // Re-inject the golden rules at every LLM turn so they cannot be
     // diluted by context growth — the deterministic push a pure MCP server
     // cannot provide.
-    "experimental.chat.system.transform": async (_input, output) => {
+    "experimental.chat.system.transform": async (input, output) => {
       output.system.push(nudge)
     },
 
@@ -118,8 +119,8 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
         return
       }
       if (input.tool !== "bash") return
-      const command = String(output.args?.command ?? "")
-      const succeeded = output.metadata?.exitCode === 0
+      const command = String(input.args?.command ?? "")
+      const succeeded = output.metadata?.exit === 0
       await $`wpm record-execution ${command} --succeeded=${succeeded} --session-id=${input.sessionID}`
         .quiet()
         .nothrow()
@@ -148,7 +149,14 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
       nudged.add(sessionID)
       await client.session.prompt({
         path: { id: sessionID },
-        body: { noReply: false, parts: [{ type: "text", text: PERSIST_PROMPT_TEXT }] },
+        body: {
+          noReply: false,
+          agent: "plan",
+          parts: [
+            { type: "text", text: "Persist session memory." },
+            { type: "text", text: PERSIST_PROMPT_TEXT, synthetic: true },
+          ],
+        },
       })
     },
   }
