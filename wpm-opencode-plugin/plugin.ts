@@ -95,10 +95,21 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
       }
     },
 
+    // Re-arm the end-of-task persist net when a real user message arrives,
+    // so a session that continues after a persist pass gets persisted again.
+    // Our own injected prompts carry metadata.wpm_injected so they do not
+    // count as real user input.
+    "chat.message": async (input, output) => {
+      const injected = (output.parts ?? []).some(
+        (p) => p.type === "text" && p.metadata?.wpm_injected === true,
+      )
+      if (!injected) nudged.delete(input.sessionID)
+    },
+
     // Re-inject the golden rules at every LLM turn so they cannot be
     // diluted by context growth — the deterministic push a pure MCP server
     // cannot provide.
-    "experimental.chat.system.transform": async (input, output) => {
+    "experimental.chat.system.transform": async (_input, output) => {
       output.system.push(nudge)
     },
 
@@ -135,7 +146,14 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
         path: { id: input.sessionID },
         body: {
           noReply: true,
-          parts: [{ type: "text", text: buildMemoryFirstNudge() }],
+          parts: [
+            {
+              type: "text",
+              text: buildMemoryFirstNudge(),
+              synthetic: true,
+              metadata: { wpm_injected: true },
+            },
+          ],
         },
       })
     },
@@ -154,7 +172,12 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
           agent: "plan",
           parts: [
             { type: "text", text: "Persist session memory." },
-            { type: "text", text: PERSIST_PROMPT_TEXT, synthetic: true },
+            {
+              type: "text",
+              text: PERSIST_PROMPT_TEXT,
+              synthetic: true,
+              metadata: { wpm_injected: true },
+            },
           ],
         },
       })
