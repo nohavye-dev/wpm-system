@@ -50,9 +50,10 @@ async def main_language():
                     if t.name == "store_entry":
                         store_desc = t.description or ""
                 check(
-                    "tool description carries the language note",
-                    "french" in store_desc and "Respond to the user" in store_desc,
-                    store_desc,
+                    "store_entry description present and compact",
+                    "Store exactly one durable memory entry" in store_desc
+                    and len(store_desc) < 1600,
+                    f"len={len(store_desc)}",
                 )
 
                 rules_resource = await session.read_resource("wpm://memory-rules")

@@ -14,57 +14,50 @@ can be unit-tested without booting the MCP server.
 from __future__ import annotations
 
 import re
+from wpm_mcp_server.prompt_entities import PromptContext, PromptTask
 
-_MEMORY_USAGE_RULES_TEMPLATE = """<wpm-memory-rules>
-You have access to the project's persistent weighted memory via the wpm MCP
-server (store_entry, query_context, validate_entry, contradict_entry,
-link_entries, get_memory_stats, pin_entry, deprecate_entry, restore_entry,
-list_entries, record_execution). Follow these rules every turn.
-
-GOLDEN RULES — the three non-negotiable principles, in priority order:
-
-1. MEMORY FIRST. WHEN you are about to read a file or search the codebase,
-   DO call query_context on the topic BEFORE reading. The answer may already
-   be in memory (e.g. a known bug pattern is recoverable via query_context
-   instead of re-reading the code). WHEN you start any substantive answer,
-   DO query the current topic before answering from reasoning alone.
-
-2. WRITE AS YOU GO. WHEN a durable fact emerges — a decision taken, a
-   convention identified, a test result, an understood bug pattern — DO call
-   store_entry immediately. DO NOT defer persistence to the end of the task:
-   unpersisted facts are silently lost at context compaction.
-
-3. PROOF BEFORE VALIDATION. WHEN you validate_entry or contradict_entry, DO
-   provide external, checkable evidence (a test log, a file path, another
-   entry). NEVER use agent_reasoning to raise a score.
-
-STARTUP SEQUENCE — at session start, in this order:
-
-1. Read the wpm://project-rules resource to load the project's conventions.
-2. Call query_context on the current topic before reading any file.
-3. Store every durable fact as soon as it emerges (store_entry).
-4. Validate each stored fact with external evidence (validate_entry) once it
-   is confirmed.
-
-STANDING POLICIES (apply across all tools, not tied to a single call):
-
-1. RELIABILITY OVER COMPLETENESS. A wrong or artificially boosted entry is
-   worse than a missing one. Prefer an underpopulated memory to a
-   polluted one.
-
-2. WRITE MEMORY ANYTIME. Memory write tools MUST be used whenever a
-   durable fact emerges — in plan mode, build mode, or any other mode.
-   Plan mode is NOT a reason to defer persistence. If the host blocks the
-   write, retry immediately or switch to a build/agent mode.
-
-Every other rule (type/source selection, dedup, evidence hierarchy,
-reading query results, pin/deprecate, links, English-only content,
-end-of-session persistence, recording executions) lives in the description
-of the relevant tool or prompt — re-read it there at the moment of the
-decision.
-
-OUTPUT LANGUAGE. {response_clause}
-</wpm-memory-rules>"""
+_MEMORY_USAGE_RULES_TEMPLATE = (
+    PromptContext(tag="wpm-memory-rules")
+    .add_purpose(
+        "Maintain your own persistent weighted memory (via the wpm MCP server) to recover, persist, and validate durable knowledge."
+    )
+    .add_instruction(
+        "These rules apply to every turn and every tool-enabled workflow; the Golden Rules are mandatory and have priority over all other rules.",
+        "{response_clause}",
+    )
+    .add_task(
+        PromptTask("Golden Rules")
+        .add_instruction(
+            "MEMORY FIRST: Call query_context on the relevant topic before reading a file, searching the codebase, or starting a substantive answer.",
+            "WRITE AS YOU GO: Immediately call store_entry whenever a durable fact emerges (decisions, conventions, confirmed test results, bug patterns, other knowledge likely to remain useful) — do not defer writes until the end of a task.",
+            "PROOF BEFORE VALIDATION: Obtain external, checkable evidence (test output, logs, file paths, source code, documentation, or another relevant entry) before validate_entry or contradict_entry.",
+        )
+        .add_constraint(
+            "Do not artificially increase the confidence or score of a memory entry.",
+        )
+    )
+    .add_task(
+        PromptTask("Startup sequence")
+        .add_instruction(
+            "At session start, in order:",
+            "1. Read the wpm://project-rules resource.",
+            "2. Call query_context for the current topic before reading any project file.",
+            "3. Store each durable fact as soon as it emerges.",
+            "4. Validate a stored fact with external evidence once independently confirmed.",
+        )
+        .add_constraint(
+            "Do not reorder these startup steps unless a tool is unavailable or the host prevents the operation.",
+        )
+    )
+    .add_task(
+        PromptTask("Standing policies")
+        .add_instruction(
+            "Prioritize reliability over completeness: prefer an underpopulated memory to one polluted with incorrect, duplicated, or artificially strengthened information.",
+            "Memory is your own state, not the project's: writing it never modifies the project, so memory tools are allowed in every mode — plan mode's read-only rule only protects project files. Use memory write tools whenever a durable fact emerges; if the host blocks a write, retry immediately or switch modes.",
+            "For entry types, source selection, deduplication, evidence hierarchy, query-result handling, pinning, deprecation, linking, English-only content, end-of-session persistence, and execution recording, consult the relevant tool description at the moment of decision.",
+        )
+    )
+).to_string()
 
 
 def _response_clause(response_language: str | None) -> str:
@@ -101,7 +94,7 @@ def build_language_note(response_language: str | None) -> str:
     at every tool-call decision. Empty when auto (rule 3 already covers it),
     so a fixed language does not add noise to the descriptions."""
     if not response_language:
-        return ""
+        return "Respond to the user language."
     return (
         f" Respond to the user in {response_language} — your conversational "
         f"responses, summaries and reports must be written in "
@@ -187,28 +180,50 @@ def looks_like_verification_command(command: str, patterns: list[re.Pattern[str]
 
 
 def format_project_rules(result: dict) -> str:
-    """Render a query_context result as a readable project-rules block.
+    """Render query_context results as a structured Markdown project-rules block.
 
-    Direct matches first (highest confidence, exact hits); related context
-    appended as associative recall. Empty memory yields an empty block.
+    Direct matches are rendered as project rules and related context as
+    supporting context. Empty memory yields an empty block.
     """
     lines: list[str] = []
-    for entry in result.get("direct_matches", []):
-        content = entry.get("content", "").strip()
-        if content:
-            lines.append(
-                f"- [{entry.get('type')}] {content} "
-                f"(confidence {entry.get('confidence')})"
-            )
-    for entry in result.get("related_context", []):
-        content = entry.get("content", "").strip()
-        if content:
-            lines.append(
-                f"- [{entry.get('type')}] {content} "
-                f"(related, confidence {entry.get('confidence')})"
-            )
+
+    direct_matches = result.get("direct_matches", [])
+    related_context = result.get("related_context", [])
+
+    if direct_matches:
+        lines.extend([
+            "## Rules",
+            "",
+        ])
+
+        for entry in direct_matches:
+            content = entry.get("content", "").strip()
+            if content:
+                lines.append(
+                    f"  - [{entry.get('type')}] {content} "
+                    f"(confidence {entry.get('confidence')})"
+                )
+
+    if related_context:
+        if lines:
+            lines.append("")
+
+        lines.extend([
+            "## Supporting context",
+            "",
+        ])
+
+        for entry in related_context:
+            content = entry.get("content", "").strip()
+            if content:
+                lines.append(
+                    f"  - [{entry.get('type')}] {content} "
+                    f"(supporting, confidence {entry.get('confidence')})"
+                )
+
     if not lines:
         return ""
+
     text = "\n".join(lines)
     return text[:MAX_PROJECT_RULES_CHARS]
 
@@ -216,4 +231,5 @@ def format_project_rules(result: dict) -> str:
 def build_project_rules_block(text: str) -> str:
     if not text or not text.strip():
         return ""
+
     return f"<project-rules>\n{text}\n</project-rules>"

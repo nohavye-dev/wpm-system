@@ -34,7 +34,6 @@ from mcp.server.fastmcp.server import Context
 
 from wpm_mcp_server import db
 from wpm_mcp_server.behavior import (
-    build_language_note,
     build_memory_usage_rules,
     PROJECT_RULES_QUERY,
     PROJECT_RULES_TOKEN_BUDGET,
@@ -47,6 +46,7 @@ from wpm_mcp_server.behavior import (
 from wpm_mcp_server.embeddings import get_provider
 from wpm_mcp_server.repository import WpmError, Repository
 from wpm_mcp_server.settings import load_settings, resolve_response_language
+from wpm_mcp_server.prompt_entities import PromptTask
 
 EntryType = Literal[
     "doc", "archi_decision", "insight", "convention",
@@ -72,7 +72,6 @@ _response_language = resolve_response_language(
     _settings.response_language, os.environ.get("WPM_RESPONSE_LANGUAGE")
 )
 _memory_usage_rules = build_memory_usage_rules(_response_language)
-_language_note = build_language_note(_response_language)
 
 _db_path = os.environ.get("WPM_DB_PATH") or _settings.db_path
 if _db_path:
@@ -96,18 +95,39 @@ _session_id = str(uuid.uuid4())
 _queried_since_last_store = False
 
 _REMINDER_DEDUP = (
-    "potential_contradictions found: compare the candidate contents and prefer "
-    "validate_entry on an existing near-duplicate over creating a new entry"
+    PromptTask("Memory deduplication reminder")
+    .add_instruction(
+        "Potential contradictions were found: compare the candidate contents and prefer validating an existing near-duplicate with validate_entry instead of creating a new entry.",
+    )
+    .to_string()
 )
+
 _REMINDER_MEMORY_FIRST = (
-    "MEMORY FIRST: run query_context on this topic before storing to avoid a duplicate"
+    PromptTask("Memory first reminder")
+    .add_instruction(
+        "MEMORY FIRST: call query_context on this topic before storing a new entry to check for existing or near-duplicate knowledge.",
+    )
+    .to_string()
 )
+
 _REMINDER_VALIDATE = (
-    "this entry is unvalidated: call validate_entry with external evidence once it is confirmed"
+    PromptTask("Memory validation reminder")
+    .add_instruction(
+        "This entry is currently unvalidated: call validate_entry with external, checkable evidence once the entry has been independently confirmed.",
+    )
+    .add_constraint(
+        "Do not use agent reasoning alone as validation evidence.",
+    )
+    .to_string()
 )
+
 _REMINDER_CONFLICTS = (
-    "conflicts found: check them before relying on a direct_match — never "
-    "present a contested fact as settled without flagging it"
+    PromptTask("Memory conflict reminder")
+    .add_instruction(
+        "Conflicts were found: inspect them before relying on a direct_match.",
+        "If the evidence remains contested, explicitly flag the conflict instead of presenting the fact as settled.",
+    )
+    .to_string()
 )
 
 _verification_patterns, _invalid_patterns = compile_verification_patterns(
@@ -143,24 +163,172 @@ async def _on_memory_mutated(ctx: Context | None) -> None:
 
 # --- tools -----------------------------------------------------------------
 
-@mcp.tool(
-    description=(
-        "Store one durable memory entry. CONTENT MUST BE IN ENGLISH. "
-        "type: doc=explanatory content | archi_decision=structural choice "
-        "(observed or decided) | convention=consistent naming/style/process "
-        "rule | insight=discovered understanding, durable for weeks (not a "
-        "decision) | bug_pattern=known issue+cause WITH PROOF | "
-        "execution_result=use record_execution instead, not this tool. "
-        "source: official_doc=read & cited | observed_code=seen directly in "
-        "code | tool_execution=actually ran a command | agent_inference=your "
-        "deduction, no direct proof. "
-        "Immediately BEFORE this call, run query_context on the topic: if a "
-        "near-duplicate already exists, call validate_entry on it instead of "
-        "creating a duplicate. Only store facts still true and useful in "
-        "weeks. Returns the new entry_id and its initial confidence — this "
-        "entry starts unvalidated; call validate_entry with real evidence "
-        "once it is confirmed." + _language_note
+_STORE_ENTRY_PROMPT = (
+    PromptTask("store_entry")
+    .add_instruction(
+        "Store exactly one durable memory entry, written in English.",
+        "type: doc = explanatory project content; archi_decision = structural choice (observed or decided); convention = consistent naming/style/process rule; insight = discovered understanding durable for weeks (not a decision); bug_pattern = known issue and its cause, supported by proof; execution_result = use record_execution instead.",
+        "source: official_doc = cited from an official project document; observed_code = directly observed in source code; tool_execution = confirmed by running a command or tool; agent_inference = deduction without direct external proof.",
+        "Only store facts expected to remain true and useful for weeks; content must be factual, concise, self-contained, and understandable without the surrounding conversation.",
+        "Immediately before calling store_entry, call query_context on the same topic.",
+        "If query_context reveals a near-duplicate entry, call validate_entry on the existing entry instead of creating a duplicate when the current evidence confirms it.",
+        "Every newly stored entry starts unvalidated; once independently confirmed, call validate_entry with real, external, checkable evidence.",
     )
+    .add_constraint(
+        "Do not store temporary observations, transient task state, speculative assumptions, or conversational context.",
+        "Do not validate or increase an entry's confidence using agent reasoning alone.",
+    )
+    .to_string()
+)
+
+_QUERY_CONTEXT_PROMPT = (
+    PromptTask("query_context")
+    .add_instruction(
+        "Retrieve relevant project memory via hybrid retrieval (vector similarity, confidence weighting, graph centrality, 1-hop expansion).",
+        "Call query_context before reading a file, running grep, or searching the codebase on the relevant topic, and at the start of every substantive answer.",
+        "Write the query in English whenever possible to maximize vector similarity matching.",
+        "Use direct_matches as the primary source of relevant memory; always inspect conflicts before relying on any direct_match.",
+        "Use related_context for associative recall from linked entries, but treat it as lower-confidence context, not a strong direct_match.",
+        "Treat an entry with an active contradicts relationship as potentially unreliable until resolved.",
+        "Use min_confidence to exclude entries below the required threshold, and token_budget to control the amount of context returned.",
+    )
+    .add_constraint(
+        "Do not assume that the absence of a result means the information does not exist in the project.",
+        "Do not use a non-English query when an equivalent English query works without losing meaning.",
+    )
+    .to_string()
+)
+
+_VALIDATE_ENTRY_PROMPT = (
+    PromptTask("validate_entry")
+    .add_instruction(
+        "Record external, checkable evidence that a memory entry has been confirmed.",
+        "evidence_type: execution_verified = a test/build/command/tool execution produced the expected result (strongest); cross_reference = independently confirmed by another source; reuse_without_failure = reused successfully, weak evidence subject to the confidence cap; agent_reasoning = reasoning without external proof, recorded for traceability but MUST NOT increase confidence.",
+        "Set evidence_ref to the concrete source supporting the validation (test log, file path, command output, or another entry_id).",
+        "Use session_id to deduplicate repeated validation of the same entry within the same session.",
+        "Before validating, ensure the evidence actually supports the specific claim stored in the entry.",
+    )
+    .add_constraint(
+        "Do not claim an entry is validated when the supplied evidence does not directly support its content.",
+        "Do not use vague or unverifiable evidence_ref when a concrete source is available.",
+        "Do not treat reuse_without_failure as equivalent to execution_verified or cross_reference.",
+    )
+    .to_string()
+)
+
+_CONTRADICT_ENTRY_PROMPT = (
+    PromptTask("contradict_entry")
+    .add_instruction(
+        "Record that entry_id is contradicted by conflicting_entry_id, using the same evidence_type rules as validate_entry.",
+        "Use evidence_ref to identify the concrete evidence supporting the contradiction (test log, file path, command output, or another entry_id).",
+        "Lower entry_id's validation_score (a stronger reduction than the corresponding confirmation increase) and create a visible 'contradicts' link between the two entries.",
+        "Preserve both entries so future query_context calls surface the contradiction and no historical or contextual information is lost.",
+    )
+    .add_constraint(
+        "Never delete or hide entry_id or conflicting_entry_id.",
+        "Do not create a contradiction based solely on agent reasoning, or without evidence supporting the conflict.",
+        "Do not treat a contradiction as proof that either entry is automatically correct.",
+    )
+    .to_string()
+)
+
+_LINK_ENTRIES_PROMPT = (
+    PromptTask("link_entries")
+    .add_instruction(
+        "Create or update an explicit relationship between two memory entries.",
+        "relation_type: related = meaningfully related; contradicts = conflicting information; depends_on = source depends on target; refines = source adds precision, detail, or clarification to target.",
+        "Preserve the direction of directional relationships (depends_on, refines).",
+        "Use explicit links only for relationships semantic similarity would not reliably discover (e.g. a dependency between an archi_decision and a convention); implicit 'related' links are created automatically by store_entry.",
+        "Use weight for relationship strength (default 1.0); update an existing relationship instead of duplicating it.",
+    )
+    .add_constraint(
+        "Do not create a relationship when there is no meaningful semantic or structural connection between the entries.",
+        "Do not use this tool to replace, merge, delete, or modify the content of either entry.",
+        "Do not choose a relation_type merely because it is convenient; pick the one that accurately describes the relationship.",
+    )
+    .to_string()
+)
+
+_RECORD_EXECUTION_PROMPT = (
+    PromptTask("record_execution")
+    .add_instruction(
+        "Capture the result of a verification command as durable memory.",
+        "Store the result as an execution_result entry with source=tool_execution; when succeeded, also validate it as execution_verified in the same operation.",
+        "Call record_execution immediately after running a qualifying verification command (e.g. pytest, npm test, cargo build; see the wpm://verification-commands resource for the full list).",
+        "Use succeeded to record the outcome; a failed command is preserved as evidence without being validated.",
+        "Use the current session_id for every record.",
+    )
+    .add_constraint(
+        "Do not use this tool for trivial or inspection commands (ls, cat, echo, grep, git status/diff) — exit 0 on those proves nothing.",
+        "Do not claim execution_verified unless the command actually ran and succeeded.",
+        "Do not use agent reasoning as a substitute for actually running the command.",
+        "Do not use a fabricated, stale, or unrelated session_id.",
+    )
+    .to_string()
+)
+
+_PIN_ENTRY_PROMPT = (
+    PromptTask("pin_entry")
+    .add_instruction(
+        "Pin a memory entry so its confidence never decays; reserve for durable project knowledge that should stay authoritative and stable.",
+        "Pin when the entry is a fundamental architecture decision, an established convention acting as policy, or knowledge independently validated repeatedly across sessions.",
+        "Before pinning, verify the content is still valid and has no active contradiction; pinning is reversible via restore_entry.",
+    )
+    .add_constraint(
+        "Do not pin recent or insufficiently validated insights, temporary bug patterns, or entries with active contradictions.",
+        "Do not pin merely because an entry is frequently retrieved or important to the current task, nor solely to prevent confidence decay.",
+        "Do not use pinning as a substitute for validation, or pin based solely on agent reasoning.",
+    )
+    .to_string()
+)
+
+_DEPRECATE_ENTRY_PROMPT = (
+    PromptTask("deprecate_entry")
+    .add_instruction(
+        "Mark a memory entry as deprecated so it is excluded from future query_context results.",
+        "Deprecate only with sufficient external evidence: the entry is conclusively contradicted (with the newer entry independently confirmed), describes an element that no longer exists, or is a bug pattern conclusively fixed.",
+        "Prefer caution: leave an uncertain entry active and record a contradiction or validation instead; deprecation is reversible via restore_entry.",
+    )
+    .add_constraint(
+        "Do not deprecate merely because an entry is old, currently unused, superseded by a newer entry, or may be incorrect.",
+        "Do not deprecate based solely on agent reasoning, or with an unresolved contradiction.",
+        "Do not use deprecation as a replacement for contradict_entry, or to hide uncertainty.",
+    )
+    .to_string()
+)
+
+_RESTORE_ENTRY_PROMPT = (
+    PromptTask("restore_entry")
+    .add_instruction(
+        "Restore a pinned or deprecated memory entry to active status, preserving its existing history and evidence rather than creating a replacement.",
+        "Restore a deprecated entry when the deprecation was premature or no longer justified (verify the original reason is no longer valid); restore a pinned entry when it is no longer stable or authoritative enough to stay pinned.",
+        "After restoring, treat the entry's validity as normal and re-evaluate it through validation and contradiction mechanisms.",
+    )
+    .add_constraint(
+        "Do not restore merely because an entry may be useful, or simply to undo a previous operation without reassessing its validity.",
+        "Do not restore based solely on agent reasoning, and do not assume restoration makes the content validated or correct.",
+    )
+    .to_string()
+)
+
+_LIST_ENTRIES_PROMPT = (
+    PromptTask("list_entries")
+    .add_instruction(
+        "List memory entries with their current confidence, sorted by confidence descending, with pagination and optional filters.",
+        "By default return only active and pinned entries; set status='deprecated' to include deprecated ones.",
+        "type filter accepts: doc, archi_decision, insight, convention, bug_pattern, execution_result; status filter accepts: active, pinned, deprecated.",
+        "Use min_confidence / max_confidence to bound the confidence range, limit (default 50, max 200) for page size, and offset to page; preserve filters across pages.",
+        "Use the returned total to detect additional pages.",
+        "Use list_entries to inspect, enumerate, audit, or paginate through memory — not to retrieve entries semantically related to a topic (use query_context).",
+    )
+    .add_constraint(
+        "Do not infer that a high confidence score means an entry is correct; confidence reflects validation state, and ordering is by confidence, not relevance.",
+    )
+    .to_string()
+)
+
+@mcp.tool(
+    description=_STORE_ENTRY_PROMPT
 )
 async def store_entry(ctx: Context, type: EntryType, content: str, source: EntrySource) -> dict:
     global _queried_since_last_store
@@ -185,18 +353,7 @@ async def store_entry(ctx: Context, type: EntryType, content: str, source: Entry
 
 
 @mcp.tool(
-    description=(
-        "Hybrid retrieval: vector similarity + confidence weighting + graph "
-        "centrality, plus 1-hop graph expansion for associative recall. "
-        "WHEN you are about to read a file, run grep, or search the codebase "
-        "with bash/glob, call this tool BEFORE doing so (MEMORY FIRST); call "
-        "it too at the start of every substantive answer. Query text "
-        "should be in English for best similarity matching. Returns "
-        "direct_matches (strong hits), related_context (associative, "
-        "lower-confidence recall via linked entries), and conflicts (entries "
-        "with an active 'contradicts' link) — always check conflicts before "
-        "relying on a direct_match." + _language_note
-    )
+    description=_QUERY_CONTEXT_PROMPT
 )
 def query_context(query: str, min_confidence: float = 0.0, token_budget: int = 2000) -> dict:
     global _queried_since_last_store
@@ -224,18 +381,7 @@ def query_context(query: str, min_confidence: float = 0.0, token_budget: int = 2
 
 
 @mcp.tool(
-    description=(
-        "Record EXTERNAL, CHECKABLE evidence that an entry was confirmed. "
-        "evidence_type must be one of: execution_verified (test/build/command "
-        "ran with expected result — strongest), cross_reference (confirmed "
-        "independently by another source), reuse_without_failure (reused "
-        "without issue — weak, capped), agent_reasoning (no external proof — "
-        "logged but does NOT move the score, do not use this to inflate "
-        "confidence). evidence_ref should point to what proves it (a test "
-        "log, a file path, another entry_id). session_id is required for "
-        "dedup: repeated validation of the same entry within one session "
-        "only counts once." + _language_note
-    )
+    description=_VALIDATE_ENTRY_PROMPT
 )
 async def validate_entry(
     ctx: Context, entry_id: str, evidence_type: str, evidence_ref: str, session_id: str
@@ -254,14 +400,7 @@ async def validate_entry(
 
 
 @mcp.tool(
-    description=(
-        "Record that entry_id is contradicted by conflicting_entry_id, with "
-        "external evidence (same evidence_type rules as validate_entry). "
-        "NEVER deletes either entry — only lowers entry_id's validation_score "
-        "(contradiction lowers the score faster than a confirmation raises "
-        "it) and creates a visible 'contradicts' link so future "
-        "query_context calls surface the conflict instead of hiding it." + _language_note
-    )
+    description=_CONTRADICT_ENTRY_PROMPT
 )
 async def contradict_entry(
     ctx: Context, entry_id: str, conflicting_entry_id: str, evidence_type: str, evidence_ref: str
@@ -280,14 +419,7 @@ async def contradict_entry(
 
 
 @mcp.tool(
-    description=(
-        "Create or update an EXPLICIT link between two entries. relation_type "
-        "must be one of: related, contradicts, depends_on, refines. Implicit "
-        "'related' links are created automatically by store_entry above a "
-        "similarity threshold — use this tool for relationships the "
-        "similarity search would not infer on its own (e.g. a dependency "
-        "between an architecture decision and a convention)." + _language_note
-    )
+    description=_LINK_ENTRIES_PROMPT
 )
 async def link_entries(
     ctx: Context, source_id: str, target_id: str, relation_type: str, weight: float = 1.0
@@ -306,19 +438,7 @@ async def link_entries(
 
 
 @mcp.tool(
-    description=(
-        "Capture the result of a test/build/lint command as memory: stores an "
-        "execution_result entry (source=tool_execution) and, on success, validates it "
-        "as execution_verified in a single call. The command must look like a "
-        "verification command (pytest, npm/pnpm/yarn/bun test or build, "
-        "dotnet/cargo/go test or build, make/mix/flutter/mvn/gradle/sbt test, "
-        "vitest, jest, deno test, tox, phpunit, rake test, compileall, "
-        "py_compile, bash -n, shellcheck, tsc --noEmit, ruff check, mypy, "
-        "eslint, plus any configured verification_command_patterns). Call "
-        "this right after running such a command — do not use it for trivial "
-        "commands (ls, cat, echo, grep, git status) whose exit 0 proves "
-        "nothing. session_id must be the current session id." + _language_note
-    )
+    description=_RECORD_EXECUTION_PROMPT
 )
 async def record_execution(ctx: Context, command: str, succeeded: bool, session_id: str) -> dict:
     try:
@@ -364,14 +484,7 @@ async def record_execution(ctx: Context, command: str, succeeded: bool, session_
 
 
 @mcp.tool(
-    description=(
-        "Pin an entry so its confidence NEVER decays. USE WHEN: a fundamental "
-        "architecture decision that defines the project, a convention that is "
-        "company/project policy, or an entry that has been validated repeatedly "
-        "across many sessions and is now considered settled. DO NOT use for: "
-        "recent insights, bug patterns that may be fixed, entries with active "
-        "contradictions. Pinning is reversible via restore_entry." + _language_note
-    )
+    description=_PIN_ENTRY_PROMPT
 )
 async def pin_entry(ctx: Context, entry_id: str) -> dict:
     try:
@@ -383,14 +496,7 @@ async def pin_entry(ctx: Context, entry_id: str) -> dict:
 
 
 @mcp.tool(
-    description=(
-        "Mark an entry as deprecated — excluded from all future queries. "
-        "USE WHEN: an entry has been conclusively contradicted and the newer "
-        "entry is confirmed, the code/module it references no longer exists, "
-        "or it describes a bug pattern that has been fixed. DO NOT use for: "
-        "entries you are unsure about. Deprecation is reversible via "
-        "restore_entry, but prefer caution." + _language_note
-    )
+    description=_DEPRECATE_ENTRY_PROMPT
 )
 async def deprecate_entry(ctx: Context, entry_id: str) -> dict:
     try:
@@ -402,11 +508,7 @@ async def deprecate_entry(ctx: Context, entry_id: str) -> dict:
 
 
 @mcp.tool(
-    description=(
-        "Restore a pinned or deprecated entry back to active status. "
-        "USE WHEN: a deprecation was premature, the entry is relevant again, "
-        "or a pin is no longer warranted." + _language_note
-    )
+    description=_RESTORE_ENTRY_PROMPT
 )
 async def restore_entry(ctx: Context, entry_id: str) -> dict:
     try:
@@ -418,14 +520,7 @@ async def restore_entry(ctx: Context, entry_id: str) -> dict:
 
 
 @mcp.tool(
-    description=(
-        "Paginated, filterable list of memory entries with current confidence. "
-        "Excludes deprecated entries by default (set status='deprecated' to "
-        "include them). Optional filters: type (doc/archi_decision/insight/"
-        "convention/bug_pattern/execution_result), status (active/pinned/deprecated), "
-        "min_confidence, max_confidence. limit max 200, default 50. "
-        "Sorted by confidence descending. Returns entries + total for pagination." + _language_note
-    )
+    description=_LIST_ENTRIES_PROMPT
 )
 def list_entries(type: str | None = None, status: str | None = None,
                  min_confidence: float | None = None, max_confidence: float | None = None,
@@ -446,7 +541,7 @@ def list_entries(type: str | None = None, status: str | None = None,
         "(low <0.3 / medium 0.3-0.7 / high >0.7), entries never validated, "
         "active contradictions, 5 lowest-confidence entries, and the last 10 "
         "events. Read-only diagnostic — use this before relying heavily on "
-        "memory, or when you suspect stale/contradicted entries." + _language_note
+        "memory, or when you suspect stale/contradicted entries."
     )
 )
 def get_memory_stats() -> dict:
@@ -458,14 +553,39 @@ def get_memory_stats() -> dict:
 
 # --- resources --------------------------------------------------------------
 
+_PROJECT_RULES_PROMPT_RESOURCE = (
+    PromptTask("project_rules")
+    .add_instruction(
+        "High-confidence project conventions and architecture decisions derived from persistent memory.",
+        "Read at session start; re-read after memory changes when conventions or architecture decisions may be affected.",
+        "Treat rules as derived knowledge, not immutable facts — verify against current evidence when they conflict with the project state.",
+    )
+    .to_string()
+)
+
+_MEMORY_RULES_PROMPT_RESOURCE = (
+    PromptTask("memory_rules")
+    .add_instruction(
+        "The complete memory usage rules (Golden Rules + standing policies).",
+        "Re-read when the rules have been diluted by context growth or compaction.",
+        "For tool-specific operational details, consult the relevant tool description at the moment of decision.",
+    )
+    .to_string()
+)
+
+_VERIFICATION_COMMANDS_PROMPT_RESOURCE = (
+    PromptTask("verification_commands")
+    .add_instruction(
+        "The configured command patterns that qualify as strong execution_verified evidence for record_execution.",
+        "Consult before recording a command result as verification evidence; only matching patterns qualify.",
+    )
+    .to_string()
+)
+
 @mcp.resource(
     "wpm://project-rules",
     name="Project rules and conventions",
-    description=(
-        "The project's high-confidence conventions and architecture decisions, "
-        "recomputed from persistent memory. Read this at session start and "
-        "re-read it when memory is updated."
-    ),
+    description=_PROJECT_RULES_PROMPT_RESOURCE,
     mime_type="text/markdown",
 )
 def project_rules() -> str:
@@ -491,12 +611,7 @@ def project_rules() -> str:
 @mcp.resource(
     "wpm://memory-rules",
     name="Memory usage rules",
-    description=(
-        "The memory usage rules: golden rules + standing policies. Same "
-        "content as the server instructions — the full per-tool detail lives "
-        "in each tool description; re-read it there at the moment of "
-        "the decision."
-    ),
+    description=_MEMORY_RULES_PROMPT_RESOURCE,
     mime_type="text/markdown",
 )
 def memory_rules() -> str:
@@ -506,11 +621,7 @@ def memory_rules() -> str:
 @mcp.resource(
     "wpm://verification-commands",
     name="Verification command patterns",
-    description=(
-        "The command patterns that count as strong proof (execution_verified) "
-        "for record_execution: their success means something was verified. "
-        "Check this list before deciding whether a command result is evidence."
-    ),
+    description=_VERIFICATION_COMMANDS_PROMPT_RESOURCE,
     mime_type="text/markdown",
 )
 def verification_commands() -> str:

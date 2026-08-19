@@ -13,13 +13,14 @@ function buildAuditPromptText(language?: string, confidenceThreshold?: string): 
 
     const auditPrompt = new PromptContext("wpm-memory-audit")
         .addPurpose(
+            `Produce the entire audit report in ${targetLanguage}.`,
             "Review the health and consistency of the project's persistent memory system.",
             "Identify memory quality problems and provide actionable recommendations without modifying the memory.",
         )
         .addInstruction(
+            `Write the whole report in ${targetLanguage}: headings, explanations, analysis, recommendations, and the final verdict. Only memory entry type names (doc, archi_decision, insight, convention, bug_pattern, execution_result) and verbatim quoted entry content may stay in English, because they are stored data.`,
             `Call ${SERVER_NAME}_get_memory_stats once to retrieve the complete memory dashboard.`,
             "Present the audit as a compact, scannable report.",
-            languageNote(language),
         )
         .addTask(
             new PromptTask("Analyze memory health")
@@ -52,6 +53,7 @@ function buildAuditPromptText(language?: string, confidenceThreshold?: string): 
         )
         .addExpectedBehavior(
             `End with a single-line verdict in ${targetLanguage}. State that the memory is healthy when no issues require attention; otherwise state the number of issues requiring attention.`,
+            `The entire report must be in ${targetLanguage}, not just the verdict.`,
         );
 
     return auditPrompt.toString()
@@ -284,8 +286,10 @@ function buildBootstrapPromptText(language?: string): string {
 }
 
 function buildPatternPromptText(language?: string): string {
+    const targetLanguage = language ? language : "the user's language"
     const patternsPrompt = new PromptContext("wpm-memory-patterns")
         .addPurpose(
+            `Produce the entire patterns report in ${targetLanguage}.`,
             "Analyze the project's persistent memory to detect recurring patterns and identify opportunities for improvement.",
             "Perform metacognitive analysis: use the memory system to evaluate and improve the memory system itself.",
         )
@@ -293,7 +297,7 @@ function buildPatternPromptText(language?: string): string {
             "Treat $ARGUMENTS as an optional memory type filter. When empty, analyze all memory types.",
             `Call ${SERVER_NAME}_list_entries with the requested type filter and a limit of 100. Omit the type filter when $ARGUMENTS is empty.`,
             "If more than 100 entries exist for the selected scope, report that only the 100 highest-confidence entries were analyzed.",
-            languageNote(language),
+            `Write the whole report in ${targetLanguage}: theme descriptions, explanations, action justifications, and the final summary. Entry type names and verbatim quoted entry content may stay in English, and newly stored memory entries remain in English.`,
         )
         .addTask(
             new PromptTask("Identify themes")
@@ -349,6 +353,7 @@ function buildPatternPromptText(language?: string): string {
             "List the actions that were taken and briefly explain why each action was justified.",
             "List themes that were analyzed but required no action.",
             "If no actionable patterns were found, state this clearly and end the report.",
+            `The entire report must be in ${targetLanguage}, not just the final summary.`,
         );
 
     return patternsPrompt.toString()

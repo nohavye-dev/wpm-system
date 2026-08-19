@@ -6,6 +6,7 @@ class PromptTask:
     name: str
     instructions: list[str] = field(default_factory=list)
     constraints: list[str] = field(default_factory=list)
+    expected_behavior: list[str] = field(default_factory=list)
 
     def add_instruction(self, *items: str) -> "PromptTask":
         self.instructions.extend(items)
@@ -15,11 +16,16 @@ class PromptTask:
         self.constraints.extend(items)
         return self
 
+    def add_expected_behavior(self, *items: str) -> "PromptTask":
+        self.expected_behavior.extend(items)
+        return self
+
     def clone(self) -> "PromptTask":
         return PromptTask(
             self.name,
             self.instructions.copy(),
             self.constraints.copy(),
+            self.expected_behavior.copy(),
         )
 
     def to_string(self, level: int = 2) -> str:
@@ -45,6 +51,16 @@ class PromptTask:
 
             for constraint in self.constraints:
                 lines.append(f"{item_indent}- {constraint}")
+
+        if self.expected_behavior:
+            lines.extend([
+                "",
+                f"{constraint_heading} Expected behavior",
+                "",
+            ])
+
+            for item in self.expected_behavior:
+                lines.append(f"{item_indent}- {item}")
 
         return "\n".join(lines)
 

@@ -18,6 +18,7 @@ export function buildNudge(language?: string): string {
             "At session start, read the `wpm://project-rules` resource.",
             `Before reading files, running grep, or searching the codebase, call ${SERVER_NAME}_query_context first.`,
             `As soon as a durable fact emerges — such as a decision, convention, test result, or bug pattern — call ${SERVER_NAME}_store_entry immediately.`,
+            "Memory writes are not project modifications — store memory in any mode, including plan mode.",
         )
 
         .addTask(

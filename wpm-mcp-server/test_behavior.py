@@ -38,7 +38,7 @@ check(
 )
 check(
     "standing policies present",
-    "STANDING POLICIES" in behavior.MEMORY_USAGE_RULES,
+    "Standing policies" in behavior.MEMORY_USAGE_RULES,
 )
 check(
     "rules mention write-as-you-go discipline",
@@ -50,25 +50,26 @@ check(
     "query_context" in behavior.MEMORY_USAGE_RULES,
 )
 check(
-    "rules mention record_execution",
-    "record_execution" in behavior.MEMORY_USAGE_RULES,
+    "rules mention execution recording",
+    "execution recording" in behavior.MEMORY_USAGE_RULES,
 )
 check(
     "rules open with a golden-rules pyramid",
-    "GOLDEN RULES" in behavior.MEMORY_USAGE_RULES,
+    "Golden Rules" in behavior.MEMORY_USAGE_RULES,
 )
 check(
     "rules include a startup sequence",
-    "STARTUP SEQUENCE" in behavior.MEMORY_USAGE_RULES,
+    "Startup sequence" in behavior.MEMORY_USAGE_RULES,
 )
 check(
     "startup sequence names the project-rules resource",
     "wpm://project-rules" in behavior.MEMORY_USAGE_RULES,
 )
 check(
-    "rules use WHEN/DO trigger phrasing",
-    "WHEN you are about to read a file" in behavior.MEMORY_USAGE_RULES
-    and "DO call query_context" in behavior.MEMORY_USAGE_RULES,
+    "rules use golden-rule trigger phrasing",
+    "MEMORY FIRST" in behavior.MEMORY_USAGE_RULES
+    and "WRITE AS YOU GO" in behavior.MEMORY_USAGE_RULES
+    and "PROOF BEFORE VALIDATION" in behavior.MEMORY_USAGE_RULES,
 )
 
 # --- response language builder ---
@@ -96,8 +97,8 @@ check(
     len(fixed_rules) > 500,
 )
 check(
-    "language note empty when auto",
-    behavior.build_language_note(None) == "",
+    "language note asks to follow the user when auto",
+    behavior.build_language_note(None) == "Respond to the user language.",
 )
 note = behavior.build_language_note("french")
 check(
@@ -163,10 +164,10 @@ rendered = behavior.format_project_rules(
         ],
     }
 )
-check("direct match rendered first", rendered.startswith("- [convention] Commit messages"))
+check("direct match rendered under a Rules heading", rendered.startswith("## Rules"))
 check(
-    "related context marked as related",
-    "(related, confidence 0.5)" in rendered,
+    "related context marked as supporting",
+    "(supporting, confidence 0.5)" in rendered,
     rendered,
 )
 check("empty result renders empty", behavior.format_project_rules({}) == "")

@@ -56,6 +56,9 @@ export function createHooks(deps: HookDeps): Hooks {
     // with a short visible label so the /wpm commands read cleanly.
     "command.execute.before": async (input, output) => {
       if (!(input.command in commands)) return
+      // A /wpm-* command is a self-contained memory operation, not a user task
+      // that produces new durable facts: suppress the end-of-turn persist pass.
+      nudged.add(input.sessionID)
       for (const part of output.parts ?? []) {
         if (part.type === "text") {
           part.synthetic = true
