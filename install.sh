@@ -57,9 +57,11 @@ sed -i "1s|^#!/usr/bin/env python3|#!$DATA_DIR/venv/bin/python3|" "$BIN_DIR/wpm"
 
 printf 'installing optional OpenCode plugin (default: global)...\n'
 cp "$BUNDLE_DIR/wpm-opencode-plugin/plugin.ts" "$DATA_DIR/plugin.ts"
+cp -r "$BUNDLE_DIR/wpm-opencode-plugin/wpm-lib" "$DATA_DIR/wpm-lib"
 PLUGIN_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins"
 mkdir -p "$PLUGIN_DIR"
 cp "$BUNDLE_DIR/wpm-opencode-plugin/plugin.ts" "$PLUGIN_DIR/wpm-plugin.ts"
+cp -r "$BUNDLE_DIR/wpm-opencode-plugin/wpm-lib" "$PLUGIN_DIR/wpm-lib"
 
 printf 'wpm installed. In each project: wpm enable\n'
 printf 'the MCP server is registered automatically by the plugin (no opencode.json entry needed)\n'

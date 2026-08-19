@@ -19,7 +19,11 @@ peut pas faire :
 
 - **`config`** — enregistre le serveur MCP `wpm` (venv `python -m
   wpm_mcp_server`, `WPM_CONFIG_PATH` pointé sur le projet) + permission
-  `wpm_*` (`allow`).
+  `wpm_*` (`allow`) + les commandes slash `wpm-*`.
+- **`command.execute.before`** — masque le long texte des commandes slash
+  (part `synthetic`) et affiche un label court `/wpm-<commande>`.
+- **`chat.message`** — ré-arme la passe de persistance sur un vrai message
+  utilisateur.
 - **`experimental.chat.system.transform`** — ré-injecte la carte de règles
   compacte à chaque tour.
 - **`experimental.session.compacting`** — rappelle de persister ce qui ne
@@ -31,13 +35,49 @@ peut pas faire :
 - **`event` (`session.idle`)** — déclenche la passe de persistance de fin de
   session.
 
+## Structure
+
+Le plugin est découpé en modules (un seul fichier installé côté OpenCode
+n'est pas possible : chaque `*.ts` à la racine du dossier `plugins/` serait
+chargé comme un plugin). Les modules d'aide vivent donc dans `wpm-lib/`,
+un sous-dossier ignoré par le scan non récursif d'OpenCode :
+
+```
+wpm-opencode-plugin/
+  plugin.ts              # entrée : isEnabled → langue → état → assemble les hooks
+  wpm-lib/
+    constants.ts         # SERVER_NAME
+    language.ts          # gestion de la langue de réponse (response_language)
+    nudges.ts            # nudges ré-injectés + buildPersistPromptText(language)
+    commands.ts          # templates + buildCommands(language)
+    helpers.ts           # isEnabled / resolvePythonPath
+    hooks.ts             # createHooks(ctx) — tous les hooks
+```
+
+## Langue de réponse
+
+Miroir de la gestion du serveur MCP : le contenu stocké en mémoire et les
+instructions restent **en anglais** (cohérence d'embedding) — seule la
+langue de **réponse conversationnelle** est régie.
+
+- `response_language` dans `wpm.config.json` (ex. `"french"`), ou
+  `"auto"`/omis pour suivre la langue de l'utilisateur. Surchargeable par
+  `WPM_RESPONSE_LANGUAGE`.
+- Le nudge injecté à chaque tour porte la clause `OUTPUT LANGUAGE`.
+- Les templates des commandes slash portent toujours une directive de
+  langue (y compris en mode auto) couvrant titres, intitulés, libellés et
+  verdict — seuls les noms de types d'entrées et le contenu stocké restent
+  anglais.
+- Les réponses du pass de persistance sont localisées dans la langue de
+  réponse.
+
 ## Installation
 
 Installé par défaut par `install.sh`. Réinstallation / retrait manuel :
 
 ```bash
-wpm plugin install      # copie plugin.ts dans ~/.config/opencode/plugins/
-wpm plugin uninstall    # le retire
+wpm plugin install      # copie plugin.ts + wpm-lib/ dans ~/.config/opencode/plugins/
+wpm plugin uninstall    # les retire
 ```
 
 Puis redémarrer OpenCode.

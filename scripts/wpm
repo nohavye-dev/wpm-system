@@ -119,6 +119,9 @@ def cmd_uninstall(force: bool = False) -> None:
     plugin_target = plugin_dir / "wpm-plugin.ts"
     if plugin_target.exists():
         plugin_target.unlink()
+    plugin_lib = plugin_dir / "wpm-lib"
+    if plugin_lib.exists():
+        shutil.rmtree(plugin_lib)
 
     print("wpm: fully uninstalled")
     print("note: remove any 'wpm' MCP server entry from your host configurations")
@@ -134,26 +137,41 @@ def _opencode_plugin_dir() -> Path:
 def cmd_plugin(action: str, source: str | None) -> None:
     plugin_dir = _opencode_plugin_dir()
     target = plugin_dir / "wpm-plugin.ts"
+    lib_dir = plugin_dir / "wpm-lib"
 
     if action == "install":
         src = Path(source) if source else Path(DATA_DIR) / "plugin.ts"
         if not src.exists():
             print(
                 f"wpm: plugin source not found at {src}\n"
-                "Re-run ./install.sh (which copies plugin.ts), or pass "
+                "Re-run ./install.sh (which copies plugin.ts + wpm-lib/), or pass "
                 "--source <path/to/plugin.ts>.",
                 file=sys.stderr,
             )
             sys.exit(1)
         plugin_dir.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src, target)
+        src_lib = src.parent / "wpm-lib"
+        if src_lib.exists():
+            shutil.copytree(src_lib, lib_dir, dirs_exist_ok=True)
+        else:
+            print(
+                f"wpm: warning: no wpm-lib/ found next to {src} — plugin may be incomplete",
+                file=sys.stderr,
+            )
         print(f"wpm: plugin installed to {target}")
         print("wpm: restart opencode for it to take effect")
     elif action == "uninstall":
+        removed_any = False
         if target.exists():
             target.unlink()
             print(f"wpm: plugin removed ({target})")
-        else:
+            removed_any = True
+        if lib_dir.exists():
+            shutil.rmtree(lib_dir)
+            print(f"wpm: plugin removed ({lib_dir})")
+            removed_any = True
+        if not removed_any:
             print("wpm: plugin not installed")
     else:
         print(f"wpm: unknown plugin action: {action}", file=sys.stderr)
