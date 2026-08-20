@@ -43,7 +43,7 @@ from wpm_mcp_server.behavior import (
     format_project_rules,
     looks_like_verification_command,
 )
-from wpm_mcp_server.embeddings import get_provider
+from wpm_mcp_server.embeddings import get_provider, resolve_model_name
 from wpm_mcp_server.repository import WpmError, Repository
 from wpm_mcp_server.settings import load_settings, resolve_response_language
 from wpm_mcp_server.prompt_entities import PromptTask
@@ -141,9 +141,13 @@ def get_repo() -> Repository:
         if DB_PATH is None:
             raise RuntimeError(NOT_ACTIVATED_MESSAGE)
         conn = db.connect(DB_PATH)
-        model = os.environ.get("WPM_EMBEDDING_MODEL")
-        embedder = get_provider(model)
-        _repo = Repository(conn=conn, embedder=embedder, settings=_settings.domain)
+        embedder = get_provider()
+        _repo = Repository(
+            conn=conn,
+            embedder=embedder,
+            settings=_settings.domain,
+            model_name=resolve_model_name(),
+        )
     return _repo
 
 
@@ -166,7 +170,7 @@ async def _on_memory_mutated(ctx: Context | None) -> None:
 _STORE_ENTRY_PROMPT = (
     PromptTask("store_entry")
     .add_instruction(
-        "Store exactly one durable memory entry, written in English.",
+        "Store exactly one durable memory entry, written in its native language as it emerged (e.g. French, keeping technical EN/FR code-switching verbatim — function names, technical terms).",
         "type: doc = explanatory project content; archi_decision = structural choice (observed or decided); convention = consistent naming/style/process rule; insight = discovered understanding durable for weeks (not a decision); bug_pattern = known issue and its cause, supported by proof; execution_result = use record_execution instead.",
         "source: official_doc = cited from an official project document; observed_code = directly observed in source code; tool_execution = confirmed by running a command or tool; agent_inference = deduction without direct external proof.",
         "Only store facts expected to remain true and useful for weeks; content must be factual, concise, self-contained, and understandable without the surrounding conversation.",
@@ -186,7 +190,7 @@ _QUERY_CONTEXT_PROMPT = (
     .add_instruction(
         "Retrieve relevant project memory via hybrid retrieval (vector similarity, confidence weighting, graph centrality, 1-hop expansion).",
         "Call query_context before reading a file, running grep, or searching the codebase on the relevant topic, and at the start of every substantive answer.",
-        "Write the query in English whenever possible to maximize vector similarity matching.",
+        "Write the query in the same language as the memory it targets — the embedding model is multilingual, so queries match best when they share the language of the stored content.",
         "Use direct_matches as the primary source of relevant memory; always inspect conflicts before relying on any direct_match.",
         "Use related_context for associative recall from linked entries, but treat it as lower-confidence context, not a strong direct_match.",
         "Treat an entry with an active contradicts relationship as potentially unreliable until resolved.",
@@ -194,7 +198,7 @@ _QUERY_CONTEXT_PROMPT = (
     )
     .add_constraint(
         "Do not assume that the absence of a result means the information does not exist in the project.",
-        "Do not use a non-English query when an equivalent English query works without losing meaning.",
+        "Do not translate a native-language query into English: the multilingual model matches best in the original language.",
     )
     .to_string()
 )

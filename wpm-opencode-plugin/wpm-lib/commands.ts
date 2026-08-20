@@ -89,7 +89,7 @@ function buildLearnPromptText(language?: string): string {
                     "Each section must produce at most one candidate memory entry.",
                     "Do not create a duplicate when an existing entry clearly represents the same fact.",
                     "Do not assume that similar content is a duplicate unless the match is clearly the same fact.",
-                    "Translate non-English source content to English before storing it.",
+                    "Keep source content in its native language when storing it, preserving technical terms and code as-is.",
                     "Rewrite stored content concisely instead of copying formatting artifacts or irrelevant document structure.",
                     "Infer the most appropriate memory type: doc by default, or archi_decision, convention, or bug_pattern when appropriate.",
                     "Set the source to 'official_doc' for deliberately ingested documents.",
@@ -159,7 +159,7 @@ function buildMapPromptText(language?: string): string {
                     `If a very similar direct match already exists, call ${SERVER_NAME}_validate_entry instead of creating a duplicate.`,
                     `Use evidence_type 'execution_verified' when the relevant code path was actually traced.`,
                     `Otherwise use evidence_type 'cross_reference' and provide the checked file paths as evidence_ref.`,
-                    `When no sufficiently similar entry exists, call ${SERVER_NAME}_store_entry with the appropriate type and content in English.`,
+                    `When no sufficiently similar entry exists, call ${SERVER_NAME}_store_entry with the appropriate type and content in its native language.`,
                     "Include the actual files or modules supporting the stored architectural fact.",
                     `Use source 'observed_code' for entries derived from the codebase.`,
                     `Call ${SERVER_NAME}_link_entries when a clear relationship between stored entries is explicitly supported by the code.`,
@@ -261,7 +261,7 @@ function buildBootstrapPromptText(language?: string): string {
                     `Before storing each candidate fact, call ${SERVER_NAME}_query_context with min_confidence set to 0.3.`,
                     `If a direct match above approximately 0.85 already exists, call ${SERVER_NAME}_validate_entry instead of creating a duplicate.`,
                     `Use evidence_type 'cross_reference' and set evidence_ref to the relevant file path when revalidating a matching entry.`,
-                    `Otherwise call ${SERVER_NAME}_store_entry with concise English content naming the actual files or configurations supporting the fact.`,
+                    `Otherwise call ${SERVER_NAME}_store_entry with concise content in the document's native language naming the actual files or configurations supporting the fact.`,
                     "Assign the memory type that best matches the evidence.",
                     "Use the evidence source that accurately reflects how the fact was established.",
                 )
@@ -297,7 +297,7 @@ function buildPatternPromptText(language?: string): string {
             "Treat $ARGUMENTS as an optional memory type filter. When empty, analyze all memory types.",
             `Call ${SERVER_NAME}_list_entries with the requested type filter and a limit of 100. Omit the type filter when $ARGUMENTS is empty.`,
             "If more than 100 entries exist for the selected scope, report that only the 100 highest-confidence entries were analyzed.",
-            `Write the whole report in ${targetLanguage}: theme descriptions, explanations, action justifications, and the final summary. Entry type names and verbatim quoted entry content may stay in English, and newly stored memory entries remain in English.`,
+            `Write the whole report in ${targetLanguage}: theme descriptions, explanations, action justifications, and the final summary. Entry type names and verbatim quoted entry content may stay in English, and newly stored memory entries remain in their native language.`,
         )
         .addTask(
             new PromptTask("Identify themes")
@@ -341,7 +341,7 @@ function buildPatternPromptText(language?: string): string {
                     "Execute applicable actions automatically without asking for confirmation.",
                     "Only execute an action when its stated evidence threshold is satisfied.",
                     "Do not create duplicate memory entries.",
-                    "Store new memory content in English.",
+                    "Store new memory content in its native language.",
                     "Use source 'observed_code' when the pattern is grounded in existing memory entries that represent real observed code.",
                     "Use source 'agent_inference' when the pattern is inferred rather than directly grounded in observed code.",
                     "Do not execute an action merely because a theme exists; the required pattern must be demonstrated.",

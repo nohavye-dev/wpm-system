@@ -127,12 +127,14 @@ class Settings:
     # commands count as strong proof (execution_verified). Used by the
     # record_execution tool.
     verification_command_patterns: list[str] | None = None
-    # Optional, default None (auto). Language of the agent's conversational
-    # responses, summaries and reports — NOT the stored memory content, which
-    # stays English for embedding consistency. None (or "auto") = follow the
-    # user's language. A fixed value (e.g. "french") forces the output
-    # language. Written as an English language name to match the English
-    # server instructions. Overridable via WPM_RESPONSE_LANGUAGE.
+    # Optional, default None (auto). When set (e.g. "french"), injects a
+    # firm output-language clause into the memory usage rules
+    # (initialize.instructions / wpm://memory-rules). None (or "auto") =
+    # "same language as the user — do not switch to English" clause.
+    # Never governs stored memory content, which stays in its native
+    # language (the embedding model is multilingual). Written as an English
+    # language name to match the English server instructions. Overridable
+    # via WPM_RESPONSE_LANGUAGE.
     response_language: str | None = None
 
     # Advanced — see DomainSettings docstring.

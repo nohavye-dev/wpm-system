@@ -1,11 +1,8 @@
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
-
 // Mirrors the MCP server's response-language system (settings.py
-// resolve_response_language + behavior.py _response_clause /
-// build_language_note). Only the agent's conversational output language is
-// governed — stored memory content and the instructions stay English on
-// purpose (embedding consistency).
+// resolve_response_language + behavior.py _response_clause). Only the
+// agent's conversational output language is governed — stored memory
+// content stays in its native language (the embedding model is
+// multilingual).
 
 export function resolveResponseLanguage(
   configValue: string | undefined,

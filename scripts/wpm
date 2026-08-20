@@ -9,6 +9,7 @@ plugin (installed globally by install.sh) — no opencode.json entry needed.
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import shutil
@@ -96,9 +97,27 @@ def cmd_disable() -> None:
 
 # ── uninstall ───────────────────────────────────────────────────────────
 
+_WPM_EMBEDDING_MODELS = [
+    "all-MiniLM-L6-v2",
+    "paraphrase-multilingual-MiniLM-L12-v2",
+]
+
+
+def _user_site_packages_dirs() -> list[Path]:
+    base = Path.home() / ".local" / "lib"
+    return [Path(p) for p in glob.glob(str(base / "python*" / "site-packages"))]
+
+
+def _hf_hub_cache_dir() -> Path:
+    if os.environ.get("HF_HUB_CACHE"):
+        return Path(os.environ["HF_HUB_CACHE"])
+    hf_home = os.environ.get("HF_HOME", str(Path.home() / ".cache" / "huggingface"))
+    return Path(hf_home) / "hub"
+
+
 def cmd_uninstall(force: bool = False) -> None:
     if not force:
-        print("This will remove the server venv, data, the 'wpm' binary and the OpenCode plugin.")
+        print("This will remove the server venv, data, the 'wpm' binary, the OpenCode plugin, the pip-installed server and the embedding model cache.")
         try:
             answer = input("Continue? [y/N] ")
         except (EOFError, KeyboardInterrupt):
@@ -110,20 +129,52 @@ def cmd_uninstall(force: bool = False) -> None:
     data_path = Path(DATA_DIR)
     if data_path.exists():
         shutil.rmtree(data_path)
+        print(f"wpm: removed {data_path}")
 
     wpm_bin = Path(BIN_DIR) / "wpm"
     if wpm_bin.exists():
         wpm_bin.unlink()
+        print(f"wpm: removed {wpm_bin}")
 
     plugin_dir = _opencode_plugin_dir()
     plugin_target = plugin_dir / "wpm-plugin.ts"
     if plugin_target.exists():
         plugin_target.unlink()
+        print(f"wpm: removed {plugin_target}")
     plugin_lib = plugin_dir / "wpm-lib"
     if plugin_lib.exists():
         shutil.rmtree(plugin_lib)
+        print(f"wpm: removed {plugin_lib}")
+
+    # Remove a pip-installed server (e.g. a `pip install -e .` dev install):
+    # the console script plus the package / .pth / dist-info in user
+    # site-packages. Shared dependencies are left untouched.
+    for bin_dir in {Path.home() / ".local" / "bin", Path(BIN_DIR)}:
+        wpm_mcp_bin = bin_dir / "wpm-mcp-server"
+        if wpm_mcp_bin.exists():
+            wpm_mcp_bin.unlink()
+            print(f"wpm: removed {wpm_mcp_bin}")
+    for site in _user_site_packages_dirs():
+        for pattern in ("wpm_mcp_server", "wpm_mcp_server-*.dist-info",
+                        "__editable__.wpm_mcp_server-*.pth"):
+            for match in glob.glob(str(site / pattern)):
+                p = Path(match)
+                if p.is_dir():
+                    shutil.rmtree(p)
+                else:
+                    p.unlink()
+                print(f"wpm: removed {p}")
+
+    # Remove the pre-downloaded embedding model caches.
+    hub = _hf_hub_cache_dir()
+    for model in _WPM_EMBEDDING_MODELS:
+        model_dir = hub / f"models--sentence-transformers--{model}"
+        if model_dir.exists():
+            shutil.rmtree(model_dir)
+            print(f"wpm: removed embedding cache {model}")
 
     print("wpm: fully uninstalled")
+    print("note: per-project wpm.config.json and .wpm/ databases are left in place")
     print("note: remove any 'wpm' MCP server entry from your host configurations")
 
 
@@ -208,15 +259,23 @@ def cmd_search(args: argparse.Namespace) -> None:
     warnings.filterwarnings("ignore")
 
     from wpm_mcp_server import db
-    from wpm_mcp_server.embeddings import get_provider
+    from wpm_mcp_server.embeddings import get_provider, resolve_model_name
     from wpm_mcp_server.repository import Repository
     from wpm_mcp_server.settings import load_settings
 
     settings = load_settings(config_path)
     os.chdir(str(Path.cwd()))
     conn = db.connect(str(db_path))
-    embedder = get_provider()
-    repo = Repository(conn=conn, embedder=embedder, settings=settings.domain)
+    try:
+        repo = Repository(
+            conn=conn,
+            embedder=get_provider(),
+            settings=settings.domain,
+            model_name=resolve_model_name(),
+        )
+    except RuntimeError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
 
     result = repo.query_context(
         query=args.query,
@@ -303,7 +362,7 @@ def cmd_record_execution(args: argparse.Namespace) -> None:
     from wpm_mcp_server.behavior import (
         compile_verification_patterns, looks_like_verification_command,
     )
-    from wpm_mcp_server.embeddings import get_provider
+    from wpm_mcp_server.embeddings import get_provider, resolve_model_name
     from wpm_mcp_server.repository import Repository
     from wpm_mcp_server.settings import load_settings
 
@@ -313,7 +372,15 @@ def cmd_record_execution(args: argparse.Namespace) -> None:
         sys.exit(0)  # not a verification command — silently skip, not an error
 
     conn = db.connect(str(db_path))
-    repo = Repository(conn=conn, embedder=get_provider(), settings=settings.domain)
+    try:
+        repo = Repository(
+            conn=conn,
+            embedder=get_provider(),
+            settings=settings.domain,
+            model_name=resolve_model_name(),
+        )
+    except RuntimeError:
+        sys.exit(1)  # stale-embedding guard — silent, runs unattended from the plugin
     content = f"Command executed: {args.command}\nResult: {'success' if args.succeeded else 'failure'}"
     stored = repo.store_entry(type_="execution_result", content=content,
                                source="tool_execution", session_id=args.session_id)
@@ -321,6 +388,47 @@ def cmd_record_execution(args: argparse.Namespace) -> None:
         repo.validate_entry(entry_id=stored["entry_id"], evidence_type="execution_verified",
                              evidence_ref=args.command, session_id=args.session_id)
     conn.close()
+
+
+# ── reembed ────────────────────────────────────────────────────────────
+
+def cmd_reembed() -> None:
+    config_path = _resolve_wpm_config()
+    if not config_path.exists():
+        print("wpm: not activated here. Run 'wpm enable' first.", file=sys.stderr)
+        sys.exit(1)
+
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    db_path_raw = config.get("db_path", "")
+    if not db_path_raw:
+        print("wpm: db_path not set in wpm.config.json", file=sys.stderr)
+        sys.exit(1)
+
+    db_path = _contained_in_project(db_path_raw)
+    if not db_path.exists():
+        print(f"wpm: database not found at {db_path}", file=sys.stderr)
+        sys.exit(1)
+
+    import logging
+    import warnings
+    logging.root.handlers.clear()
+    logging.root.addHandler(logging.NullHandler())
+    logging.root.setLevel(logging.CRITICAL)
+    warnings.filterwarnings("ignore")
+
+    from wpm_mcp_server import db
+    from wpm_mcp_server.embeddings import get_provider, resolve_model_name
+    from wpm_mcp_server.repository import reembed_all
+
+    model = resolve_model_name()
+    print(f"wpm: loading embedding model '{model}'...")
+    embedder = get_provider()
+
+    conn = db.connect(str(db_path))
+    result = reembed_all(conn, embedder, model)
+    conn.close()
+
+    print(f"wpm: re-embedded {result['reembedded']} entries with model '{result['model']}'")
 
 
 # ── export ────────────────────────────────────────────────────────────
@@ -394,7 +502,7 @@ def cmd_generate(args: argparse.Namespace) -> None:
     logging.root.setLevel(logging.CRITICAL)
     warnings.filterwarnings("ignore")
 
-    from wpm_mcp_server.embeddings import get_provider
+    from wpm_mcp_server.embeddings import get_provider, resolve_model_name
     from wpm_mcp_server.repository import generate_db
     from wpm_mcp_server.settings import load_settings
 
@@ -404,7 +512,13 @@ def cmd_generate(args: argparse.Namespace) -> None:
     print(f"wpm: loading embedding model...")
     embedder = get_provider()
 
-    generate_db(db_path=str(output_path), json_data=raw, embedder=embedder, settings=settings.domain)
+    generate_db(
+        db_path=str(output_path),
+        json_data=raw,
+        embedder=embedder,
+        settings=settings.domain,
+        model_name=resolve_model_name(),
+    )
 
     n_entries = len(raw["entries"])
     n_events = len(raw["entry_events"])
@@ -427,7 +541,7 @@ def main() -> None:
     u.add_argument("--force", "-f", action="store_true", help="Skip confirmation")
 
     p = sub.add_parser("search", help="Search the project's persistent memory")
-    p.add_argument("query", help="Search query (in English)")
+    p.add_argument("query", help="Search query (any language — multilingual embedding model)")
     p.add_argument("--json", "-j", action="store_true", help="Output as JSON")
     p.add_argument("--min-confidence", "-c", type=float, default=None,
                    help="Minimum confidence threshold (default: no filter)")
@@ -444,6 +558,8 @@ def main() -> None:
 
     ex = sub.add_parser("export", help="Export the database to JSON (without embeddings)")
     ex.add_argument("-o", "--output", default=None, help="Output file path (default: stdout)")
+
+    sub.add_parser("reembed", help="Re-embed all stored entries with the active embedding model (required after an embedding model change)")
 
     g = sub.add_parser("generate", help="Generate a new database from a JSON export (regenerates embeddings)")
     g.add_argument("input", help="Path to the JSON export file")
@@ -465,6 +581,8 @@ def main() -> None:
         cmd_plugin(args.action, args.source)
     elif args.subcommand == "export":
         cmd_export(args)
+    elif args.subcommand == "reembed":
+        cmd_reembed()
     elif args.subcommand == "generate":
         cmd_generate(args)
     else:

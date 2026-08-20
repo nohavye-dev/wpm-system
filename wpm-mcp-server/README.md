@@ -106,10 +106,14 @@ défaut), `wpm disable` le supprime.
 
 ## Embeddings
 
-ONNX Runtime + tokenizers HuggingFace (~100 MB), modèle
-`all-MiniLM-L6-v2` (384 dims), téléchargé et mis en cache au premier
-démarrage. `EMBEDDING_DIM` (`domain.py`) doit correspondre à la dimension
-du modèle — validé au démarrage.
+ONNX Runtime + tokenizers HuggingFace (~150 MB), modèle
+`paraphrase-multilingual-MiniLM-L12-v2` (384 dims, 50+ langues), téléchargé
+et mis en cache au premier démarrage (variante quantifiée selon
+l'architecture CPU, repli float32). `EMBEDDING_DIM` (`domain.py`) doit
+correspondre à la dimension du modèle — validé au démarrage. Les espaces
+vectoriels sont spécifiques au modèle : après un changement de modèle
+(`WPM_EMBEDDING_MODEL` ou montée de version), lancer `wpm reembed` pour
+ré-encoder toutes les entrées avant toute requête.
 
 ---
 

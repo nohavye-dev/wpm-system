@@ -10,6 +10,8 @@ import sqlite_vec
 
 from wpm_mcp_server.domain import EMBEDDING_DIM
 
+META_EMBEDDING_MODEL = "embedding_model"
+
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS entries (
     id TEXT PRIMARY KEY,
@@ -43,6 +45,11 @@ CREATE TABLE IF NOT EXISTS entry_links (
 );
 CREATE INDEX IF NOT EXISTS idx_entry_links_source ON entry_links(source_id);
 CREATE INDEX IF NOT EXISTS idx_entry_links_target ON entry_links(target_id);
+
+CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 """
 
 VEC_TABLE_SQL_TEMPLATE = """
@@ -114,3 +121,22 @@ def resolve_within_root(db_path: str | Path, root: str | Path | None = None) -> 
 
 # Backwards-compatible alias kept for the CLI and older callers.
 resolve_within_cwd = resolve_within_root
+
+
+def get_meta(conn: sqlite3.Connection, key: str) -> str | None:
+    """Read a value from the meta table (None when the key is absent)."""
+    row = conn.execute(
+        "SELECT value FROM meta WHERE key = ?", (key,)
+    ).fetchone()
+    return row["value"] if row else None
+
+
+def set_meta(conn: sqlite3.Connection, key: str, value: str) -> None:
+    """Upsert a key/value pair into the meta table (caller commits)."""
+    conn.execute(
+        """
+        INSERT INTO meta (key, value) VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        """,
+        (key, value),
+    )

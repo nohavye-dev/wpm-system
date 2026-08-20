@@ -81,6 +81,11 @@ auto_rules = behavior.build_memory_usage_rules(None)
 check(
     "auto clause follows the user's language",
     "same language as the user" in auto_rules,
+    auto_rules,
+)
+check(
+    "auto clause forbids switching to English",
+    "do not switch to English" in auto_rules,
 )
 fixed_rules = behavior.build_memory_usage_rules("french")
 check(
@@ -89,22 +94,12 @@ check(
     fixed_rules,
 )
 check(
-    "content-in-English rule moved out of instructions",
-    "CONTENT MUST BE IN ENGLISH" not in fixed_rules,
+    "fixed clause overrides the language of the memory",
+    "regardless of the language used in memory" in fixed_rules,
 )
 check(
     "fixed rules are still substantial",
     len(fixed_rules) > 500,
-)
-check(
-    "language note asks to follow the user when auto",
-    behavior.build_language_note(None) == "Respond to the user language.",
-)
-note = behavior.build_language_note("french")
-check(
-    "language note mentions the language",
-    "french" in note and "Respond to the user" in note,
-    note,
 )
 
 # --- verification command matching ---

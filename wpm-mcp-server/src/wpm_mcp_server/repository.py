@@ -17,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from wpm_mcp_server.db import META_EMBEDDING_MODEL, get_meta, set_meta
 from wpm_mcp_server.domain import EntryStatus, EntryType, EventType, EvidenceType, RelationType
 from wpm_mcp_server.embeddings import EmbeddingProvider
 from wpm_mcp_server.scoring import apply_evidence, base_confidence_for_source, confidence_at, now_iso
@@ -27,11 +28,40 @@ class WpmError(Exception):
     """Raised for domain-level errors (e.g. missing entry, stale evidence)."""
 
 
+def ensure_embedding_model(conn: sqlite3.Connection, model_name: str) -> None:
+    """Fail fast when a database's embeddings were produced by another model.
+
+    Embedding vector spaces are model-specific: querying or storing against
+    a db whose vectors came from a different model silently degrades
+    retrieval. When the db is empty there is nothing to protect (the first
+    store stamps the marker). A missing marker on a populated db means it
+    predates model tracking — the operator must re-embed before use.
+    """
+    count = conn.execute("SELECT COUNT(*) AS c FROM vec_entries").fetchone()["c"]
+    if count == 0:
+        return
+    stored = get_meta(conn, META_EMBEDDING_MODEL)
+    if stored == model_name:
+        return
+    detail = f"'{stored}'" if stored else "unknown (pre-migration)"
+    raise RuntimeError(
+        f"wpm: this database's embeddings were produced by embedding model "
+        f"{detail}, but the active model is '{model_name}'. The two vector "
+        f"spaces are incompatible — run 'wpm reembed' at the project root "
+        "to re-embed every entry before continuing."
+    )
+
+
 @dataclass
 class Repository:
     conn: sqlite3.Connection
     embedder: EmbeddingProvider
     settings: DomainSettings = field(default_factory=DomainSettings)
+    model_name: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.model_name:
+            ensure_embedding_model(self.conn, self.model_name)
 
     # --- store_entry -----------------------------------------------------
     def store_entry(
@@ -58,6 +88,8 @@ class Repository:
             "INSERT INTO vec_entries (entry_id, embedding) VALUES (?, ?)",
             (entry_id, json.dumps(embedding)),
         )
+        if self.model_name:
+            set_meta(self.conn, META_EMBEDDING_MODEL, self.model_name)
 
         similar = self._process_similar_entries(entry_id, embedding)
 
@@ -688,16 +720,45 @@ def export_db(conn: sqlite3.Connection) -> dict[str, Any]:
     return {"entries": entries, "entry_events": events, "entry_links": links}
 
 
+def reembed_all(
+    conn: sqlite3.Connection,
+    embedder: EmbeddingProvider,
+    model_name: str,
+) -> dict[str, Any]:
+    """Re-embed every stored entry's content in place.
+
+    Vector spaces are model-specific, so after switching embedding models
+    every entry must be re-embedded (not just new ones). Entries keep their
+    id/type/source/status; only vec_entries is rewritten. The model marker
+    is stamped so ensure_embedding_model passes on next use.
+    """
+    rows = conn.execute("SELECT id, content FROM entries").fetchall()
+    for row in rows:
+        embedding = embedder.embed(row["content"])
+        conn.execute(
+            "DELETE FROM vec_entries WHERE entry_id = ?", (row["id"],)
+        )
+        conn.execute(
+            "INSERT INTO vec_entries (entry_id, embedding) VALUES (?, ?)",
+            (row["id"], json.dumps(embedding)),
+        )
+    set_meta(conn, META_EMBEDDING_MODEL, model_name)
+    conn.commit()
+    return {"reembedded": len(rows), "model": model_name}
+
+
 def generate_db(
     db_path: str | Path,
     json_data: dict[str, Any],
     embedder: EmbeddingProvider,
     settings: DomainSettings | None = None,
+    model_name: str | None = None,
 ) -> None:
     """Create a new database at *db_path* from exported JSON data.
 
     Entries, events and links are inserted as-is (preserving original IDs).
     Embeddings are regenerated from each entry's content via *embedder*.
+    When *model_name* is given, the embedding-model marker is stamped.
     """
     from wpm_mcp_server import db as wdb
 
@@ -765,6 +826,9 @@ def generate_db(
             """,
             (link["source_id"], link["target_id"], link["relation_type"], link.get("weight", 1.0)),
         )
+
+    if model_name is not None:
+        set_meta(conn, META_EMBEDDING_MODEL, model_name)
 
     conn.commit()
     conn.close()

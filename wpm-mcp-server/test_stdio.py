@@ -40,7 +40,7 @@ async def main_language():
                 inst = getattr(init, "instructions", "") or ""
                 check(
                     "initialize.instructions reflect configured language",
-                    "written in french" in inst,
+                    "MUST be written in french" in inst,
                     f"len={len(inst)}",
                 )
 
@@ -60,7 +60,7 @@ async def main_language():
                 rules_text = rules_resource.contents[0].text
                 check(
                     "memory-rules resource reflects configured language",
-                    "written in french" in rules_text,
+                    "MUST be written in french" in rules_text,
                 )
     finally:
         for f in [".stdio_test_lang.db", ".stdio_test_lang.db-wal", ".stdio_test_lang.db-shm"]:
@@ -116,6 +116,10 @@ async def main():
                     "initialize.instructions embed memory rules",
                     "wpm" in inst.lower() and "memory" in inst.lower(),
                     f"len={len(inst)}",
+                )
+                check(
+                    "auto language clause follows the user's language",
+                    "same language as the user" in inst and "do not switch to English" in inst,
                 )
 
                 # --- resources ---

@@ -6,7 +6,8 @@ import { PromptTask, PromptContext } from "./promptEntities"
 // turn. Kept short on purpose: the server's initialize.instructions carry
 // the golden rules + standing policies (and the wpm://memory-rules
 // resource); this is only the dilution counter-measure, re-read at the
-// bottom of context.
+// bottom of context. Carries the expected-response-language clause so it
+// sits at system level on every turn, where it wins over data language.
 export function buildNudge(language?: string): string {
     const memoryPrompt = new PromptContext("wpm-memory")
         .addPurpose(
@@ -28,7 +29,7 @@ export function buildNudge(language?: string): string {
                     `Store durable facts immediately when they emerge instead of waiting until the end of the task or session.`,
                 )
                 .addConstraint(
-                    "Store memory entries in English.",
+                    "Store memory entries in their native language as they emerged (French, keeping technical EN/FR code-switching verbatim).",
                     "Avoid creating duplicate entries.",
                 ),
         )
@@ -44,7 +45,6 @@ export function buildNudge(language?: string): string {
                     "Never use validation or contradiction operations merely to inflate a score.",
                 ),
         )
-
         .addExpectedBehavior(
             expectedResponseLanguage(language),
         );
@@ -71,7 +71,7 @@ export function buildPersistReminder(): string {
                 )
                 .addConstraint(
                     "Architecture decisions, conventions, test results, and bug patterns must not be left unpersisted.",
-                    "Memory entries must be written in English.",
+                    "Memory entries must be written in their native language as they emerged.",
                     "The appropriate source must be provided when persisting an entry.",
                 ),
         );
@@ -80,8 +80,8 @@ export function buildPersistReminder(): string {
 }
 
 // Single source of truth for the end-of-task persistence pass. Used by
-// both the session.idle hook and the `/wpm-persist` command. The reply is
-// written in the response language (instructions stay English).
+// both the session.idle hook and the `/wpm-persist` command. The reply
+// follows the configured response language when one is set.
 export function buildPersistPromptText(language?: string): string {
     const target = language ? language : "the user's language"
 

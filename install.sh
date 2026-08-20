@@ -37,11 +37,19 @@ python3 -m venv "$DATA_DIR/venv"
 "$DATA_DIR/venv/bin/python" -m pip install --upgrade pip
 "$DATA_DIR/venv/bin/python" -m pip install "$BUNDLE_DIR/wpm-mcp-server"
 
-printf 'pre-downloading embedding model (~80 MB)...\n'
+printf 'pre-downloading embedding model (~120 MB)...\n'
 "$DATA_DIR/venv/bin/python" -c "
 from huggingface_hub import hf_hub_download
-repo = 'sentence-transformers/all-MiniLM-L6-v2'
-for f in ['tokenizer.json', 'onnx/model.onnx']:
+import platform
+repo = 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2'
+machine = platform.machine().lower()
+if machine in ('arm64', 'aarch64'):
+    onnx_file = 'onnx/model_qint8_arm64.onnx'
+elif machine in ('x86_64', 'amd64'):
+    onnx_file = 'onnx/model_quint8_avx2.onnx'
+else:
+    onnx_file = 'onnx/model.onnx'
+for f in ['tokenizer.json', onnx_file]:
     try:
         p = hf_hub_download(repo, f)
         print(f'cached: {p}')

@@ -1,8 +1,8 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import { buildNudge, buildPersistReminder } from "./wpm-lib/nudges"
 import { isEnabled } from "./wpm-lib/helpers"
-import { resolveResponseLanguage } from "./wpm-lib/language"
 import { readConfigParam } from "./wpm-lib/helpers"
+import { resolveResponseLanguage } from "./wpm-lib/language"
 import { createHooks } from "./wpm-lib/hooks"
 
 export const WpmPlugin: Plugin = async ({ client, directory }) => {

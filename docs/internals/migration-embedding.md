@@ -2,7 +2,7 @@
 
 ## Contexte
 
-Le système de mémoire pondérée (`wpm-system-standalone-mcp`) utilise actuellement **all-MiniLM-L6-v2** pour générer les embeddings stockés dans sqlite-vec. Ce modèle est entraîné quasi exclusivement en anglais, ce qui impose aujourd'hui une contrainte de normalisation : tout le contenu est traduit/stocké en anglais avant embedding, afin de garantir une similarité sémantique fiable.
+Le système de mémoire pondérée (`wpm-system`) utilise actuellement **all-MiniLM-L6-v2** pour générer les embeddings stockés dans sqlite-vec. Ce modèle est entraîné quasi exclusivement en anglais, ce qui impose aujourd'hui une contrainte de normalisation : tout le contenu est traduit/stocké en anglais avant embedding, afin de garantir une similarité sémantique fiable.
 
 Cette fiche propose de lever cette contrainte via une migration vers un modèle d'embedding multilingue.
 

@@ -71,7 +71,7 @@ ajouter dans `opencode.json`.
 Une fois activé, votre agent peut :
 
 - **mémoriser** (`store_entry`) et **relire** (`query_context`) des faits
-  durables, en anglais et dédupliqués ;
+  durables, en langue native (FR/EN, embedding multilingue) et dédupliqués ;
 - **valider** (`validate_entry`) ou **contredire** (`contradict_entry`) avec
   des preuves ;
 - **capturer les tests/builds** automatiquement (`record_execution`) ;

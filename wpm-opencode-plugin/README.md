@@ -47,7 +47,7 @@ wpm-opencode-plugin/
   plugin.ts              # entrée : isEnabled → langue → état → assemble les hooks
   wpm-lib/
     constants.ts         # SERVER_NAME
-    language.ts          # gestion de la langue de réponse (response_language)
+    language.ts          # resolveResponseLanguage + clauses de langue
     nudges.ts            # nudges ré-injectés + buildPersistPromptText(language)
     commands.ts          # templates + buildCommands(language)
     helpers.ts           # isEnabled / resolvePythonPath
@@ -56,20 +56,26 @@ wpm-opencode-plugin/
 
 ## Langue de réponse
 
-Miroir de la gestion du serveur MCP : le contenu stocké en mémoire et les
-instructions restent **en anglais** (cohérence d'embedding) — seule la
-langue de **réponse conversationnelle** est régie.
+Le contenu stocké en mémoire est écrit en **langue native** (le modèle
+d'embedding est multilingue). La langue des **réponses** est régie par des
+clauses fermes et répétées, injectées aux endroits où la donnée (souvent
+anglaise) risque de l'emporter :
 
-- `response_language` dans `wpm.config.json` (ex. `"french"`), ou
-  `"auto"`/omis pour suivre la langue de l'utilisateur. Surchargeable par
+- `response_language` dans `wpm.config.json` (ex. `"french"`), ou `"auto"`/
+  omis pour suivre la langue de l'utilisateur. Surchargeable par
   `WPM_RESPONSE_LANGUAGE`.
-- Le nudge injecté à chaque tour porte la clause `OUTPUT LANGUAGE`.
-- Les templates des commandes slash portent toujours une directive de
-  langue (y compris en mode auto) couvrant titres, intitulés, libellés et
-  verdict — seuls les noms de types d'entrées et le contenu stocké restent
-  anglais.
-- Les réponses du pass de persistance sont localisées dans la langue de
-  réponse.
+- Le **nudge** ré-injecté dans le system prompt à **chaque tour** porte la
+  clause « … MUST be written in french, regardless of the language used in
+  memory or in these instructions » — c'est la position la plus forte
+  (system, tout tour).
+- Le serveur MCP injecte la clause dans les règles principales
+  (`initialize.instructions` / `wpm://memory-rules`) ; en `auto` il injecte
+  « … MUST use the same language as the user asking questions — do not
+  switch to English for output ».
+- Les commandes slash réaffirment la langue : `wpm-audit` et `wpm-patterns`
+  portent une directive explicite en tête (rapport entier dans la langue
+  cible : titres, analyse, recommandations, verdict), plus `languageNote`
+  dans `wpm-learn` / `wpm-map` / `wpm-bootstrap`.
 
 ## Installation
 
