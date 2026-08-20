@@ -42,7 +42,7 @@ Fichiers concernés : `behavior.py` + `server.py` (couche MCP),
 | 11 | Pin/deprecate avec parcimonie | instructions | **`tool_result` de `get_memory_stats`** | voir §4.2 |
 | 12 | Links | instructions + description `link_entries` | **description `link_entries`** (déjà fait) | supprimer des instructions |
 | 13 | Session discipline (fin de tâche) | instructions | **hook `event: session.idle`** (plugin) | voir §9.3 — déclenchement actif, plus seulement un log |
-| 14 | Write memory anytime (plan mode) | instructions | **instructions** | garder (override transversal, pas de tool précis) |
+| 14 | Write memory anytime (plan mode) | instructions | **config `agent.plan.prompt` + `agent.plan.permission`** (plugin) | migré vers la config d'agent — l'exception plan mode est native, plus rappelée en instructions |
 | 15 | Incremental ≠ bulk workflows | instructions | **description de chaque commande bulk** (plugin) | voir §5.2 |
 | 16 | Record executions | instructions + description `record_execution` | **hook `tool.execute.after`** (plugin) | voir §9.1 — le plugin voit l'exécution shell, wpm non |
 
@@ -79,9 +79,7 @@ STANDING POLICIES (apply across all tools, not tied to a single call):
    polluted one.
 
 2. WRITE MEMORY ANYTIME. Memory write tools MUST be used whenever a
-   durable fact emerges — in plan mode, build mode, or any other mode.
-   Plan mode is NOT a reason to defer persistence. If the host blocks the
-   write, retry immediately or switch to a build/agent mode.
+   durable fact emerges. If the host blocks the write, retry immediately.
 
 3. RECORD EXECUTIONS. After running a test, build, or lint command, call
    record_execution(command, succeeded, session_id) instead of doing

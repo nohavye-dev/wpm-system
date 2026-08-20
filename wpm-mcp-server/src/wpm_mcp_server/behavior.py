@@ -56,7 +56,7 @@ def _build_memory_usage_rules(response_clause: str) -> str:
             PromptTask("Standing policies")
             .add_instruction(
                 "Prioritize reliability over completeness: prefer an underpopulated memory to one polluted with incorrect, duplicated, or artificially strengthened information.",
-                "Memory is your own state, not the project's: writing it never modifies the project, so memory tools are allowed in every mode — plan mode's read-only rule only protects project files. Use memory write tools whenever a durable fact emerges; if the host blocks a write, retry immediately or switch modes.",
+                "Memory is your own state, not the project's: writing it never modifies the project. Use memory write tools whenever a durable fact emerges; if the host blocks a write, retry immediately.",
                 "For entry types, source selection, deduplication, evidence hierarchy, query-result handling, pinning, deprecation, linking, native-language content, end-of-session persistence, and execution recording, consult the relevant tool description at the moment of decision.",
             )
         )
