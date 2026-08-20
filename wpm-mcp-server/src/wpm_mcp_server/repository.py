@@ -14,6 +14,7 @@ import sqlite3
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 from wpm_mcp_server.domain import EntryStatus, EntryType, EventType, EvidenceType, RelationType
@@ -656,3 +657,114 @@ class Repository:
                 now_iso(),
             ),
         )
+
+
+# --- export / generate ---------------------------------------------------
+
+def export_db(conn: sqlite3.Connection) -> dict[str, Any]:
+    """Export all entries, events and links as a JSON-serializable dict.
+
+    Embeddings (vec_entries) are intentionally excluded — they are
+    regenerated on import by generate_db().
+    """
+    entries = [
+        dict(row)
+        for row in conn.execute(
+            "SELECT * FROM entries"
+        ).fetchall()
+    ]
+    events = [
+        dict(row)
+        for row in conn.execute(
+            "SELECT * FROM entry_events"
+        ).fetchall()
+    ]
+    links = [
+        dict(row)
+        for row in conn.execute(
+            "SELECT * FROM entry_links"
+        ).fetchall()
+    ]
+    return {"entries": entries, "entry_events": events, "entry_links": links}
+
+
+def generate_db(
+    db_path: str | Path,
+    json_data: dict[str, Any],
+    embedder: EmbeddingProvider,
+    settings: DomainSettings | None = None,
+) -> None:
+    """Create a new database at *db_path* from exported JSON data.
+
+    Entries, events and links are inserted as-is (preserving original IDs).
+    Embeddings are regenerated from each entry's content via *embedder*.
+    """
+    from wpm_mcp_server import db as wdb
+
+    conn = wdb.connect(str(db_path))
+
+    entries = json_data.get("entries", [])
+    events = json_data.get("entry_events", [])
+    links = json_data.get("entry_links", [])
+
+    for entry in entries:
+        conn.execute(
+            """
+            INSERT INTO entries
+                (id, type, content, source, provenance_score, validation_score,
+                 last_validated_at, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                entry["id"],
+                entry["type"],
+                entry["content"],
+                entry["source"],
+                entry["provenance_score"],
+                entry["validation_score"],
+                entry["last_validated_at"],
+                entry["created_at"],
+            ),
+        )
+        try:
+            conn.execute(
+                "UPDATE entries SET status = ? WHERE id = ?",
+                (entry.get("status", "active"), entry["id"]),
+            )
+        except Exception:
+            pass
+
+        embedding = embedder.embed(entry["content"])
+        conn.execute(
+            "INSERT INTO vec_entries (entry_id, embedding) VALUES (?, ?)",
+            (entry["id"], json.dumps(embedding)),
+        )
+
+    for event in events:
+        conn.execute(
+            """
+            INSERT INTO entry_events (id, entry_id, event_type, evidence_type, evidence_ref, session_id, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                event["id"],
+                event["entry_id"],
+                event["event_type"],
+                event.get("evidence_type"),
+                event.get("evidence_ref"),
+                event.get("session_id"),
+                event["timestamp"],
+            ),
+        )
+
+    for link in links:
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO entry_links (source_id, target_id, relation_type, weight)
+            VALUES (?, ?, ?, ?)
+            """,
+            (link["source_id"], link["target_id"], link["relation_type"], link.get("weight", 1.0)),
+        )
+
+    conn.commit()
+    conn.close()
