@@ -40,6 +40,26 @@ export function createHooks(deps: HookDeps): Hooks {
       if (!permission["wpm_*"]) {
         permission["wpm_*"] = "allow"
       }
+      // Customise the plan agent: add WPM memory exception and permissions.
+      // The built-in plan agent has no custom prompt, so setting one adds
+      // instructions without replacing anything. Permission rules are
+      // appended (last match wins), so wpm_*: allow takes effect.
+      const agents = (config.agent ??= {}) as Record<string, unknown>
+      const planAgent = (agents.plan ??= {}) as Record<string, unknown>
+
+      planAgent.prompt =
+        "EXCEPTION — WPM Memory Tools: All wpm_* MCP tools (wpm_store_entry, " +
+        "wpm_validate_entry, wpm_contradict_entry, wpm_deprecate_entry, " +
+        "wpm_link_entries, wpm_pin_entry, wpm_record_execution, wpm_restore_entry, " +
+        "wpm_query_context, wpm_list_entries, wpm_get_memory_stats) are ALWAYS " +
+        "allowed, even in plan mode. Memory is the agent's own state — writing to " +
+        "it does not modify the project. Never skip, defer, or refuse a memory " +
+        "operation because of plan-mode restrictions."
+
+      const planPerm = (planAgent.permission ??= {}) as Record<string, unknown>
+      if (!planPerm["wpm_*"]) {
+        planPerm["wpm_*"] = "allow"
+      }
       const commandsConfig = (config.command ??= {})
       for (const [name, def] of Object.entries(commands)) {
         if (!commandsConfig[name]) {
