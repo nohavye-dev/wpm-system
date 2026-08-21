@@ -1,6 +1,6 @@
-import { SERVER_NAME } from "./constants"
-import { expectedResponseLanguage } from "./language"
-import { PromptTask, PromptContext } from "./promptEntities"
+import { SERVER_NAME } from "../core/constants"
+import { expectedResponseLanguage } from "./clauses"
+import { PromptTask, PromptContext } from "./entities"
 
 // Compact, host-specific re-anchor injected into the system prompt every
 // turn. Kept short on purpose: the server's initialize.instructions carry

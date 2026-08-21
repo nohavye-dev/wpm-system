@@ -1,19 +1,5 @@
-// Mirrors the MCP server's response-language system (settings.py
-// resolve_response_language + behavior.py _response_clause). Only the
-// agent's conversational output language is governed — stored memory
-// content stays in its native language (the embedding model is
-// multilingual).
-
-export function resolveResponseLanguage(
-  configValue: string | undefined,
-  envValue: string | undefined,
-): string | undefined {
-  const value = envValue && envValue.trim() ? envValue : configValue
-  if (value == null) return undefined
-  const stripped = value.trim()
-  if (!stripped || stripped.toLowerCase() === "auto") return undefined
-  return stripped
-}
+// Response-language clauses mirrored from the MCP server (behavior.py
+// _response_clause).
 
 export function expectedResponseLanguage(language: string | undefined): string {
   if (language) {

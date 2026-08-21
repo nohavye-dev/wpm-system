@@ -1,10 +1,10 @@
 import type { Hooks, PluginInput } from "@opencode-ai/plugin"
 import { $ } from "bun"
 import { join } from "node:path"
-import { SERVER_NAME } from "./constants"
-import { buildMemoryFirstNudge, buildPersistPromptText } from "./nudges"
-import { buildCommands } from "./commands"
-import { resolvePythonPath } from "./helpers"
+import { SERVER_NAME } from "../core/constants"
+import { buildMemoryFirstNudge, buildPersistPromptText } from "../prompts/nudges"
+import { buildCommands } from "../prompts/commands/index"
+import { resolvePythonPath } from "../infra/paths"
 
 export type HookDeps = {
   client: PluginInput["client"]

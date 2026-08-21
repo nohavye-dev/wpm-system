@@ -46,12 +46,19 @@ un sous-dossier ignoré par le scan non récursif d'OpenCode :
 wpm-opencode-plugin/
   plugin.ts              # entrée : isEnabled → langue → état → assemble les hooks
   wpm-lib/
-    constants.ts         # SERVER_NAME
-    language.ts          # resolveResponseLanguage + clauses de langue
-    nudges.ts            # nudges ré-injectés + buildPersistPromptText(language)
-    commands.ts          # templates + buildCommands(language)
-    helpers.ts           # isEnabled / resolvePythonPath
-    hooks.ts             # createHooks(ctx) — tous les hooks
+    core/
+      constants.ts       # SERVER_NAME
+    config/
+      settings.ts        # isEnabled / readConfigParam / resolveResponseLanguage
+    infra/
+      paths.ts           # resolvePythonPath (venv du serveur)
+    prompts/
+      entities.ts        # DSL PromptTask / PromptContext
+      clauses.ts         # clauses de langue (réponse attendue, note de langue)
+      nudges.ts          # nudges ré-injectés + buildPersistPromptText(language)
+      commands/          # un fichier par commande slash + index (buildCommands)
+    server/
+      hooks.ts           # createHooks(ctx) — tous les hooks
 ```
 
 ## Langue de réponse
