@@ -120,3 +120,23 @@ scripts/update-source-checksum.sh
 
 Puis commitez le `SHA256SUMS` mis à jour. Sans cela, l'installation par
 `curl | bash` échouera sur un échec de vérification.
+
+### Synchroniser la documentation publique
+
+`docs/public/` est une **vraie copie** (pas un lien symbolique) de
+`wpm-site/docs`, le dossier consommé par le site. Éditez les docs ici,
+puis publiez :
+
+```bash
+scripts/sync-public-docs.sh                # message de commit par défaut
+scripts/sync-public-docs.sh -m "docs: ..." # message personnalisé
+```
+
+Le script synchronise `docs/public/` vers `wpm-site/docs` (rsync --delete),
+puis committe et pousse sur `origin`. Il refuse de s'exécuter si :
+
+- wpm-system n'est pas sur la branche `main` ;
+- wpm-site contient des modifications non commitées ;
+- le réseau est indisponible (vérification de `origin`, timeout 15 s).
+
+Si rien n'a changé, il ne fait rien (pas de commit vide).
