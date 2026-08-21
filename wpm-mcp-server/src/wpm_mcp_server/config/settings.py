@@ -44,7 +44,7 @@ class DecaySettings:
     lambda_per_type: dict[str, float] = field(
         default_factory=lambda: {
             # Half-lives (time for confidence to halve), calibrated against
-            # external anchors — see new_spec/calibration-heuristique.md.
+            # external anchors — see docs/internals/heuristic-calibration.md.
             EntryType.ARCHI_DECISION.value: 0.00008,   # ~1 year
             EntryType.CONVENTION.value: 0.00016,       # ~6 months
             EntryType.DOC.value: 0.00021,              # ~4.5 months (indicative)

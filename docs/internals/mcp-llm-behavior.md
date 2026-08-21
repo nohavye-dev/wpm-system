@@ -102,7 +102,7 @@ C'est la primitive prévue pour **injecter des instructions à la demande**, pas
 
 **Portée temporelle** : c'est **toi** (ou le client, ou l'utilisateur via une commande slash `/pre-deploy-checklist`) qui déclenche `prompts/get` au moment choisi. C'est le mécanisme le plus explicite pour "à ce moment précis du workflow, injecte ce message dans le contexte."
 
-Dans ton architecture de routing (`opencode-model-router`), c'est probablement le canal le plus propre pour insérer des instructions de sous-agent avant dispatch, plutôt que de bricoler via `tool_result`.
+C'est probablement le canal le plus propre pour insérer des instructions à un moment précis du workflow (par exemple avant un dispatch de sous-agent), plutôt que de bricoler via `tool_result`.
 
 ---
 

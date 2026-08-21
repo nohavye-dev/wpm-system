@@ -115,6 +115,11 @@ def _hf_hub_cache_dir() -> Path:
     return Path(hf_home) / "hub"
 
 
+def _opencode_plugin_dir() -> Path:
+    config_home = os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
+    return Path(config_home) / "opencode" / "plugins"
+
+
 def cmd_uninstall(force: bool = False) -> None:
     if not force:
         print("This will remove the server venv, data, the 'wpm' binary, the OpenCode plugin, the pip-installed server and the embedding model cache.")
@@ -176,57 +181,6 @@ def cmd_uninstall(force: bool = False) -> None:
     print("wpm: fully uninstalled")
     print("note: per-project wpm.config.json and .wpm/ databases are left in place")
     print("note: remove any 'wpm' MCP server entry from your host configurations")
-
-
-# ── plugin ──────────────────────────────────────────────────────────────
-
-def _opencode_plugin_dir() -> Path:
-    config_home = os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
-    return Path(config_home) / "opencode" / "plugins"
-
-
-def cmd_plugin(action: str, source: str | None) -> None:
-    plugin_dir = _opencode_plugin_dir()
-    target = plugin_dir / "wpm-plugin.ts"
-    lib_dir = plugin_dir / "wpm-lib"
-
-    if action == "install":
-        src = Path(source) if source else Path(DATA_DIR) / "plugin.ts"
-        if not src.exists():
-            print(
-                f"wpm: plugin source not found at {src}\n"
-                "Re-run ./install.sh (which copies plugin.ts + wpm-lib/), or pass "
-                "--source <path/to/plugin.ts>.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        plugin_dir.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(src, target)
-        src_lib = src.parent / "wpm-lib"
-        if src_lib.exists():
-            shutil.copytree(src_lib, lib_dir, dirs_exist_ok=True)
-        else:
-            print(
-                f"wpm: warning: no wpm-lib/ found next to {src} — plugin may be incomplete",
-                file=sys.stderr,
-            )
-        print(f"wpm: plugin installed to {target}")
-        print("wpm: restart opencode for it to take effect")
-    elif action == "uninstall":
-        removed_any = False
-        if target.exists():
-            target.unlink()
-            print(f"wpm: plugin removed ({target})")
-            removed_any = True
-        if lib_dir.exists():
-            shutil.rmtree(lib_dir)
-            print(f"wpm: plugin removed ({lib_dir})")
-            removed_any = True
-        if not removed_any:
-            print("wpm: plugin not installed")
-    else:
-        print(f"wpm: unknown plugin action: {action}", file=sys.stderr)
-        sys.exit(1)
 
 
 # ── search ──────────────────────────────────────────────────────────────
@@ -552,10 +506,6 @@ def main() -> None:
                    help="Whether the command exited successfully (true/false)")
     r.add_argument("--session-id", default=None, help="Session id for event attribution")
 
-    pl = sub.add_parser("plugin", help="Reinstall/uninstall the OpenCode plugin (installed by default via install.sh)")
-    pl.add_argument("action", choices=["install", "uninstall"])
-    pl.add_argument("--source", help="Path to plugin.ts (default: the copy shipped by install.sh)")
-
     ex = sub.add_parser("export", help="Export the database to JSON (without embeddings)")
     ex.add_argument("-o", "--output", default=None, help="Output file path (default: stdout)")
 
@@ -577,8 +527,6 @@ def main() -> None:
         cmd_search(args)
     elif args.subcommand == "record-execution":
         cmd_record_execution(args)
-    elif args.subcommand == "plugin":
-        cmd_plugin(args.action, args.source)
     elif args.subcommand == "export":
         cmd_export(args)
     elif args.subcommand == "reembed":

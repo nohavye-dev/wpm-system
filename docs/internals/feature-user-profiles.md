@@ -89,7 +89,7 @@ lecture à la demande.
 ## 6. Commande `/wpm-user` (plugin)
 
 Enregistrée via `config.command` (comme les autres `/wpm-*`), template
-dans `commands.ts`. Le template ordonne un **entretien conversationnel** :
+dans `wpm-lib/prompts/commands/user.ts`. Le template ordonne un **entretien conversationnel** :
 
 1. Poser les questions (prénom(s), langue, tutoiement/vouvoiement,
    niveau de détail, style, rôle/contexte), éventuellement en plusieurs
@@ -115,16 +115,16 @@ Le masquage du prompt à l'exécution est déjà géré par
 
 ## 8. Fichiers touchés (à implémenter)
 
-- `wpm-mcp-server/src/wpm_mcp_server/users.py` — nouveau : `UserRepository`
+- `wpm-mcp-server/src/wpm_mcp_server/storage/users.py` — nouveau : `UserRepository`
   + résolution du chemin.
-- `wpm-mcp-server/src/wpm_mcp_server/server.py` — 5 outils + resource
-  `wpm://current-user` + prompts.
-- `wpm-mcp-server/src/wpm_mcp_server/behavior.py` — mention légère.
-- `wpm-opencode-plugin/wpm-lib/commands.ts` — `buildUserPromptText()` +
+- `wpm-mcp-server/src/wpm_mcp_server/server/tools.py` — 5 outils +
+  `server/resources.py` (resource `wpm://current-user`) + `server/prompts.py`.
+- `wpm-mcp-server/src/wpm_mcp_server/prompts/memory_rules.py` — mention légère.
+- `wpm-opencode-plugin/wpm-lib/prompts/commands/user.ts` — `buildUserPromptText()` +
   enregistrement `wpm-user`.
-- `wpm-opencode-plugin/wpm-lib/hooks.ts` — étendre la liste d'outils du
+- `wpm-opencode-plugin/wpm-lib/server/hooks.ts` — étendre la liste d'outils du
   prompt plan-agent.
-- `wpm-opencode-plugin/wpm-lib/nudges.ts` — rappel léger.
+- `wpm-opencode-plugin/wpm-lib/prompts/nudges.ts` — rappel léger.
 - `wpm-mcp-server/test_users.py` — tests du dépôt + résolution du chemin
   (`XDG_CONFIG_HOME` temporaire).
 - `README.md` + `wpm-mcp-server/README.md` — docs.

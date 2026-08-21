@@ -1,5 +1,15 @@
 # Migration vers un modèle d'embedding multilingue
 
+> **Statut : implémenté** (étapes 1-3 ci-dessous). Le modèle par défaut est
+> `paraphrase-multilingual-MiniLM-L12-v2` (ONNX quantifié ~120 MB, float32
+> ~470 MB), dimension 384 (`EMBEDDING_DIM` dans `core/constants.py`). Le
+> contenu est stocké en langue native (plus de traduction). La ré-embedding
+> se fait via `wpm reembed` (`reembed_all`, `storage/lifecycle.py`), et une
+> garde (`model_guard.ensure_embedding_model`) bloque toute requête si le
+> modèle actif diffère de celui de la base. Les étapes 4-5 (validation du
+> seuil de confiance FR et du recall cross-lingue) restent en phase d'essais.
+> Surcharge du modèle via `WPM_EMBEDDING_MODEL`.
+
 ## Contexte
 
 Le système de mémoire pondérée (`wpm-system`) utilise actuellement **all-MiniLM-L6-v2** pour générer les embeddings stockés dans sqlite-vec. Ce modèle est entraîné quasi exclusivement en anglais, ce qui impose aujourd'hui une contrainte de normalisation : tout le contenu est traduit/stocké en anglais avant embedding, afin de garantir une similarité sémantique fiable.

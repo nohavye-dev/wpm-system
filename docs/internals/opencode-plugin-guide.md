@@ -590,8 +590,8 @@ Ajoutez un `package.json` dans votre répertoire de config (`.opencode/`, au mê
 
 1. Configuration globale (`~/.config/opencode/opencode.json`)
 2. Configuration du projet (`opencode.json`)
-3. Répertoire de plugins global (`~/.config/opencode/plugin/`)
-4. Répertoire de plugins du projet (`.opencode/plugin/`)
+3. Répertoire de plugins global (`~/.config/opencode/plugins/`)
+4. Répertoire de plugins du projet (`.opencode/plugins/`)
 
 Tous les hooks de tous les plugins s'exécutent en séquence.
 

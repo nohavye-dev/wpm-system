@@ -6,7 +6,7 @@ sentence-transformers/torch stack.
 
 The default model is paraphrase-multilingual-MiniLM-L12-v2 (384-dim
 vectors, 50+ languages), matching the EMBEDDING_DIM constant in
-domain.py. A quantized ONNX export is preferred when available for the
+core/constants.py. A quantized ONNX export is preferred when available for the
 current CPU architecture, with a fallback to the float32 export. Set
 WPM_EMBEDDING_MODEL to override.
 """
@@ -87,7 +87,7 @@ class ONNXRuntimeProvider(EmbeddingProvider):
             raise ValueError(
                 f"ONNX model produces {output_shape[-1]}-dim vectors "
                 f"but EMBEDDING_DIM is {EMBEDDING_DIM}. Change EMBEDDING_DIM "
-                f"in domain.py to match the model's output dimension."
+                f"in core/constants.py to match the model's output dimension."
             )
 
     @staticmethod

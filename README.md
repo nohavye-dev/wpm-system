@@ -11,8 +11,9 @@ pendant une session ne sont pas perdus à la suivante — et surtout, on sait
 ## Documentation
 
 - Site web du projet : [WPM — Weighted Persistent Memory](https://nohavye-dev.github.io/wpm-site/)
+- [`wpm-mcp-server/README.md`](wpm-mcp-server/README.md) — le serveur, côté technique.
+- [`docs/internals/`](docs/internals/) — notes de conception internes (validation, calibration).
 
----
 
 ## Pourquoi WPM ?
 
@@ -66,6 +67,21 @@ ajouter dans `opencode.json`.
 
 ---
 
+## CLI
+
+En plus de `wpm enable` / `wpm disable` :
+
+- `wpm search "<requête>"` — interroger la mémoire du projet (langue libre,
+  modèle multilingue) ;
+- `wpm export [-o fichier.json]` — exporter la base en JSON (sans embeddings) ;
+- `wpm generate <fichier.json> --output <wpm.db>` — régénérer une base à
+  partir d'un export (embeddings recalculés) ;
+- `wpm reembed` — ré-encoder toutes les entrées (obligatoire après un
+  changement de modèle d'embedding) ;
+- `wpm uninstall` — désinstaller complètement (venv, binaire, plugin).
+
+---
+
 ## Ce que vous obtenez
 
 Une fois activé, votre agent peut :
@@ -77,18 +93,13 @@ Une fois activé, votre agent peut :
 - **capturer les tests/builds** automatiquement (`record_execution`) ;
 - **épingler / déprécier / restaurer** des souvenirs (`pin_entry`,
   `deprecate_entry`, `restore_entry`) ;
-- lire les **règles du projet** recomposées depuis la mémoire.
+- lire les **règles du projet** recomposées depuis la mémoire ;
+- **sauvegarder / ré-encoder** la base hors session (`wpm export`,
+  `wpm generate`, `wpm reembed`).
 
 Et des workflows prêts à l'emploi, en commandes slash enregistrées par le
 plugin : `/wpm-learn`, `/wpm-map`, `/wpm-bootstrap`, `/wpm-audit`,
 `/wpm-patterns` (et le pass de fin de tâche `/wpm-persist`).
-
----
-
-## Documentation
-
-- [`wpm-mcp-server/README.md`](wpm-mcp-server/README.md) — le serveur, côté technique.
-- [`docs/internals/`](docs/internal/) — notes de conception internes (validation, calibration).
 
 ---
 

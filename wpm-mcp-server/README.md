@@ -6,8 +6,8 @@ scoring, décroissance, expansion de graphe, outils MCP.
 
 > **Présentation vs technique** — les sections « Outils », « Resources »
 > et « Configuration » ci-dessous sont techniques. Pour
-> comprendre *pourquoi* tout cela existe, voir
-> `docs/concepts.md`.
+> comprendre *pourquoi* tout cela existe, voir les docs publiques sur le
+> [site du projet](https://nohavye-dev.github.io/wpm-site/).
 
 ## Documentation
 
@@ -31,6 +31,20 @@ Le comportement de l'agent est orienté par :
 - **descriptions d'outils directives** — relues à chaque décision d'appel
   (dédoublonnage, hiérarchie des preuves, choix du type/source…) ;
 - **rappels ciblés (`tool_result`)** — relus au moment exact de l'action.
+
+---
+
+## Structure du code
+
+Sous-paquets en couches (dépendances dirigées vers le haut) :
+
+- `core/` — constantes (`EMBEDDING_DIM`), enums, erreurs, scoring ;
+- `config/` — lecture de `wpm.config.json` (`settings.py`) ;
+- `infra/` — base SQLite (`database.py`), embeddings ONNX (`embeddings.py`) ;
+- `storage/` — dépôt, récupération, requêtes, cycle de vie
+  (`export_db` / `generate_db` / `reembed_all`), garde de modèle ;
+- `prompts/` — textes injectés (règles, entités, project-rules, vérification) ;
+- `server/` — outils MCP, resources, état.
 
 ---
 
@@ -62,7 +76,7 @@ WPM_DB_PATH=./wpm.db python -m wpm_mcp_server
 | `validate_entry(entry_id, evidence_type, evidence_ref, session_id)` | Enregistrer une preuve de confirmation (dédupliquée par session) |
 | `contradict_entry(entry_id, conflicting_entry_id, evidence_type, evidence_ref)` | Enregistrer un conflit — ne supprime jamais, baisse le score + lien `contradicts` |
 | `link_entries(source_id, target_id, relation_type, weight?)` | Relation explicite (`related`/`contradicts`/`depends_on`/`refines`) |
-| `get_memory_stats()` | Diagnostic : totaux, distribution de confiance, jamais validées, contradictions, plus faibles |
+| `get_memory_stats()` | Diagnostic : totaux, distribution de confiance, jamais validées, contradictions, plus faibles, candidats à l'épinglage (`pin_candidates`) |
 | `pin_entry(entry_id)` | Épingler — la confiance ne décroît jamais |
 | `deprecate_entry(entry_id)` | Déprécier — exclue des résultats (réversible) |
 | `restore_entry(entry_id)` | Restaurer en statut actif |
@@ -98,7 +112,7 @@ court) par `command.execute.before`.
 
 ## Configuration
 
-Voir `docs/configuration.md` pour le détail de
+Voir `wpm.config.example.json` pour le détail de
 `wpm.config.json`. `wpm enable` écrit ce fichier (avec `db_path` par
 défaut), `wpm disable` le supprime.
 
@@ -106,10 +120,10 @@ défaut), `wpm disable` le supprime.
 
 ## Embeddings
 
-ONNX Runtime + tokenizers HuggingFace (~150 MB), modèle
-`paraphrase-multilingual-MiniLM-L12-v2` (384 dims, 50+ langues), téléchargé
-et mis en cache au premier démarrage (variante quantifiée selon
-l'architecture CPU, repli float32). `EMBEDDING_DIM` (`domain.py`) doit
+ONNX Runtime + tokenizers HuggingFace, modèle
+`paraphrase-multilingual-MiniLM-L12-v2` (~120 MB, 384 dims, 50+ langues),
+téléchargé et mis en cache au premier démarrage (variante quantifiée selon
+l'architecture CPU, repli float32). `EMBEDDING_DIM` (`core/constants.py`) doit
 correspondre à la dimension du modèle — validé au démarrage. Les espaces
 vectoriels sont spécifiques au modèle : après un changement de modèle
 (`WPM_EMBEDDING_MODEL` ou montée de version), lancer `wpm reembed` pour
@@ -120,12 +134,14 @@ ré-encoder toutes les entrées avant toute requête.
 ## Tests
 
 ```bash
-pytest   # 12 fichiers de test à la racine (script-style via conftest)
+pytest   # 13 fichiers de test à la racine (script-style via conftest)
 ```
 
 - `test_repository.py`, `test_scoring.py`, `test_domain.py`,
   `test_embeddings.py`, `test_db.py`, `test_contradict_validation.py` —
   couche dépôt, sans transport MCP ;
+- `test_export_generate.py` — export/génération de base (backup sans
+  embeddings, ré-encodage) ;
 - `test_stdio.py` — protocole MCP complet sur stdio ;
 - `test_behavior.py` — règles, matching des commandes de vérification ;
 - `test_settings.py`, `test_db_path_precedence.py`,
@@ -139,4 +155,4 @@ pytest   # 12 fichiers de test à la racine (script-style via conftest)
 - Pas d'authentification / multi-location : un fichier SQLite local par
   projet.
 - Le modèle de confiance (λ de decay, seuils, poids) est calé sur des valeurs
-  **raisonnées mais à valider** — voir [`docs/internal/`](../docs/internal/).
+  **raisonnées mais à valider** — voir [`docs/internals/`](../docs/internals/).

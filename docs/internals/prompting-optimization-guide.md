@@ -1,5 +1,14 @@
 # Guide d'optimisation du prompting — wpm-system
 
+> **Statut : implémenté** (toutes les sections). Modules plats → structure
+> en couches : `behavior.py` → `prompts/memory_rules.py` ;
+> `server.py` → `server/tools.py` + `server/prompts.py` ;
+> `settings.py` → `config/settings.py` ;
+> `repository.py` → `storage/repository.py` (`get_stats`) + `storage/queries.py`
+> (`compute_stats`) ; `domain.py` → `core/constants.py` ;
+> `embeddings.py` → `infra/embeddings.py` ; `db.py` → `infra/database.py`.
+> Côté plugin : `plugin.ts` reste l'entrée, la logique vit dans `wpm-lib/`.
+
 Objectif : faire sortir un maximum des 16 règles hors du bloc monolithique
 `initialize.instructions` et les redistribuer vers le canal le plus fiable
 pour leur moment d'usage réel. Le principe directeur : **une règle lue ou
@@ -19,8 +28,8 @@ Deux couches complémentaires :
   `experimental.chat.system.transform`, `experimental.session.compacting`,
   `tool.execute.before/after`, `event` (`session.idle`).
 
-Fichiers concernés : `behavior.py` + `server.py` (couche MCP),
-`wpm-opencode-plugin/plugin.ts` (couche plugin),
+Fichiers concernés : `prompts/memory_rules.py` + `server/tools.py` (couche MCP),
+`wpm-opencode-plugin/` (couche plugin, `plugin.ts` + `wpm-lib/`),
 `scripts/wpm_metrics.py` (mesure).
 
 ---
@@ -54,7 +63,7 @@ comptent plutôt que rappelées de mémoire.
 
 ---
 
-## 2. Nouveau contenu pour `behavior.py`
+## 2. Nouveau contenu pour `prompts/memory_rules.py`
 
 Remplacer le corps « DETAILED RULES » (règles 1 à 16) par une version
 réduite. Squelette proposé :
@@ -101,7 +110,7 @@ rester présentes tout au long d'une longue session.
 
 ## 3. Règles 6 et 7 : passer de la prose au schéma
 
-Aujourd'hui (`server.py`, lignes 147 et 240) :
+Aujourd'hui (`server/tools.py`, lignes 147 et 240) :
 
 ```python
 async def store_entry(ctx: Context, type: str, content: str, source: str) -> dict:
@@ -138,7 +147,7 @@ par valeur d'enum, donc la nuance sémantique (pourquoi `insight` et pas
 description du tool, pas dupliquée dans `instructions`.
 
 **Étape 2 — compacter la description existante** (déjà présente dans
-`store_entry`, ligne 135) en format scannable un-critère-par-ligne
+`store_entry` — `server/tools.py`) en format scannable un-critère-par-ligne
 plutôt qu'en paragraphe continu :
 
 ```
@@ -158,8 +167,8 @@ vu que cette description est relue à chaque appel.
 
 ### 4.1 Règle 10 — légender `related_context` comme `conflicts`
 
-`query_context` (server.py, ligne 183) ajoute déjà un `reminder` quand
-`conflicts` est non vide (`_REMINDER_CONFLICTS`, ligne 193-194). Étendre
+`query_context` (`server/tools.py`) ajoute déjà un `reminder` quand
+`conflicts` est non vide (`_REMINDER_CONFLICTS`). Étendre
 le même mécanisme à `related_context`, pour que la distinction
 "direct_matches fiable / related_context associatif" soit rappelée au
 moment exact où le modèle lit le résultat plutôt qu'espérée d'une règle
@@ -184,7 +193,8 @@ if reminders:
 
 **Correction** : ma proposition précédente supposait des champs
 (`all_entries`, `validation_count` par entrée) qui n'existent pas dans
-`Repository.get_stats()` (`repository.py`, ligne 446) — la méthode
+`get_stats` (`storage/repository.py`) / `compute_stats`
+(`storage/queries.py`) — la méthode
 retourne `total_entries`, `by_type`, `confidence_distribution`,
 `never_validated`, `active_contradictions`, `lowest_confidence`,
 `recent_activity`, mais rien sur les entrées les plus validées. Il faut
@@ -216,8 +226,8 @@ if pin_candidates:
     stats["reminder"] = f"{len(pin_candidates)} entries validated 3+ times could be pinned via pin_entry."
 ```
 
-**Nuance à noter** : la commande `/wpm-patterns` (plugin.ts, `WPM_COMMANDS`)
-exécute déjà cette même règle de façon active — "convention validated 3+
+**Nuance à noter** : la commande `/wpm-patterns`
+(`wpm-lib/prompts/commands/patterns.ts`) exécute déjà cette même règle de façon active — "convention validated 3+
 times -> pin_entry" y est explicitement câblé et exécuté automatiquement à
 l'invocation. Le changement ci-dessus n'est donc pas la seule couverture
 de la règle 11, juste un signal léger visible sans invoquer `/wpm-patterns`
@@ -235,8 +245,8 @@ commande slash `/wpm:xxx:mcp`, sans contrôle du texte affiché à
 l'exécution ni enregistrement par le plugin.
 
 **Décision finale (migration)** : les 6 workflows sont sortis du serveur
-MCP (les `@mcp.prompt` de `server.py` ont été supprimés) et déplacés dans
-`wpm-opencode-plugin/plugin.ts` comme commandes slash natives
+MCP (les `@mcp.prompt` de `server/prompts.py` ont été supprimés) et déplacés dans
+`wpm-opencode-plugin/wpm-lib/prompts/commands/` comme commandes slash natives
 (`/wpm-persist`, `/wpm-audit`, `/wpm-learn`, `/wpm-map`, `/wpm-bootstrap`,
 `/wpm-patterns`) :
 
@@ -251,11 +261,11 @@ MCP (les `@mcp.prompt` de `server.py` ont été supprimés) et déplacés dans
 
 ### 5.1 Règle 13 — le pass de fin de tâche appartient à `/wpm-persist`
 
-`PERSIST_PROMPT_TEXT` (plugin.ts) est la **source de vérité unique** du
+`buildPersistPromptText` (`wpm-lib/prompts/nudges.ts`) est la **source de vérité unique** du
 pass de fin de tâche : il est poussé par le hook `session.idle` (via
 `client.session.prompt`) et réutilisé tel quel comme template de la
 commande `/wpm-persist`. La description de la commande
-(`WPM_COMMANDS["wpm-persist"].description`) indique explicitement quand
+(`wpm-lib/prompts/commands/`) indique explicitement quand
 l'invoquer — « call this yourself when a task or session is wrapping
 up » — pour que le modèle la déclenche sans intervention utilisateur.
 
@@ -263,7 +273,7 @@ up » — pour que le modèle la déclenche sans intervention utilisateur.
 
 Chaque commande bulk (`learn`, `map`, `bootstrap`, `patterns`) porte sa
 clause « bulk ≠ incremental » dans sa description
-(`WPM_COMMANDS[*].description`), relue au moment où la commande est
+(`wpm-lib/prompts/commands/`), relue au moment où la commande est
 invoquée. `audit` est read-only, la clause ne s'y applique pas.
 
 ---
@@ -347,7 +357,7 @@ entièrement. Ce même pattern permet de rendre la règle 16 **déterministe
 
 **a) Ajouter `wpm record-execution` au CLI**, sur le modèle exact de
 `cmd_search` dans `scripts/wpm`, en réutilisant les fonctions pures déjà
-testées de `behavior.py` (`compile_verification_patterns`,
+testées de `prompts/verification.py` (`compile_verification_patterns`,
 `looks_like_verification_command`) — donc aucune logique dupliquée ou
 divergente entre le tool MCP et le CLI :
 
@@ -489,22 +499,22 @@ event: async ({ event }) => {
 }
 ```
 
-`PERSIST_PROMPT_TEXT` est désormais la source de vérité unique du texte de
+`buildPersistPromptText` (`wpm-lib/prompts/nudges.ts`) est désormais la source de vérité unique du texte de
 fin de tâche : il alimente le hook `session.idle` et la commande `/wpm-persist`
 (voir §5), évitant une troisième version du même texte. `noReply: false`
 pour que le modèle traite effectivement la demande au lieu qu'elle reste un
 message silencieux.
 
-### 9.4 Un artefact du pivot à corriger : le docstring de `server.py`
+### 9.4 Un artefact du pivot à corriger : le docstring de `server/__init__.py`
 
-Les lignes 1-21 de `server.py` documentent explicitement l'ancien choix :
+**Fait** — le docstring reflète désormais l'architecture à deux couches.
+
+L'ancien `server.py` documentait explicitement l'ancien choix :
 *"Replaces the old opencode plugin [...] so the server works with any MCP
-host"*, et justifient `record_execution` par *"without relying on a
-tool.execute.after hook"*. Ce commentaire décrit maintenant l'inverse de
-la stratégie retenue (§9.1 réintroduit précisément ce hook). À mettre à
-jour pour refléter l'architecture à deux couches — sinon le prochain
-contributeur (ou vous-même dans six mois) lira une justification de
-design qui n'est plus vraie.
+host"*, et justifiait `record_execution` par *"without relying on a
+tool.execute.after hook"* — l'inverse de la stratégie retenue (§9.1
+réintroduit précisément ce hook). Le docstring actuel
+(`server/__init__.py`) décrit bien les deux couches complémentaires.
 
 ### 9.5 Avertissement à garder du README existant
 
@@ -527,7 +537,7 @@ montée de version plutôt que de supposer que ça continue de fonctionner.
    avoir vérifié empiriquement les deux points d'API en suspens (nom des
    champs `exitCode`/`sessionID`). Ferme un vrai trou fonctionnel, pas
    seulement une reformulation de prompt.
-4. **§9.4 (mise à jour du docstring `server.py`)** — cosmétique mais
+4. **§9.4 (mise à jour du docstring `server/__init__.py`)** — cosmétique mais
    rapide, à faire pendant qu'on a le contexte en tête.
 5. **§1-2 (réduction des instructions)** — une fois 9.1 et 9.3 en place,
    les règles 13 et 16 peuvent sortir des `instructions` sans perte.

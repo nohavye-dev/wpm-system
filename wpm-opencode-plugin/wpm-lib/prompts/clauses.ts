@@ -1,5 +1,5 @@
-// Response-language clauses mirrored from the MCP server (behavior.py
-// _response_clause).
+// Response-language clauses mirrored from the MCP server
+// (prompts/memory_rules.py _response_clause).
 
 export function expectedResponseLanguage(language: string | undefined): string {
   if (language) {

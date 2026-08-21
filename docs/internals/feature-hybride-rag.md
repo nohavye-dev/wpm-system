@@ -63,7 +63,7 @@ Combiner les deux mécanismes plutôt que choisir l'un ou l'autre, en s'appuyant
 - **Calibration du seuil** : un seuil trop bas génère du bruit systématique, un seuil trop haut réduit l'utilité du pop-in. À valider empiriquement sur un échantillon de requêtes réelles.
 - **Nombre de résultats injectés** : le pop-in doit rester restreint (peu de résultats) pour ne pas saturer le contexte à chaque tour.
 - **Traçabilité du pop-in** : même sans tool call, il est utile de logger quelles mémoires ont été injectées automatiquement, pour audit et debug du seuil.
-- **Interaction avec la migration d'embedding multilingue** : la fiabilité du score de confiance dépend directement de la qualité de l'embedding sur le français — voir la fiche de migration vers un modèle multilingue, prérequis pour un seuil de pop-in fiable en français.
+- **Interaction avec la migration d'embedding multilingue** : la fiabilité du score de confiance dépend directement de la qualité de l'embedding sur le français. La migration vers un modèle multilingue est désormais **implémentée** (voir `migration-embedding.md`) — le prérequis d'un seuil de pop-in fiable en français est satisfait ; reste la validation empirique du seuil.
 
 ## Étapes de mise en œuvre (proposition)
 
@@ -71,4 +71,5 @@ Combiner les deux mécanismes plutôt que choisir l'un ou l'autre, en s'appuyant
 2. Implémenter la logique de seuil (haut = injection directe, bas = pas d'injection, tool reste actif).
 3. Limiter strictement le nombre de résultats injectés en mode pop-in.
 4. Ajouter un logging des injections automatiques pour audit.
-5. Tester la calibration du seuil sur un échantillon représentatif de requêtes, idéalement après migration vers un embedding multilingue.
+5. Tester la calibration du seuil sur un échantillon représentatif de
+   requêtes (la migration vers un embedding multilingue étant en place).

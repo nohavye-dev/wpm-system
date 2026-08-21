@@ -19,7 +19,9 @@ peut pas faire :
 
 - **`config`** — enregistre le serveur MCP `wpm` (venv `python -m
   wpm_mcp_server`, `WPM_CONFIG_PATH` pointé sur le projet) + permission
-  `wpm_*` (`allow`) + les commandes slash `wpm-*`.
+  `wpm_*` (`allow`) + les commandes slash `wpm-*`. Passe aussi
+  `default_agent` à `plan` et injecte une exception mémoire dans l'agent
+  plan : les outils `wpm_*` restent autorisés même en mode plan.
 - **`command.execute.before`** — masque le long texte des commandes slash
   (part `synthetic`) et affiche un label court `/wpm-<commande>`.
 - **`chat.message`** — ré-arme la passe de persistance sur un vrai message
@@ -86,12 +88,10 @@ anglaise) risque de l'emporter :
 
 ## Installation
 
-Installé par défaut par `install.sh`. Réinstallation / retrait manuel :
-
-```bash
-wpm plugin install      # copie plugin.ts + wpm-lib/ dans ~/.config/opencode/plugins/
-wpm plugin uninstall    # les retire
-```
+Installé par défaut par `install.sh`, qui copie `plugin.ts` + `wpm-lib/`
+dans `~/.config/opencode/plugins/`. Pour le réinstaller, relancer
+`install.sh` ; pour le retirer, `wpm uninstall` supprime aussi les fichiers
+du plugin.
 
 Puis redémarrer OpenCode.
 

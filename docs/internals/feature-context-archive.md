@@ -20,7 +20,7 @@ remonter des fragments vers la mémoire durable via `store_entry`.
 
 ## 2. Principe directeur : deux bases, deux philosophies opposées
 
-| | Mémoire persistante (`entries.db`) | Archive de session (nouvelle) |
+| | Mémoire persistante (`.wpm/wpm.db`) | Archive de session (nouvelle) |
 |---|---|---|
 | Durée de vie | Traverse les sessions, les redémarrages | Le temps du process MCP (1 process/session) |
 | Stockage | Fichier SQLite sur disque, WAL | `:memory:`, jamais écrit sur disque |
@@ -47,7 +47,7 @@ le serveur fait le travail sémantique.
 ### 3.2 Nouvelle connexion, même process
 
 Le process MCP existant (un par session, stdio) ouvre une seconde
-connexion SQLite `:memory:` en plus de la connexion vers `entries.db`.
+connexion SQLite `:memory:` en plus de la connexion vers `.wpm/wpm.db`.
 Elle vit et meurt avec le process — aucun nettoyage explicite requis.
 
 ```python
