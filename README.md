@@ -121,6 +121,33 @@ scripts/update-source-checksum.sh
 Puis commitez le `SHA256SUMS` mis à jour. Sans cela, l'installation par
 `curl | bash` échouera sur un échec de vérification.
 
+### Branches et publication
+
+- `main-dev` : développement.
+- `main` : publication.
+
+Sur `main-dev`, régénérez le checksum avant tout push (cf. ci-dessus).
+Pour publier :
+
+```bash
+git checkout main
+git merge --ff-only main-dev
+git push
+```
+
+Si le merge touche `docs/public/`, publiez ensuite la doc du site :
+
+```bash
+scripts/sync-public-docs.sh
+```
+
+Le script ne fonctionne que depuis `main`. Si un commit passe directement
+sur `main`, réalignez la branche de dev :
+
+```bash
+git fetch . main:main-dev && git push origin main:main-dev
+```
+
 ### Synchroniser la documentation publique
 
 `docs/public/` est une **vraie copie** (pas un lien symbolique) de
