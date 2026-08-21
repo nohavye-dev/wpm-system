@@ -26,7 +26,7 @@ def _resolve_wpm_config() -> Path:
 
 def _contained_in_project(db_path_raw: str) -> Path:
     """Validate db_path lives inside the current project; return the resolved path."""
-    from wpm_mcp_server import db
+    from wpm_mcp_server.infra import database as db
     root = Path.cwd()
     return db.resolve_within_root(db_path_raw, root)
 
@@ -71,7 +71,7 @@ def cmd_enable(db_dir: str | None, assume_yes: bool) -> None:
         with gitignore.open("a", encoding="utf-8") as f:
             f.write(f"# weighted persistent memory\n{gitignore_entry}\n")
 
-    from wpm_mcp_server import db as wdb
+    from wpm_mcp_server.infra import database as wdb
     conn = wdb.connect(str(resolved))
     conn.close()
 
@@ -258,10 +258,10 @@ def cmd_search(args: argparse.Namespace) -> None:
     logging.root.setLevel(logging.CRITICAL)
     warnings.filterwarnings("ignore")
 
-    from wpm_mcp_server import db
-    from wpm_mcp_server.embeddings import get_provider, resolve_model_name
-    from wpm_mcp_server.repository import Repository
-    from wpm_mcp_server.settings import load_settings
+    from wpm_mcp_server.infra import database as db
+    from wpm_mcp_server.infra.embeddings import get_provider, resolve_model_name
+    from wpm_mcp_server.storage import Repository
+    from wpm_mcp_server.config import load_settings
 
     settings = load_settings(config_path)
     os.chdir(str(Path.cwd()))
@@ -358,13 +358,13 @@ def cmd_record_execution(args: argparse.Namespace) -> None:
     logging.root.setLevel(logging.CRITICAL)
     warnings.filterwarnings("ignore")
 
-    from wpm_mcp_server import db
-    from wpm_mcp_server.behavior import (
+    from wpm_mcp_server.infra import database as db
+    from wpm_mcp_server.prompts import (
         compile_verification_patterns, looks_like_verification_command,
     )
-    from wpm_mcp_server.embeddings import get_provider, resolve_model_name
-    from wpm_mcp_server.repository import Repository
-    from wpm_mcp_server.settings import load_settings
+    from wpm_mcp_server.infra.embeddings import get_provider, resolve_model_name
+    from wpm_mcp_server.storage import Repository
+    from wpm_mcp_server.config import load_settings
 
     settings = load_settings(config_path)
     patterns, _ = compile_verification_patterns(settings.verification_command_patterns or [])
@@ -416,9 +416,9 @@ def cmd_reembed() -> None:
     logging.root.setLevel(logging.CRITICAL)
     warnings.filterwarnings("ignore")
 
-    from wpm_mcp_server import db
-    from wpm_mcp_server.embeddings import get_provider, resolve_model_name
-    from wpm_mcp_server.repository import reembed_all
+    from wpm_mcp_server.infra import database as db
+    from wpm_mcp_server.infra.embeddings import get_provider, resolve_model_name
+    from wpm_mcp_server.storage import reembed_all
 
     model = resolve_model_name()
     print(f"wpm: loading embedding model '{model}'...")
@@ -460,8 +460,8 @@ def cmd_export(args: argparse.Namespace) -> None:
     logging.root.setLevel(logging.CRITICAL)
     warnings.filterwarnings("ignore")
 
-    from wpm_mcp_server import db
-    from wpm_mcp_server.repository import export_db
+    from wpm_mcp_server.infra import database as db
+    from wpm_mcp_server.storage import export_db
 
     conn = db.connect(str(db_path))
     data = export_db(conn)
@@ -502,9 +502,9 @@ def cmd_generate(args: argparse.Namespace) -> None:
     logging.root.setLevel(logging.CRITICAL)
     warnings.filterwarnings("ignore")
 
-    from wpm_mcp_server.embeddings import get_provider, resolve_model_name
-    from wpm_mcp_server.repository import generate_db
-    from wpm_mcp_server.settings import load_settings
+    from wpm_mcp_server.infra.embeddings import get_provider, resolve_model_name
+    from wpm_mcp_server.storage import generate_db
+    from wpm_mcp_server.config import load_settings
 
     config_path = _resolve_wpm_config()
     settings = load_settings(config_path)

@@ -9,7 +9,7 @@ import re
 import sys
 sys.path.insert(0, "src")
 
-from wpm_mcp_server import behavior
+from wpm_mcp_server import prompts as behavior
 
 pass_count = 0
 fail_count = 0

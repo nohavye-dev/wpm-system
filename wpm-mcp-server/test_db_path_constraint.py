@@ -5,7 +5,7 @@ import os
 import shutil
 import tempfile
 
-from wpm_mcp_server import db
+from wpm_mcp_server.infra import database as db
 
 # Unit-test the containment rule enforced at server startup (server.py resolves
 # DB_PATH via db.resolve_within_root against the project root — the directory

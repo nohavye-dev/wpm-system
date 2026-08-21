@@ -4,14 +4,14 @@ sys.path.insert(0, "src")
 import math
 from datetime import datetime, timedelta, timezone
 
-from wpm_mcp_server.domain import EntryType, EvidenceType
-from wpm_mcp_server.scoring import (
+from wpm_mcp_server.core import EntryType, EvidenceType
+from wpm_mcp_server.core.scoring import (
     apply_evidence,
     base_confidence_for_source,
     confidence_at,
     now_iso,
 )
-from wpm_mcp_server.settings import DomainSettings
+from wpm_mcp_server.config import DomainSettings
 
 norms = DomainSettings()
 

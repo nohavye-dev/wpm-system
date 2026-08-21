@@ -4,8 +4,8 @@ sys.path.insert(0, "src")
 import os
 import tempfile
 
-from wpm_mcp_server import db
-from wpm_mcp_server.domain import EMBEDDING_DIM
+from wpm_mcp_server.infra import database as db
+from wpm_mcp_server.core import EMBEDDING_DIM
 
 # --- connect creates the database file ---
 tmp = tempfile.mktemp(suffix=".db")

@@ -22,7 +22,7 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from pathlib import Path
 from typing import Any
 
-from wpm_mcp_server.domain import EntryType, EvidenceType
+from wpm_mcp_server.core.enums import EntryType, EvidenceType
 
 
 # --- Section: domain (advanced) ------------------------------------------------

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import sqlite_vec
 
-from wpm_mcp_server.domain import EMBEDDING_DIM
+from wpm_mcp_server.core.constants import EMBEDDING_DIM
 
 META_EMBEDDING_MODEL = "embedding_model"
 

@@ -1,14 +1,14 @@
 import sys
 sys.path.insert(0, "src")
 
-from wpm_mcp_server.domain import (
+from wpm_mcp_server.core import (
     EMBEDDING_DIM,
     EntryType,
     EvidenceType,
     EventType,
     RelationType,
 )
-from wpm_mcp_server.settings import DomainSettings
+from wpm_mcp_server.config import DomainSettings
 
 norms = DomainSettings()
 

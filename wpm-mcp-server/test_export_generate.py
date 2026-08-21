@@ -2,9 +2,9 @@ import sys
 sys.path.insert(0, "src")
 
 import tempfile, os, json, hashlib, math
-from wpm_mcp_server import db
-from wpm_mcp_server.repository import Repository, export_db, generate_db
-from wpm_mcp_server.embeddings import EmbeddingProvider
+from wpm_mcp_server.infra import database as db
+from wpm_mcp_server.storage import Repository, export_db, generate_db
+from wpm_mcp_server.infra.embeddings import EmbeddingProvider
 
 
 class _StubEmbedder(EmbeddingProvider):
@@ -89,7 +89,7 @@ assert links[0]["target_id"] == e1["entry_id"]
 assert links[0]["relation_type"] == "depends_on"
 
 # 5. Verify embeddings were generated (vector search works)
-from wpm_mcp_server.settings import DomainSettings
+from wpm_mcp_server.config import DomainSettings
 repo2 = Repository(conn=conn2, embedder=embedder, settings=DomainSettings())
 result = repo2.query_context(query="Use Parameter Object pattern for large constructors in C# services")
 assert len(result["direct_matches"]) > 0, "vector search returned no results on generated db"

@@ -5,7 +5,7 @@ import json
 import tempfile
 import os
 
-from wpm_mcp_server.settings import load_settings, resolve_response_language
+from wpm_mcp_server.config import load_settings, resolve_response_language
 
 # 1. No file -> defaults
 s = load_settings("/tmp/does_not_exist.json")
@@ -94,8 +94,8 @@ except ValueError as exc:
 os.remove(tmp3)
 
 # 6. End-to-end: repository actually uses overridden settings
-from wpm_mcp_server import db
-from wpm_mcp_server.repository import Repository
+from wpm_mcp_server.infra import database as db
+from wpm_mcp_server.storage import Repository
 
 import hashlib
 

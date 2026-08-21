@@ -2,9 +2,9 @@ import sys
 sys.path.insert(0, "src")
 
 import tempfile, os
-from wpm_mcp_server import db
-from wpm_mcp_server.repository import Repository
-from wpm_mcp_server.embeddings import EmbeddingProvider
+from wpm_mcp_server.infra import database as db
+from wpm_mcp_server.storage import Repository
+from wpm_mcp_server.infra.embeddings import EmbeddingProvider
 
 import hashlib
 

@@ -3,8 +3,8 @@ sys.path.insert(0, "src")
 
 import os
 
-from wpm_mcp_server.domain import EMBEDDING_DIM
-from wpm_mcp_server.embeddings import (
+from wpm_mcp_server.core import EMBEDDING_DIM
+from wpm_mcp_server.infra.embeddings import (
     EmbeddingProvider,
     ONNXRuntimeProvider,
     get_provider,

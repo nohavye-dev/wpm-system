@@ -10,8 +10,8 @@ from __future__ import annotations
 import math
 from datetime import datetime, timezone
 
-from wpm_mcp_server.domain import EntryType, EvidenceType
-from wpm_mcp_server.settings import DomainSettings
+from wpm_mcp_server.core.enums import EntryType, EvidenceType
+from wpm_mcp_server.config.settings import DomainSettings
 
 
 def now_iso() -> str:

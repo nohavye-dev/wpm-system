@@ -1,9 +1,9 @@
 """Domain enums shared across the memory MCP server.
 
 Tunable scoring/retrieval parameters used to live here as module-level
-constants; they now live in settings.py (with JSON override support) so
-they can be tuned without touching code. See settings.py's DomainSettings
-for the values that used to be defined in this file.
+constants; they now live in config/settings.py (with JSON override support)
+so they can be tuned without touching code. See DomainSettings there for
+the values that used to be defined in this file.
 """
 
 from __future__ import annotations
@@ -48,9 +48,3 @@ class EntryStatus(StrEnum):
     ACTIVE = "active"
     PINNED = "pinned"
     DEPRECATED = "deprecated"
-
-
-# Not exposed via JSON config: changing it requires re-embedding every
-# existing entry (a stored vector's dimension can't change in place), so
-# it's a deployment-time decision, not a runtime tuning knob.
-EMBEDDING_DIM = 384

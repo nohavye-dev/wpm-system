@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from wpm_mcp_server.domain import EMBEDDING_DIM
+from wpm_mcp_server.core.constants import EMBEDDING_DIM
 
 import logging as _logging
 import os as _os
