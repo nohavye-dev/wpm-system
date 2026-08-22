@@ -145,3 +145,89 @@ export class PromptContext {
         return lines.join("\n");
     }
 }
+
+
+// Generic wrapper for deterministic data pushes (project rules, RAG pop-in)
+// spliced into the system prompt via experimental.chat.system.transform.
+// Asymmetry per docs/internals/feature-hybride-rag.md: setBody carries
+// server-pre-rendered text (byte-identical with the resource), addItems
+// carries client-composed entries. A block without a tag renders its
+// content raw — used for project rules, whose server rendering already
+// provides the <project-rules> wrapper.
+export class InjectionBlock {
+    public constructor(
+        public tag?: string,
+        public title?: string,
+        public purpose: string[] = [],
+        public body?: string,
+        public items: string[] = [],
+        public notes: string[] = [],
+    ) {}
+
+    public addPurpose(...items: string[]): this {
+        this.purpose.push(...items);
+        return this;
+    }
+
+    // Pre-rendered content pushed verbatim (no re-indentation, no drift).
+    public setBody(text: string): this {
+        this.body = text;
+        return this;
+    }
+
+    public addItem(...items: string[]): this {
+        this.items.push(...items);
+        return this;
+    }
+
+    public addNote(...items: string[]): this {
+        this.notes.push(...items);
+        return this;
+    }
+
+    public isEmpty(): boolean {
+        return !this.body?.trim() && this.items.length === 0;
+    }
+
+    public toString(): string {
+        if (!this.tag) {
+            return [this.body?.trim() ?? "", ...this.items].filter(Boolean).join("\n");
+        }
+
+        const lines: string[] = [`<${this.tag}>`];
+
+        if (this.title) {
+            lines.push(`## ${this.title}`, "");
+        }
+
+        if (this.purpose.length > 0) {
+            lines.push("## Purpose", "");
+            for (const item of this.purpose) {
+                lines.push(`  - ${item}`);
+            }
+            lines.push("");
+        }
+
+        for (const item of this.items) {
+            lines.push(`- ${item}`);
+        }
+
+        if (this.body?.trim()) {
+            if (this.items.length > 0) lines.push("");
+            lines.push(this.body.trim());
+        }
+
+        if (this.notes.length > 0) {
+            if (this.items.length > 0 || this.body?.trim()) lines.push("");
+            lines.push("## Notes", "");
+            for (const note of this.notes) {
+                lines.push(`  - ${note}`);
+            }
+        }
+
+        lines.push("");
+        lines.push(`</${this.tag}>`);
+
+        return lines.join("\n");
+    }
+}

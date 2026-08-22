@@ -136,6 +136,16 @@ class Settings:
     # language name to match the English server instructions. Overridable
     # via WPM_RESPONSE_LANGUAGE.
     response_language: str | None = None
+    # Optional, default 0.45. Minimum cosine similarity between the user's
+    # raw message and an entry for the plugin's deterministic pop-in (RAG)
+    # to inject it — combined with confidence_threshold as a quality guard.
+    # Read by the opencode plugin (system-push), not by this server; listed
+    # here so the shared wpm.config.json schema stays explicit and typos in
+    # it keep failing loudly. Calibrated empirically against the
+    # multilingual MiniLM embedding: real French questions score 0.36-0.48
+    # against their relevant entries, so anything higher keeps the pop-in
+    # permanently silent.
+    rag_similarity_threshold: float = 0.45
 
     # Advanced — see DomainSettings docstring.
     domain: DomainSettings = field(default_factory=DomainSettings)

@@ -1,5 +1,12 @@
 # Le plugin comme hôte du serveur MCP
 
+> **Statut : implémenté** (branche `main-dev`). Le plugin spawn et possède
+> `wpm_mcp_server` via `wpm-lib/mcp/client.ts` (client MCP minimal fait main) ;
+> les tools sont bridgés dynamiquement (`bridge.ts`), les golden rules et les
+> règles projet sont poussées chaque tour (`server/system-push.ts`), et le
+> pop-in RAG hybride est actif. `record-execution` passe par `tools/call`.
+> Voir « Décisions prises à l'implémentation » en fin de document.
+
 ## Contexte
 
 Aujourd'hui trois processus cohabitent :
@@ -134,3 +141,48 @@ plus tirées (voir `feature-hybride-rag.md`).
 6. Basculer `record-execution` du shell CLI vers le tool direct.
 7. Brancher le pop-in règles + RAG sur le serveur chaud (voir `feature-hybride-rag.md`).
 8. Réduire le CLI aux opérations administratives et mettre à jour ses usages.
+
+## Décisions prises à l'implémentation
+
+1. **Prompting gelé** : aucun texte agent-facing modifié (`nudges.ts`,
+   `memory_rules.py`, descriptions, exception plan-mode). En particulier la
+   ligne « read the `wpm://project-rules` resource » est conservée — une fois
+   le push actif elle devient redondante mais inoffensive. La suppression
+   proposée (ici et dans `feature-hybride-rag.md` étape 7) est **écartée**.
+2. **Resources non bridgées en tools** : le retrait de `config.mcp["wpm"]`
+   fait disparaître les tools natifs `read_mcp_resource` / `list_mcp_resources`
+   (opencode ne les crée que si un serveur déclare la capability `resources`).
+   Le push par tour rend ce pull inutile ; résidu accepté : la référence molle
+   à `wpm://verification-commands` dans la description de `record_execution`
+   n'est plus résolvable par le LLM (non bloquant).
+3. **Dépendances** : seul `@opencode-ai/plugin` est importé au runtime ;
+   zod est utilisé via `tool.schema` (réexport SDK) — jamais importé
+   directement, sa présence dans node_modules étant incidente.
+4. **Lifecycle** : spawn lazy par projet au chargement du plugin (init
+   bloquante ~0.5 s, timeout 10 s, repli dégradé sans tools) ; respawn
+   transparent avec backoff exponentiel après mort du sous-processus ;
+   `ready()` échoue instantanément pendant la fenêtre de backoff pour ne pas
+   stall-er les hooks par tour ; teardown = EOF stdin + kill à la fin du
+   process hôte.
+5. **Effet de bord assumé** : les `query_context` internes du plugin (pop-in)
+   lèvent le flag serveur `_queried_since_last_store` → le rappel « memory-first »
+   de `store_entry` ne se déclenche plus. Cohérent avec la garantie push.
+6. **Seuil RAG** : `rag_similarity_threshold` (défaut **0.45**, déclaré dans les
+   `Settings` serveur pour que la validation stricte de `wpm.config.json` reste
+   explicite ; lu par le plugin seul) et `rag_max_items` (constante 3). La
+   calibration repose sur la distribution observée en conditions réelles :
+   les questions FR réelles cosignent 0.36–0.48 contre leurs entrées
+   pertinentes avec l'embedding MiniLM multilingue (les paires quasi
+   identiques des tests artificiels montent à 0.70 — ne pas s'y fier). Le
+   garde `confidence ≥ confidence_threshold` reste l'outil de précision.
+   Traçabilité : une ligne `rag decision` (niveau info) est loggée par tour
+   avec candidats, picks et top_sim ; traces de décision détaillées via
+   `WPM_DEBUG=1`.
+7. **Dédup** : dans un même tour, une entrée déjà rendue dans le bloc
+   `<project-rules>` n'est pas re-injectée par le pop-in (filtre par contenu).
+   La dédup inter-tours et l'exclusion des résultats déjà remontés au LLM via
+   `wpm_query_context` restent à faire si les tests manuels montrent des
+   doublons ; l'avis de conflit utilise les `conflicts` déjà retournés par
+   `query_context`.
+8. **Étape 8 (réduction CLI)** : non exécutée ; `wpm record-execution` reste
+   disponible mais n'est plus appelé par le plugin.

@@ -1,41 +1,32 @@
-import type { Hooks, PluginInput } from "@opencode-ai/plugin"
-import { $ } from "bun"
-import { join } from "node:path"
+import type { Hooks } from "@opencode-ai/plugin"
+import type { ToolDefinition } from "@opencode-ai/plugin"
 import { SERVER_NAME } from "../core/constants"
 import { buildMemoryFirstNudge, buildPersistPromptText } from "../prompts/nudges"
 import { buildCommands } from "../prompts/commands/index"
-import { resolvePythonPath } from "../infra/paths"
+import { buildSystemPush, type SystemPushDeps } from "./system-push"
 
-export type HookDeps = {
-  client: PluginInput["client"]
+export type HookDeps = SystemPushDeps & {
   directory: string
   language?: string
   confidenceThreshold?: string
-  nudge: string
   persistReminder: string
   nudged: Set<string>
   queriedRecently: Map<string, boolean>
+  // Dynamic bridge of the warm server's tools (wpm_*); absent in degraded mode.
+  bridgedTools?: Record<string, ToolDefinition>
 }
 
 export function createHooks(deps: HookDeps): Hooks {
-  const { client, directory, language, confidenceThreshold, nudge, persistReminder, nudged, queriedRecently } = deps
+  const { client, language, confidenceThreshold, nudge, persistReminder, nudged, queriedRecently, bridgedTools } = deps
   const commands = buildCommands(language, confidenceThreshold)
 
   return {
-    // Register the wpm MCP server so the user does not have to declare it
-    // in opencode.json. WPM_CONFIG_PATH pins the project config regardless
-    // of the process cwd. Also grant plan-mode write permission.
+    ...(bridgedTools ? { tool: bridgedTools } : {}),
+    // Grant plan-mode write permission.
     config: async (config) => {
-      config.default_agent = "plan"
-      config.mcp = config.mcp ?? {}
-      if (!config.mcp["wpm"]) {
-        config.mcp["wpm"] = {
-          type: "local",
-          command: [resolvePythonPath(), "-m", "wpm_mcp_server"],
-          environment: { WPM_CONFIG_PATH: join(directory, "wpm.config.json") },
-          enabled: true,
-        }
-      }
+      // default_agent is not part of the SDK Config type yet but is honored
+      // by the host.
+      ;(config as { default_agent?: string }).default_agent = "plan"
       const permission = (config.permission ??= {}) as Record<string, unknown>
       if (!permission["wpm_*"]) {
         permission["wpm_*"] = "allow"
@@ -101,11 +92,15 @@ export function createHooks(deps: HookDeps): Hooks {
       if (!noPersistRearm) nudged.delete(input.sessionID)
     },
 
-    // Re-inject the golden rules at every LLM turn so they cannot be
-    // diluted by context growth — the deterministic push a pure MCP server
-    // cannot provide.
-    "experimental.chat.system.transform": async (_input, output) => {
-      output.system.push(nudge)
+    // Deterministic per-turn push: golden rules + project rules + RAG
+    // pop-in (see system-push.ts), then the compact anti-dilution nudge.
+    // The plugin owns the MCP server, so nothing here can be pulled by the
+    // host — everything the LLM needs is pushed.
+    "experimental.chat.system.transform": async (input, output) => {
+      const blocks = await buildSystemPush(deps, input.sessionID)
+      for (const block of blocks) {
+        output.system.push(block)
+      }
     },
 
     // Re-anchor at the exact moment of loss: when the session is compacted,
@@ -117,8 +112,8 @@ export function createHooks(deps: HookDeps): Hooks {
 
     // Rule 16 (record executions) — deterministic, no model involved: every
     // bash command that looks like a verification command is recorded via
-    // the CLI. Also tracks query_context usage for the conditional
-    // memory-first nudge below.
+    // the warm MCP server (tools/call, no cold start). Also tracks
+    // query_context usage for the conditional memory-first nudge below.
     "tool.execute.after": async (input, output) => {
       if (input.tool === `${SERVER_NAME}_query_context`) {
         queriedRecently.set(input.sessionID, true)
@@ -127,9 +122,15 @@ export function createHooks(deps: HookDeps): Hooks {
       if (input.tool !== "bash") return
       const command = String(input.args?.command ?? "")
       const succeeded = output.metadata?.exit === 0
-      await $`wpm record-execution ${command} --succeeded=${succeeded} --session-id=${input.sessionID}`
-        .quiet()
-        .nothrow()
+      try {
+        if (await deps.mcp.ready()) {
+          await deps.mcp.callTool("record_execution", {
+            command,
+            succeeded,
+            session_id: input.sessionID,
+          })
+        }
+      } catch {}
     },
 
     // Conditional memory-first nudge: only when about to read/search without
