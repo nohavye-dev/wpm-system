@@ -26,7 +26,31 @@ Minimal example (often sufficient):
 ```
 
 An absent key keeps its default value; an **unknown** key (typo) raises an
-explicit error at startup rather than being ignored.
+explicit error at startup rather than being ignored. Keys starting with `$`
+(editor meta-data) are tolerated and ignored by the server.
+
+---
+
+## Editor validation (`$schema`)
+
+A JSON Schema describes the entire configuration (types, defaults,
+descriptions): `wpm-mcp-server/wpm.config.schema.json`, generated from the
+server code by `scripts/generate_config_schema.py`.
+
+Three ways to reference it through the `"$schema"` key:
+
+| Level | Reference | Audience |
+|---|---|---|
+| Local machine | absolute path to `~/.local/share/wpm-system/wpm.config.schema.json` | **automatic**: `wpm enable` injects the key when it finds the local copy |
+| In this repo | `"./wpm-mcp-server/wpm.config.schema.json"` | wpm-system development |
+| Remote | `https://raw.githubusercontent.com/nohavye-dev/wpm-system/main/wpm-mcp-server/wpm.config.schema.json` | reference, machines without an install |
+
+After changing server settings, regenerate schema and example:
+
+```bash
+python3 scripts/generate_config_schema.py          # writes both files
+python3 scripts/generate_config_schema.py --check  # checks for drift
+```
 
 ---
 
@@ -85,6 +109,47 @@ counts as strong evidence (`execution_verified`) for `record_execution`.
 Only add commands whose `exit 0` **proves** something (tests, build, lint).
 **Never** add `ls`, `cat`, `echo`, `grep`, `git status`/`diff`: `exit 0` proves
 nothing there.
+
+---
+
+## Plugin master mode (`plugin_master`)
+
+Two architectures coexist, selected by a boolean key:
+
+| | Legacy (default) | `"plugin_master": true` |
+|---|---|---|
+| MCP server | hosted by OpenCode (registered by the plugin) | spawned and owned by the plugin |
+| Project rules | pulled by the agent (resource read) | pushed into context every turn |
+| Memory search | `wpm_query_context` tool (LLM-driven) | same + automatic **pop-in** of strongly relevant memories |
+| Execution recording | via the `wpm` CLI | direct warm-server call |
+
+```json
+{
+  "db_path": ".wpm/wpm.db",
+  "plugin_master": true
+}
+```
+
+Without the key (or with `false`), the historical behavior applies
+unchanged. The two settings below only take effect in master mode.
+
+### `rag_similarity_threshold` — pop-in threshold (optional, default 0.45)
+
+Minimum cosine similarity between the user's raw message and a memory
+entry for it to be automatically injected into context, combined with
+`confidence_threshold` as a quality guard. Empirically calibrated for the
+multilingual embedding: real questions typically score 0.36–0.48 against
+their relevant entries.
+
+### `rag_max_items` — pop-in volume (optional, default 3)
+
+Maximum number of entries injected per turn, after filtering and
+deduplication against the `<project-rules>` block.
+
+```json
+"rag_similarity_threshold": 0.45,
+"rag_max_items": 3
+```
 
 ---
 

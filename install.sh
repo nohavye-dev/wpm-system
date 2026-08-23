@@ -63,6 +63,9 @@ cp "$BUNDLE_DIR/scripts/wpm" "$BIN_DIR/wpm"
 chmod +x "$BIN_DIR/wpm"
 sed -i "1s|^#!/usr/bin/env python3|#!$DATA_DIR/venv/bin/python3|" "$BIN_DIR/wpm"
 
+printf 'installing config schema (editor validation)...\n'
+cp "$BUNDLE_DIR/wpm-mcp-server/wpm.config.schema.json" "$DATA_DIR/wpm.config.schema.json"
+
 printf 'installing OpenCode plugin (global)...\n'
 cp "$BUNDLE_DIR/wpm-opencode-plugin/plugin.ts" "$DATA_DIR/plugin.ts"
 cp -r "$BUNDLE_DIR/wpm-opencode-plugin/wpm-lib" "$DATA_DIR/wpm-lib"

@@ -27,6 +27,31 @@ Exemple minimal (souvent suffisant) :
 
 Une clé absente garde sa valeur par défaut ; une clé **inconnue** (typo)
 fait lever une erreur explicite au démarrage plutôt que d'être ignorée.
+Les clés commençant par `$` (méta-données éditeur) sont tolérées et
+ignorées par le serveur.
+
+---
+
+## Validation dans l'éditeur (`$schema`)
+
+Un JSON Schema décrit l'intégralité de la configuration (types, défauts,
+descriptions) : `wpm-mcp-server/wpm.config.schema.json`, généré depuis le
+code du serveur par `scripts/generate_config_schema.py`.
+
+Trois façons de le référencer via la clé `"$schema"` :
+
+| Niveau | Référence | Pour qui |
+|---|---|---|
+| Machine locale | chemin absolu vers `~/.local/share/wpm-system/wpm.config.schema.json` | **automatique** : `wpm enable` injecte la clé s'il trouve la copie locale |
+| Dans ce repo | `"./wpm-mcp-server/wpm.config.schema.json"` | développement de wpm-system |
+| Distant | `https://raw.githubusercontent.com/nohavye-dev/wpm-system/main/wpm-mcp-server/wpm.config.schema.json` | référence, machines sans installation |
+
+Après modification des réglages serveur, régénérer schéma et exemple :
+
+```bash
+python3 scripts/generate_config_schema.py          # écrit les deux fichiers
+python3 scripts/generate_config_schema.py --check  # vérifie la dérive
+```
 
 ---
 
@@ -86,6 +111,48 @@ compte comme preuve forte (`execution_verified`) pour `record_execution`.
 N'ajouter que des commandes dont `exit 0` **prouve** quelque chose (tests,
 build, lint). Ne **jamais** ajouter `ls`, `cat`, `echo`, `grep`, `git
 status`/`diff` : `exit 0` n'y prouve rien.
+
+---
+
+## Mode plugin maître (`plugin_master`)
+
+Deux architectures coexistent, choisies par une clé booléenne :
+
+| | Legacy (défaut) | `"plugin_master": true` |
+|---|---|---|
+| Serveur MCP | hébergé par OpenCode (enregistré par le plugin) | spawné et possédé par le plugin |
+| Règles projet | tirées par l'agent (lecture de la resource) | poussées chaque tour dans le contexte |
+| Recherche mémoire | tool `wpm_query_context` (à l'initiative du LLM) | idem + **pop-in** automatique des mémoires fortement pertinentes |
+| Enregistrement des exécutions | via le CLI `wpm` | appel direct du serveur chaud |
+
+```json
+{
+  "db_path": ".wpm/wpm.db",
+  "plugin_master": true
+}
+```
+
+Sans la clé (ou avec `false`), le comportement historique s'applique à
+l'identique. Les deux réglages ci-dessous ne prennent effet qu'en mode
+maître.
+
+### `rag_similarity_threshold` — seuil du pop-in (optionnel, défaut 0.45)
+
+Similarité cosinus minimale entre le message brut de l'utilisateur et une
+entrée mémoire pour que celle-ci soit injectée automatiquement dans le
+contexte, combinée à `confidence_threshold` comme garde de qualité.
+Calibré empiriquement pour l'embedding multilingue : les questions réelles
+cosignent typiquement 0.36–0.48 contre leurs entrées pertinentes.
+
+### `rag_max_items` — volume du pop-in (optionnel, défaut 3)
+
+Nombre maximal d'entrées injectées par tour, après filtrage et déduplication
+contre le bloc `<project-rules>`.
+
+```json
+"rag_similarity_threshold": 0.45,
+"rag_max_items": 3
+```
 
 ---
 

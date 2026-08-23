@@ -136,6 +136,14 @@ class Settings:
     # language name to match the English server instructions. Overridable
     # via WPM_RESPONSE_LANGUAGE.
     response_language: str | None = None
+    # Optional, default false. Architecture switch read by the opencode
+    # plugin: when true, the plugin spawns and owns the MCP server, bridges
+    # its tools and pushes rules/RAG into context. When false (or absent),
+    # the legacy setup applies — opencode hosts the server declared by the
+    # plugin's config hook and the plugin only pushes its compact nudge.
+    # Declared here so the shared wpm.config.json schema stays explicit and
+    # typos in it keep failing loudly; this server never reads it.
+    plugin_master: bool = False
     # Optional, default 0.45. Minimum cosine similarity between the user's
     # raw message and an entry for the plugin's deterministic pop-in (RAG)
     # to inject it — combined with confidence_threshold as a quality guard.
@@ -144,8 +152,13 @@ class Settings:
     # it keep failing loudly. Calibrated empirically against the
     # multilingual MiniLM embedding: real French questions score 0.36-0.48
     # against their relevant entries, so anything higher keeps the pop-in
-    # permanently silent.
+    # permanently silent. Only used when plugin_master is true.
     rag_similarity_threshold: float = 0.45
+    # Optional, default 3. Maximum number of entries the plugin's RAG pop-in
+    # injects per turn (after similarity/confidence filtering). Read by the
+    # opencode plugin; declared here so wpm.config.json keeps a single,
+    # strictly-validated schema. Only used when plugin_master is true.
+    rag_max_items: int = 3
 
     # Advanced — see DomainSettings docstring.
     domain: DomainSettings = field(default_factory=DomainSettings)
@@ -211,6 +224,9 @@ def load_settings(config_path: str | Path | None = None) -> Settings:
         raise ValueError(f"{path}: top-level JSON must be an object")
 
     for section_name, override in raw.items():
+        if section_name.startswith("$"):
+            # Editor meta-keys ($schema and friends): tolerated, never data.
+            continue
         if not hasattr(settings, section_name):
             raise ValueError(f"{path}: unknown top-level key '{section_name}'")
         current = getattr(settings, section_name)

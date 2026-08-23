@@ -43,6 +43,12 @@ def cmd_enable(db_dir: str | None, assume_yes: bool) -> None:
     if not data.get("db_path"):
         data["db_path"] = f"{db_dir}/wpm.db" if db_dir else ".wpm/wpm.db"
 
+    # Editor validation: point at the machine-local schema copy when present
+    # (idempotent; delete the key to opt out — enable re-adds it).
+    schema_file = Path(DATA_DIR) / "wpm.config.schema.json"
+    if schema_file.exists():
+        data.setdefault("$schema", str(schema_file))
+
     resolved = _contained_in_project(data["db_path"])
 
     if not assume_yes:
