@@ -27,7 +27,9 @@ Trois **règles d'or**, par ordre de priorité :
 
 **Séquence de démarrage** : lire `wpm://project-rules` → `query_context`
 sur le sujet courant → `store_entry` dès fait durable → `validate_entry`
-avec preuve une fois confirmé.
+avec preuve une fois confirmé. *(En mode `plugin_master`, les règles sont
+poussées chaque tour au lieu d'être lues — voir
+[`02-configuration.md`](https://nohavye-dev.github.io/wpm-site/fr/docs/configuration).)*
 
 **Politiques transversales** :
 
@@ -52,7 +54,7 @@ Tout `content` stocké reste **dans sa langue native** (le modèle d'embedding
 est multilingue). Ne pas traduire avant de stocker. En revanche, les réponses
 et rapports de l'agent restent dans la langue de l'utilisateur — sauf si
 `response_language` est fixé dans la config (voir
-[`02-configuration.md`](02-configuration.md)).
+[`02-configuration.md`](https://nohavye-dev.github.io/wpm-site/fr/docs/configuration)).
 
 ### 2. Quand écrire
 
@@ -149,7 +151,7 @@ pas sur-lier.
 
 Les workflows `wpm-learn`/`wpm-map`/`wpm-bootstrap`/`wpm-audit`/`wpm-patterns` sont l'ingestion
 **contrôlée** ; ils ne remplacent pas la mémorisation incrémentale. Voir
-[`03-workflows.md`](03-workflows.md).
+[`03-workflows.md`](https://nohavye-dev.github.io/wpm-site/fr/docs/workflows).
 
 ### 12. Cycle de vie : pin, deprecate, restore
 

@@ -197,11 +197,11 @@ The `domain` keys have no env variable: only adjustable via the file.
 
 ---
 
-## Embeddings (fixed)
+## Embeddings
 
 Embeddings use ONNX Runtime + HuggingFace tokenizers, model
-`paraphrase-multilingual-MiniLM-L12-v2` (384 dimensions, 50+ languages),
-downloaded at first start and cached. Changing the model
+`paraphrase-multilingual-MiniLM-L12-v2` (384 dimensions, 50 languages),
+pre-downloaded at install and cached. Changing the model
 (`WPM_EMBEDDING_MODEL`) after inserting entries requires re-embedding the
 database: run `wpm reembed` at the project root (the server refuses to query a
 database whose vectors come from another model until then).

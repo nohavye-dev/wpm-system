@@ -114,8 +114,8 @@ export function buildPersistPromptText(language?: string): string {
                 ),
         )
         .addExpectedBehavior(
-            `If nothing remains to be persisted, state in ${target} that nothing needed to be persisted.`,
-            // `If nothing remains to be persisted, does nothing and does not respond.`,
+            // `If nothing remains to be persisted, state in ${target} that nothing needed to be persisted.`,
+            `If nothing remains to be persisted, does nothing and does not respond.`,
             `If anything was persisted, summarize what was persisted in ${target} and state that persistence is complete.`,
         );
 

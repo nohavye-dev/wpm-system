@@ -10,14 +10,20 @@ les valeurs, et comment les ajuster.
 ## La formule
 
 ```
-confidence(t) = base × exp(−λ × t)
+confidence(t) = min(1.0, provenance + validation) × exp(−λ × t)
 ```
 
-- **base** — la confiance de départ, fixée par la *source* de l'information
-  (voir [Provenance](#provenance--la-confiance-de-départ)) ;
+- **provenance** — la confiance de départ, fixée par la *source* de
+  l'information (voir [Provenance](#provenance--la-confiance-de-départ)) ;
+- **validation** — le score accumulé par les preuves (`validate_entry`,
+  `contradict_entry`), plafonné avec la provenance à 1.0 ;
 - **λ** — le taux d'érosion propre au *type* d'entrée (voir
   [Demi-vies](#demi-vies-par-type-dentrée)) ;
-- **t** — le temps écoulé depuis l'écriture.
+- **t** — le temps écoulé depuis la **dernière validation** (chaque preuve
+  remet le compteur de décroissance à zéro).
+
+Une entrée **épinglée** (`pin_entry`) ne décroît pas : sa confiance reste
+figée à `min(1.0, provenance + validation)`.
 
 La grandeur intuitive derrière λ est la **demi-vie** : le temps au bout
 duquel la confiance a tombé de moitié.
@@ -83,7 +89,7 @@ durées de vie cohérentes avec leur nature (une décision d'architecture vit
 des années ; un résultat de test, des jours).
 
 Sources complètes et méthode détaillée : voir la note interne
-`docs/internals/heuristic-calibration.md`.
+[`../../internals/heuristic-calibration.md`](../../internals/heuristic-calibration.md).
 
 ---
 
@@ -121,9 +127,5 @@ sont dédupliqués sur une fenêtre de temps pour éviter le gonflement artifici
 ## Ajuster ces paramètres
 
 Tout ce qui précède se règle dans `wpm.config.json`, section avancée
-[`domain`](02-configuration.md) : `decay` (par type), `provenance`,
+[`domain`](https://nohavye-dev.github.io/wpm-site/fr/docs/configuration) : `decay` (par type), `provenance`,
 `evidence`, plus les seuils de `retrieval`.
-
-La méthode de calibration complète — bancs d'essai, fonction objectif,
-caveats par ancre et prochaines mesures — est détaillée dans la note de
-travail [`../../internals/heuristic-calibration.md`](../../internals/heuristic-calibration.md).

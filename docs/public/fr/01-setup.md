@@ -93,6 +93,18 @@ wpm uninstall    # suppression globale complète (venv, binaire, plugin) ; --for
 
 ---
 
+## 6. Sauvegarde et restauration
+
+```bash
+wpm export > wpm-backup.json                        # exporte la base en JSON (sans embeddings)
+wpm generate wpm-backup.json --output .wpm/wpm.db   # reconstruit une base (ré-encode les embeddings)
+```
+
+Hors session : `wpm export` sauvegarde les entrées en JSON, `wpm generate`
+régénère une base à partir d'un export (embeddings recalculés).
+
+---
+
 ## Pour les curieux — comment le plugin enregistre le serveur
 
 C'est le hook `config` du plugin qui, au chargement, injecte dans la

@@ -201,11 +201,11 @@ le fichier.
 
 ---
 
-## Embeddings (fixes)
+## Embeddings
 
 Les embeddings utilisent ONNX Runtime + tokenizers HuggingFace, modèle
-`paraphrase-multilingual-MiniLM-L12-v2` (384 dimensions, 50+ langues),
-téléchargé au premier démarrage et mis en cache. Changer de modèle
+`paraphrase-multilingual-MiniLM-L12-v2` (384 dimensions, 50 langues),
+pré-téléchargé à l'installation et mis en cache. Changer de modèle
 (`WPM_EMBEDDING_MODEL`) après avoir inséré des entrées nécessite de
 ré-embedder la base : lancez `wpm reembed` à la racine du projet (le serveur
 refuse de requêter une base dont les vecteurs viennent d'un autre modèle tant

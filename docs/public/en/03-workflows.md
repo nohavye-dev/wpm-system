@@ -8,7 +8,7 @@ explicit invocation.
 
 - **Incremental memorization (automatic)** — while working, the agent records
   every durable fact as soon as it encounters it. This is the default
-  behavior, described in [`04-agent-behavior.md`](04-agent-behavior.md). The
+  behavior, described in [`04-agent-behavior.md`](https://nohavye-dev.github.io/wpm-site/en/docs/agent-behavior). The
   workflows do not replace it.
 - **Controlled ingestion (manual)** — `wpm-learn`, `wpm-map` and `wpm-bootstrap` are for
   bringing in **in bulk** documents, a code mapping, or an initial seeding.
@@ -78,8 +78,8 @@ If nothing emerges, the negative result is reported.
 End-of-task persistence pass. Triggered automatically when the session goes
 idle, but can also be invoked explicitly (e.g. `/wpm-persist`) to write any
 durable fact left unpersisted — decisions, confirmed results, understood bug
-patterns. If nothing remains to persist, it replies "Nothing to persist.",
-otherwise it summarizes what was stored and ends with "Persistence complete.".
+patterns. If nothing remains to persist, it does nothing and does not respond;
+otherwise it summarizes what was stored and states that persistence is complete.
 
 ---
 

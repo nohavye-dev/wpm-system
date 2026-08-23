@@ -27,7 +27,9 @@ Three **golden rules**, in priority order:
 
 **Startup sequence**: read `wpm://project-rules` → `query_context` on the
 current topic → `store_entry` as soon as a durable fact appears →
-`validate_entry` with evidence once confirmed.
+`validate_entry` with evidence once confirmed. *(In `plugin_master` mode, the
+rules are pushed every turn instead of being read — see
+[`02-configuration.md`](https://nohavye-dev.github.io/wpm-site/en/docs/configuration).)*
 
 **Cross-cutting policies**:
 
@@ -50,7 +52,7 @@ current topic → `store_entry` as soon as a durable fact appears →
 All stored `content` stays **in its native language** (the embedding model is
 multilingual). Don't translate before storing. However, the agent's responses
 and reports stay in the user's language — unless `response_language` is set in
-the config (see [`02-configuration.md`](02-configuration.md)).
+the config (see [`02-configuration.md`](https://nohavye-dev.github.io/wpm-site/en/docs/configuration)).
 
 ### 2. When to write
 
@@ -144,7 +146,7 @@ over-link.
 
 The `wpm-learn`/`wpm-map`/`wpm-bootstrap`/`wpm-audit`/`wpm-patterns` workflows are the
 **controlled** ingestion; they do not replace incremental memorization. See
-[`03-workflows.md`](03-workflows.md).
+[`03-workflows.md`](https://nohavye-dev.github.io/wpm-site/en/docs/workflows).
 
 ### 12. Lifecycle: pin, deprecate, restore
 

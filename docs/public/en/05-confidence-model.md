@@ -10,14 +10,20 @@ tune them.
 ## The formula
 
 ```
-confidence(t) = base × exp(−λ × t)
+confidence(t) = min(1.0, provenance + validation) × exp(−λ × t)
 ```
 
-- **base** — the starting confidence, set by the *source* of the information
-  (see [Provenance](#provenance---the-starting-confidence));
+- **provenance** — the starting confidence, set by the *source* of the
+  information (see [Provenance](#provenance---the-starting-confidence));
+- **validation** — the score accumulated through evidence (`validate_entry`,
+  `contradict_entry`), capped with the provenance at 1.0;
 - **λ** — the erosion rate tied to the entry *type* (see
   [Half-lives](#half-lives-per-entry-type));
-- **t** — time since the entry was written.
+- **t** — time since the **last validation** (each piece of evidence resets
+  the decay clock).
+
+A **pinned** entry (`pin_entry`) does not decay: its confidence stays fixed
+at `min(1.0, provenance + validation)`.
 
 The intuitive quantity behind λ is the **half-life**: the time it takes for
 the confidence to drop to half its initial value.
@@ -118,5 +124,5 @@ deduplicated over a time window to prevent artificial inflation.
 ## Tuning these parameters
 
 Everything above is configured in `wpm.config.json`, advanced section
-[`domain`](02-configuration.md): `decay` (per type), `provenance`,
+[`domain`](https://nohavye-dev.github.io/wpm-site/en/docs/configuration): `decay` (per type), `provenance`,
 `evidence`, plus the `retrieval` thresholds.

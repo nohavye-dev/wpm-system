@@ -8,7 +8,7 @@ mémoire du projet. Dans OpenCode, ce sont des commandes slash (ex.
 
 - **Mémorisation incrémentale (automatique)** — pendant son travail, l'agent
   note tout fait durable dès qu'il le rencontre. C'est le comportement par
-  défaut, décrit dans [`04-agent-behavior.md`](04-agent-behavior.md). Les
+  défaut, décrit dans [`04-agent-behavior.md`](https://nohavye-dev.github.io/wpm-site/fr/docs/agent-behavior). Les
   workflows ne le remplacent pas.
 - **Ingestion contrôlée (manuelle)** — `wpm-learn`, `wpm-map` et `wpm-bootstrap`
   servent à apporter **en masse** des documents, une cartographie du code,
@@ -82,8 +82,8 @@ Pass de persistance de fin de tâche. Déclenché automatiquement quand la
 session devient inactive, mais peut aussi être invoqué explicitement (ex.
 `/wpm-persist`) pour écrire tout fait durable resté non persisté —
 décisions, résultats confirmés, bug patterns compris. S'il ne reste rien à
-persister, il répond « Nothing to persist. », sinon il résume ce qui a été
-stocké et conclut par « Persistence complete. ».
+persister, il ne fait rien et ne répond pas ; sinon il résume ce qui a été
+stocké et indique que la persistance est terminée.
 
 ---
 

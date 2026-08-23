@@ -121,7 +121,7 @@ défaut), `wpm disable` le supprime.
 ## Embeddings
 
 ONNX Runtime + tokenizers HuggingFace, modèle
-`paraphrase-multilingual-MiniLM-L12-v2` (~120 MB, 384 dims, 50+ langues),
+`paraphrase-multilingual-MiniLM-L12-v2` (~120 MB, 384 dims, 50 langues),
 téléchargé et mis en cache au premier démarrage (variante quantifiée selon
 l'architecture CPU, repli float32). `EMBEDDING_DIM` (`core/constants.py`) doit
 correspondre à la dimension du modèle — validé au démarrage. Les espaces

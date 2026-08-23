@@ -92,6 +92,18 @@ wpm uninstall    # complete global removal (venv, binary, plugin); --force to sk
 
 ---
 
+## 6. Backup and restore
+
+```bash
+wpm export > wpm-backup.json                        # exports the database to JSON (without embeddings)
+wpm generate wpm-backup.json --output .wpm/wpm.db   # rebuilds a database (re-encodes embeddings)
+```
+
+Out of session: `wpm export` backs up the entries to JSON, `wpm generate`
+rebuilds a database from an export (embeddings recomputed).
+
+---
+
 ## For the curious — how the plugin registers the server
 
 It is the plugin's `config` hook that, at load time, injects into the
