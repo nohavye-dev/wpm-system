@@ -43,6 +43,9 @@ export class WpmMcpClient {
   private readonly configPath: string
   private readonly command?: string[]
   private readonly backoffMs: number
+  // Extra environment merged over process.env for the server subprocess
+  // (e.g. WPM_PROMPT_MODE=push in plugin_master mode).
+  private readonly extraEnv?: Record<string, string>
   private readonly onResourcesUpdated?: () => void
   private proc?: Subprocess<"pipe", "pipe", "pipe">
   private nextId = 1
@@ -60,11 +63,13 @@ export class WpmMcpClient {
     configPath: string
     command?: string[]
     backoffMs?: number
+    env?: Record<string, string>
     onResourcesUpdated?: () => void
   }) {
     this.configPath = options.configPath
     this.command = options.command
     this.backoffMs = options.backoffMs ?? RESPAWN_BASE_DELAY_MS
+    this.extraEnv = options.env
     this.onResourcesUpdated = options.onResourcesUpdated
   }
 
@@ -206,7 +211,7 @@ export class WpmMcpClient {
     this.exitedAt = undefined
     const proc = spawn({
       cmd: this.command ?? [resolvePythonPath(), "-m", "wpm_mcp_server"],
-      env: { ...process.env, WPM_CONFIG_PATH: this.configPath },
+      env: { ...process.env, WPM_CONFIG_PATH: this.configPath, ...this.extraEnv },
       stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",

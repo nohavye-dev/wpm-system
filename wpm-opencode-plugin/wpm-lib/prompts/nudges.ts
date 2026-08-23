@@ -8,7 +8,11 @@ import { PromptTask, PromptContext } from "./entities"
 // resource); this is only the dilution counter-measure, re-read at the
 // bottom of context. Carries the expected-response-language clause so it
 // sits at system level on every turn, where it wins over data language.
-export function buildNudge(language?: string): string {
+//
+// pluginMaster omits the project-rules pull instruction: in that mode the
+// rules are pushed into context every turn and no resource-read tool
+// exists. Legacy (default) keeps the historical bytes.
+export function buildNudge(language?: string, pluginMaster = false): string {
     const memoryPrompt = new PromptContext("wpm-memory")
         .addPurpose(
             "Use the WPM memory system as the primary source of durable project context.",
@@ -16,12 +20,18 @@ export function buildNudge(language?: string): string {
         )
 
         .addInstruction(
-            "At session start, read the `wpm://project-rules` resource.",
             `Before reading files, running grep, or searching the codebase, call ${SERVER_NAME}_query_context first.`,
             `As soon as a durable fact emerges — such as a decision, convention, test result, or bug pattern — call ${SERVER_NAME}_store_entry immediately.`,
             "Memory writes are not project modifications.",
         )
+    if (!pluginMaster) {
+        memoryPrompt.addInstruction(
+            { before: true },
+            "At session start, read the `wpm://project-rules` resource.",
+        )
+    }
 
+    memoryPrompt
         .addTask(
             new PromptTask("Store durable knowledge")
                 .addInstruction(

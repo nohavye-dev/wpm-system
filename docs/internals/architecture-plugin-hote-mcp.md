@@ -186,3 +186,40 @@ plus tirées (voir `feature-hybride-rag.md`).
    `query_context`.
 8. **Étape 8 (réduction CLI)** : non exécutée ; `wpm record-execution` reste
    disponible mais n'est plus appelé par le plugin.
+9. **Mode optionnel (`plugin_master`)** : les deux architectures coexistent,
+   choisies par clé booléenne dans `wpm.config.json` (défaut `false` =
+   legacy). Legacy : bloc `config.mcp["wpm"]` restauré verbatim, nudge seul
+   poussé, shellout CLI pour `record-execution` — l'injection
+   `initialize.instructions` par opencode redevient le canal des golden
+   rules et les tools natifs `read_mcp_resource` réapparaissent (le host
+   détecte la capability `resources`). Master : comportement décrit
+   ci-dessus. Le plugin ne spawn **jamais** de serveur en legacy.
+10. **Réglages RAG** : `rag_similarity_threshold` (0.45) et `rag_max_items`
+    (3) sont déclarés dans les `Settings` serveur mais lus par le plugin ;
+    sans effet en mode legacy.
+11. **Prompt fidelity per-mode** : les instructions « Read the wpm://…
+    resource » n'ont de sens qu'en legacy (le LLM y lit via
+    `read_mcp_resource`). En master, elles sont **omises à la construction**
+    — jamais mutées après rendu :
+    - serveur : `WPM_PROMPT_MODE=push` (posé par le plugin au spawn) fait
+      rendre à `build_memory_usage_rules` la variante sans l'étape 1
+      (renumérotation naturelle par assemblage dynamique) et retire la
+      mention `wpm://verification-commands` de la description de
+      `record_execution` ; défaut = octets historiques bit-identiques ;
+    - plugin : `buildNudge(language, pluginMaster)` insère la ligne pull
+      uniquement en legacy via l'option `{before}` des entités
+      (`addInstruction({before: true}, …)`), toutes manipulables après
+      instanciation (`clone()` partout, `InjectionBlock.clone()` inclus).
+12. **Durabilité `record_execution`** : en master, toute dégradation du
+    serveur au moment du hook bash (indisponible au check ou mort pendant
+    l'appel) bascule sur le shellout CLI autonome — parité de durabilité
+    totale avec legacy, coût nul en nominal.
+13. **Anti-hijack d'agent** : incident réel — un tour build a été basculé
+    en plan par une injection du plugin créée via `client.session.prompt`
+    **sans champ `agent`** (héritage du `default_agent`=plan). Correctifs :
+    `default_agent` n'est plus posé (sessions en build par défaut) ; les
+    deux injections restantes (filet idle, nudge memory-first) résolvent
+    l'agent vivant via `client.session.get` et le passent explicitement ;
+    la détection `queriedRecently` pour le gate memory-first est alimentée
+    par le bridge lui-même (`onQueryContext`), les hooks hôte s'étant
+    révélés non fiables pour les tools définis par plugin.

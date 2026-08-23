@@ -23,6 +23,7 @@ from wpm_mcp_server.config.settings import load_settings, resolve_response_langu
 from wpm_mcp_server.infra import database as db
 from wpm_mcp_server.infra.embeddings import get_provider, resolve_model_name
 from wpm_mcp_server.prompts.memory_rules import build_memory_usage_rules
+from wpm_mcp_server.prompts.mode import push_mode
 from wpm_mcp_server.prompts.verification import compile_verification_patterns
 from wpm_mcp_server.storage.repository import Repository
 
@@ -41,7 +42,9 @@ SETTINGS = load_settings(_config_path)
 _response_language = resolve_response_language(
     SETTINGS.response_language, os.environ.get("WPM_RESPONSE_LANGUAGE")
 )
-SERVER_INSTRUCTIONS = build_memory_usage_rules(_response_language)
+SERVER_INSTRUCTIONS = build_memory_usage_rules(
+    _response_language, pull_instructions=not push_mode()
+)
 
 _db_path = os.environ.get("WPM_DB_PATH") or SETTINGS.db_path
 if _db_path:

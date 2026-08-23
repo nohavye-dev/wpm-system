@@ -1,3 +1,15 @@
+// Leading options-object convention shared by every add* method:
+// add("item") appends, add({before: true}, "item") prepends — prompts stay
+// manipulable after instanciation (see clone() on each class).
+export type AddOptions = { before?: boolean };
+
+function addItemArgs(first: string | AddOptions, rest: string[]): { items: string[]; before: boolean } {
+    if (first !== null && typeof first === "object") {
+        return { items: rest, before: Boolean(first.before) };
+    }
+    return { items: [first, ...rest], before: false };
+}
+
 export class PromptTask {
     public constructor(
         public name: string,
@@ -5,13 +17,17 @@ export class PromptTask {
         public constraints: string[] = [],
     ) {}
 
-    public addInstruction(...items: string[]): this {
-        this.instructions.push(...items);
+    public addInstruction(first: string | AddOptions, ...rest: string[]): this {
+        const { items, before } = addItemArgs(first, rest);
+        if (before) this.instructions.unshift(...items);
+        else this.instructions.push(...items);
         return this;
     }
 
-    public addConstraint(...items: string[]): this {
-        this.constraints.push(...items);
+    public addConstraint(first: string | AddOptions, ...rest: string[]): this {
+        const { items, before } = addItemArgs(first, rest);
+        if (before) this.constraints.unshift(...items);
+        else this.constraints.push(...items);
         return this;
     }
 
@@ -62,13 +78,17 @@ export class PromptContext {
         public expectedBehavior: string[] = [],
     ) {}
 
-    public addPurpose(...items: string[]): this {
-        this.purpose.push(...items);
+    public addPurpose(first: string | AddOptions, ...rest: string[]): this {
+        const { items, before } = addItemArgs(first, rest);
+        if (before) this.purpose.unshift(...items);
+        else this.purpose.push(...items);
         return this;
     }
 
-    public addInstruction(...items: string[]): this {
-        this.instructions.push(...items);
+    public addInstruction(first: string | AddOptions, ...rest: string[]): this {
+        const { items, before } = addItemArgs(first, rest);
+        if (before) this.instructions.unshift(...items);
+        else this.instructions.push(...items);
         return this;
     }
 
@@ -77,8 +97,10 @@ export class PromptContext {
         return this;
     }
 
-    public addExpectedBehavior(...items: string[]): this {
-        this.expectedBehavior.push(...items);
+    public addExpectedBehavior(first: string | AddOptions, ...rest: string[]): this {
+        const { items, before } = addItemArgs(first, rest);
+        if (before) this.expectedBehavior.unshift(...items);
+        else this.expectedBehavior.push(...items);
         return this;
     }
 
@@ -164,8 +186,10 @@ export class InjectionBlock {
         public notes: string[] = [],
     ) {}
 
-    public addPurpose(...items: string[]): this {
-        this.purpose.push(...items);
+    public addPurpose(first: string | AddOptions, ...rest: string[]): this {
+        const { items, before } = addItemArgs(first, rest);
+        if (before) this.purpose.unshift(...items);
+        else this.purpose.push(...items);
         return this;
     }
 
@@ -175,14 +199,29 @@ export class InjectionBlock {
         return this;
     }
 
-    public addItem(...items: string[]): this {
-        this.items.push(...items);
+    public addItem(first: string | AddOptions, ...rest: string[]): this {
+        const { items, before } = addItemArgs(first, rest);
+        if (before) this.items.unshift(...items);
+        else this.items.push(...items);
         return this;
     }
 
-    public addNote(...items: string[]): this {
-        this.notes.push(...items);
+    public addNote(first: string | AddOptions, ...rest: string[]): this {
+        const { items, before } = addItemArgs(first, rest);
+        if (before) this.notes.unshift(...items);
+        else this.notes.push(...items);
         return this;
+    }
+
+    public clone(): InjectionBlock {
+        return new InjectionBlock(
+            this.tag,
+            this.title,
+            [...this.purpose],
+            this.body,
+            [...this.items],
+            [...this.notes],
+        );
     }
 
     public isEmpty(): boolean {

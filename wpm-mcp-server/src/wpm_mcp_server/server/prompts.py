@@ -6,6 +6,7 @@ logic. Kept in English on purpose: these are agent instructions.
 """
 
 from wpm_mcp_server.prompts.entities import PromptTask
+from wpm_mcp_server.prompts.mode import push_mode
 
 
 REMINDER_DEDUP = (
@@ -135,7 +136,11 @@ RECORD_EXECUTION_PROMPT = (
     .add_instruction(
         "Capture the result of a verification command as durable memory.",
         "Store the result as an execution_result entry with source=tool_execution; when succeeded, also validate it as execution_verified in the same operation.",
-        "Call record_execution immediately after running a qualifying verification command (e.g. pytest, npm test, cargo build; see the wpm://verification-commands resource for the full list).",
+        # Push variant omits the resource pointer: no resource-read tool
+        # exists when the plugin owns the server.
+        "Call record_execution immediately after running a qualifying verification command (e.g. pytest, npm test, cargo build"
+        + ("" if push_mode() else "; see the wpm://verification-commands resource for the full list")
+        + ").",
         "Use succeeded to record the outcome; a failed command is preserved as evidence without being validated.",
         "Use the current session_id for every record.",
     )

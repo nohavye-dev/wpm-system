@@ -16,7 +16,9 @@ function debug(message: string, error: unknown): void {
 
 export type SystemPushDeps = {
   client: PluginInput["client"]
-  mcp: WpmMcpClient
+  // Present only in plugin_master mode; legacy mode pushes the nudge alone
+  // and never touches a server.
+  mcp?: WpmMcpClient
   // Golden rules read once at startup from wpm://memory-rules — the same
   // bytes opencode used to receive via initialize.instructions. Pushed at
   // every turn (frozen prompting: never edited here).
@@ -42,7 +44,7 @@ export async function buildSystemPush(
     blocks.push(deps.goldenRules.trim())
   }
 
-  if (await deps.mcp.ready()) {
+  if (deps.mcp && (await deps.mcp.ready())) {
     let rulesBody: string | undefined
     try {
       rulesBody = (await deps.mcp.readResource(PROJECT_RULES_URI))?.trim()
@@ -54,7 +56,7 @@ export async function buildSystemPush(
     }
     if (sessionID) {
       try {
-        const recall = await buildRecallBlock(deps, sessionID, rulesBody)
+        const recall = await buildRecallBlock(deps, deps.mcp, sessionID, rulesBody)
         if (recall) {
           blocks.push(recall)
         }
@@ -84,6 +86,7 @@ type QueryContextResult = {
 
 async function buildRecallBlock(
   deps: SystemPushDeps,
+  mcp: WpmMcpClient,
   sessionID: string,
   rulesBody: string | undefined,
 ): Promise<string | undefined> {
@@ -93,7 +96,7 @@ async function buildRecallBlock(
     return undefined
   }
 
-  const result = await deps.mcp.callTool("query_context", {
+  const result = await mcp.callTool("query_context", {
     query,
     min_confidence: deps.confidenceFloor,
   })

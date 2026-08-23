@@ -9,23 +9,36 @@ import type { WpmMcpClient } from "./client"
 // plugin tool named `wpm_<tool>` (the name identity the permission rules,
 // the plan-mode exception and the query_context detection rely on).
 // Descriptions are reused verbatim — single source stays server-side.
+// onQueryContext is called after each successful query_context execution:
+// host hooks proved unreliable for plugin-defined tools, so the memory-first
+// gate is fed by the bridge itself.
 export async function buildBridgedTools(
   client: WpmMcpClient,
+  opts?: { onQueryContext?: (sessionID: string) => void },
 ): Promise<Record<string, ToolDefinition>> {
   const definitions = await client.toolsList()
   const bridged: Record<string, ToolDefinition> = {}
   for (const definition of definitions) {
-    bridged[`${SERVER_NAME}_${definition.name}`] = toPluginTool(client, definition)
+    bridged[`${SERVER_NAME}_${definition.name}`] = toPluginTool(client, definition, opts?.onQueryContext)
   }
   return bridged
 }
 
-function toPluginTool(client: WpmMcpClient, definition: McpToolDefinition): ToolDefinition {
+function toPluginTool(
+  client: WpmMcpClient,
+  definition: McpToolDefinition,
+  onQueryContext?: (sessionID: string) => void,
+): ToolDefinition {
   return tool({
     description: definition.description ?? "",
     args: jsonSchemaToZodRawShape(definition.inputSchema),
-    execute: async (args, context) =>
-      serializeResult(await client.callTool(definition.name, args as Record<string, unknown>, { signal: context.abort })),
+    execute: async (args, context) => {
+      const result = await client.callTool(definition.name, args as Record<string, unknown>, { signal: context.abort })
+      if (definition.name === "query_context") {
+        onQueryContext?.(context.sessionID)
+      }
+      return serializeResult(result)
+    },
   })
 }
 
