@@ -8,7 +8,7 @@ explicit invocation.
 
 - **Incremental memorization (automatic)** — while working, the agent records
   every durable fact as soon as it encounters it. This is the default
-  behavior, described in [`agent-behavior.md`](agent-behavior.md). The
+  behavior, described in [`04-agent-behavior.md`](04-agent-behavior.md). The
   workflows do not replace it.
 - **Controlled ingestion (manual)** — `wpm-learn`, `wpm-map` and `wpm-bootstrap` are for
   bringing in **in bulk** documents, a code mapping, or an initial seeding.

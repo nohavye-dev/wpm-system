@@ -8,7 +8,7 @@ mémoire du projet. Dans OpenCode, ce sont des commandes slash (ex.
 
 - **Mémorisation incrémentale (automatique)** — pendant son travail, l'agent
   note tout fait durable dès qu'il le rencontre. C'est le comportement par
-  défaut, décrit dans [`agent-behavior.md`](agent-behavior.md). Les
+  défaut, décrit dans [`04-agent-behavior.md`](04-agent-behavior.md). Les
   workflows ne le remplacent pas.
 - **Ingestion contrôlée (manuelle)** — `wpm-learn`, `wpm-map` et `wpm-bootstrap`
   servent à apporter **en masse** des documents, une cartographie du code,

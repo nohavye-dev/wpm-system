@@ -50,7 +50,7 @@ current topic → `store_entry` as soon as a durable fact appears →
 All stored `content` stays **in its native language** (the embedding model is
 multilingual). Don't translate before storing. However, the agent's responses
 and reports stay in the user's language — unless `response_language` is set in
-the config (see [`configuration.md`](configuration.md)).
+the config (see [`02-configuration.md`](02-configuration.md)).
 
 ### 2. When to write
 
@@ -144,7 +144,7 @@ over-link.
 
 The `wpm-learn`/`wpm-map`/`wpm-bootstrap`/`wpm-audit`/`wpm-patterns` workflows are the
 **controlled** ingestion; they do not replace incremental memorization. See
-[`workflows.md`](workflows.md).
+[`03-workflows.md`](03-workflows.md).
 
 ### 12. Lifecycle: pin, deprecate, restore
 

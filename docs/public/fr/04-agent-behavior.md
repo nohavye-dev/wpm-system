@@ -52,7 +52,7 @@ Tout `content` stocké reste **dans sa langue native** (le modèle d'embedding
 est multilingue). Ne pas traduire avant de stocker. En revanche, les réponses
 et rapports de l'agent restent dans la langue de l'utilisateur — sauf si
 `response_language` est fixé dans la config (voir
-[`configuration.md`](configuration.md)).
+[`02-configuration.md`](02-configuration.md)).
 
 ### 2. Quand écrire
 
@@ -149,7 +149,7 @@ pas sur-lier.
 
 Les workflows `wpm-learn`/`wpm-map`/`wpm-bootstrap`/`wpm-audit`/`wpm-patterns` sont l'ingestion
 **contrôlée** ; ils ne remplacent pas la mémorisation incrémentale. Voir
-[`workflows.md`](workflows.md).
+[`03-workflows.md`](03-workflows.md).
 
 ### 12. Cycle de vie : pin, deprecate, restore
 

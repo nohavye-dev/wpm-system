@@ -3,7 +3,7 @@
 This document explains **what WPM does and why**, with as little technical
 detail as possible. For the precise mechanics (data schema, formulas,
 protocol), see [`wpm-mcp-server/README.md`](https://github.com/nohavye-dev/wpm-system/blob/main/wpm-mcp-server/README.md) and
-[`configuration.md`](configuration.md).
+[`02-configuration.md`](02-configuration.md).
 
 ---
 
@@ -184,7 +184,8 @@ will need to be validated on real, long-term projects. See
 
 ## To go further
 
-- [`setup.md`](setup.md) — install and activate WPM on a project.
-- [`workflows.md`](workflows.md) — the `wpm-learn`, `wpm-map`, `wpm-bootstrap`, `wpm-audit`, `wpm-patterns`, `wpm-persist` commands.
-- [`agent-behavior.md`](agent-behavior.md) — the details of what the agent must do.
+- [`01-setup.md`](01-setup.md) — install and activate WPM on a project.
+- [`03-workflows.md`](03-workflows.md) — the `wpm-learn`, `wpm-map`, `wpm-bootstrap`, `wpm-audit`, `wpm-patterns`, `wpm-persist` commands.
+- [`04-agent-behavior.md`](04-agent-behavior.md) — the details of what the agent must do.
+- [`05-confidence-model.md`](05-confidence-model.md) — why memory forgets: half-lives, provenance, evidence.
 - [`wpm-mcp-server/README.md`](https://github.com/nohavye-dev/wpm-system/blob/main/wpm-mcp-server/README.md) — the technical side of the server.
