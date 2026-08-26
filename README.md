@@ -148,20 +148,14 @@ Puis commitez le `SHA256SUMS` mis à jour. Sans cela, l'installation par
 
 ### Tester sur l'installation globale
 
-Pour tester le worktree courant en conditions réelles sans réinstaller :
+Pour réinstaller le worktree courant en conditions réelles :
 
 ```bash
-scripts/sync-install.sh        # dry-run : liste les copies prévues
-scripts/sync-install.sh -y     # applique
-scripts/sync-install.sh -t -y  # lance pytest + bun test comme garde préalable
+wpm uninstall --force && ./install.sh
 ```
 
-Le script se base sur `git status` (modifiés **et nouveaux non commités**),
-mappe chaque fichier vers sa destination réelle (site-packages du venv,
-binaire `wpm` avec rewrite de shebang, plugins dir actif + copie de
-référence) et ignore le reste (docs, tests). Redémarrez les sessions
-opencode après application : le serveur chaud (plugin_master) garde
-l'ancien code jusqu'au restart.
+Redémarrez les sessions opencode après : le serveur chaud (plugin_master)
+garde l'ancien code jusqu'au restart.
 
 ### Branches et publication
 

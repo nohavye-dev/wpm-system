@@ -7,7 +7,9 @@
 > se fait via `wpm reembed` (`reembed_all`, `storage/lifecycle.py`), et une
 > garde (`model_guard.ensure_embedding_model`) bloque toute requête si le
 > modèle actif diffère de celui de la base. Les étapes 4-5 (validation du
-> seuil de confiance FR et du recall cross-lingue) restent en phase d'essais.
+> seuil de confiance FR et du recall cross-lingue) sont validées
+> empiriquement le 2026-08-25 — voir
+> [recall-rag-calibration.md](recall-rag-calibration.md).
 > Surcharge du modèle via `WPM_EMBEDDING_MODEL`.
 
 ## Contexte
