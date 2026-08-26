@@ -2,10 +2,11 @@
 
 > **Statut : implémenté** (branche `main-dev`). Le plugin spawn et possède
 > `wpm_mcp_server` via `wpm-lib/mcp/client.ts` (client MCP minimal fait main) ;
-> les tools sont bridgés dynamiquement (`bridge.ts`), les golden rules et les
-> règles projet sont poussées chaque tour (`server/system-push.ts`), et le
-> pop-in RAG hybride est actif. `record-execution` passe par `tools/call`.
-> Voir « Décisions prises à l'implémentation » en fin de document.
+> les tools sont bridgés dynamiquement (`bridge.ts`), les golden rules, le bloc
+> `<current-user>` (profil utilisateur) et les règles projet sont poussés
+> chaque tour (`server/system-push.ts`), le pop-in RAG hybride est actif et
+> son succès alimente le gate memory-first. `record-execution` passe par
+> `tools/call`. Voir « Décisions prises à l'implémentation » en fin de document.
 
 ## Contexte
 
@@ -167,9 +168,10 @@ plus tirées (voir `feature-hybride-rag.md`).
 5. **Effet de bord assumé** : les `query_context` internes du plugin (pop-in)
    lèvent le flag serveur `_queried_since_last_store` → le rappel « memory-first »
    de `store_entry` ne se déclenche plus. Cohérent avec la garantie push.
-6. **Seuil RAG** : `rag_similarity_threshold` (défaut **0.45**, déclaré dans les
-   `Settings` serveur pour que la validation stricte de `wpm.config.json` reste
-   explicite ; lu par le plugin seul) et `rag_max_items` (constante 3). La
+6. **Seuil RAG** : `rag_similarity_threshold` (défaut **0.35** après
+   recalibration end-to-end, voir `recall-rag-calibration.md` ; déclaré dans
+   les `Settings` serveur pour que la validation stricte de `wpm.config.json`
+   reste explicite ; lu par le plugin seul) et `rag_max_items` (constante 5). La
    calibration repose sur la distribution observée en conditions réelles :
    les questions FR réelles cosignent 0.36–0.48 contre leurs entrées
    pertinentes avec l'embedding MiniLM multilingue (les paires quasi
@@ -194,8 +196,8 @@ plus tirées (voir `feature-hybride-rag.md`).
    rules et les tools natifs `read_mcp_resource` réapparaissent (le host
    détecte la capability `resources`). Master : comportement décrit
    ci-dessus. Le plugin ne spawn **jamais** de serveur en legacy.
-10. **Réglages RAG** : `rag_similarity_threshold` (0.45) et `rag_max_items`
-    (3) sont déclarés dans les `Settings` serveur mais lus par le plugin ;
+10. **Réglages RAG** : `rag_similarity_threshold` (0.35) et `rag_max_items`
+    (5) sont déclarés dans les `Settings` serveur mais lus par le plugin ;
     sans effet en mode legacy.
 11. **Prompt fidelity per-mode** : les instructions « Read the wpm://…
     resource » n'ont de sens qu'en legacy (le LLM y lit via
@@ -221,5 +223,6 @@ plus tirées (voir `feature-hybride-rag.md`).
     deux injections restantes (filet idle, nudge memory-first) résolvent
     l'agent vivant via `client.session.get` et le passent explicitement ;
     la détection `queriedRecently` pour le gate memory-first est alimentée
-    par le bridge lui-même (`onQueryContext`), les hooks hôte s'étant
-    révélés non fiables pour les tools définis par plugin.
+    par le bridge lui-même (`onQueryContext`) **et** par un recall RAG
+    réussi (`system-push.ts`), les hooks hôte s'étant révélés non fiables
+    pour les tools définis par plugin.

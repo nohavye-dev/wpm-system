@@ -84,16 +84,43 @@ project ».
 
 ---
 
-## 5. Désactiver / désinstaller
+## 5. Votre profil utilisateur
+
+La mémoire de la **personne** est globale et fonctionne même hors projet.
+Créez-la une fois, où que vous soyez :
+
+```bash
+wpm new-user        # interactif : prénom, langue (auto-complétion), présentation
+```
+
+Puis gérez-la au fil du temps :
+
+```bash
+wpm current-user              # affiche le profil actif
+wpm current-user <nom>        # bascule vers un autre profil
+wpm current-user none         # désactive l'usage du profil (données conservées)
+wpm list-users                # liste les profils ('*' = actif)
+wpm remove-user <nom>         # supprime un profil
+wpm user-observations         # observations enregistrées + état de la captation
+wpm user-observations off     # coupe la captation des motifs inférés
+wpm remove-user-observation <id>   # corrige une observation erronée
+```
+
+Les profils vivent dans `~/.config/wpm-system/users.db` et **survivent à
+`wpm uninstall`**.
+
+---
+
+## 6. Désactiver / désinstaller
 
 ```bash
 wpm disable      # retire wpm.config.json (les données sont conservées)
-wpm uninstall    # suppression globale complète (venv, binaire, plugin) ; --force pour sauter la confirmation
+wpm uninstall    # suppression globale complète (venv, binaire, plugin) ; --force pour sauter la confirmation ; les profils utilisateurs sont conservés
 ```
 
 ---
 
-## 6. Sauvegarde et restauration
+## 7. Sauvegarde et restauration
 
 ```bash
 wpm export > wpm-backup.json                        # exporte la base en JSON (sans embeddings)

@@ -120,6 +120,7 @@ Two architectures coexist, selected by a boolean key:
 |---|---|---|
 | MCP server | hosted by OpenCode (registered by the plugin) | spawned and owned by the plugin |
 | Project rules | pulled by the agent (resource read) | pushed into context every turn |
+| Golden rules + user profile | injected via `initialize.instructions` + resource read | pushed into context every turn |
 | Memory search | `wpm_query_context` tool (LLM-driven) | same + automatic **pop-in** of strongly relevant memories |
 | Execution recording | via the `wpm` CLI | direct warm-server call |
 
@@ -133,23 +134,26 @@ Two architectures coexist, selected by a boolean key:
 Without the key (or with `false`), the historical behavior applies
 unchanged. The two settings below only take effect in master mode.
 
-### `rag_similarity_threshold` — pop-in threshold (optional, default 0.45)
+### `rag_similarity_threshold` — pop-in threshold (optional, default 0.35)
 
 Minimum cosine similarity between the user's raw message and a memory
 entry for it to be automatically injected into context, combined with
-`confidence_threshold` as a quality guard. Empirically calibrated for the
-multilingual embedding: real questions typically score 0.36–0.48 against
-their relevant entries.
+`confidence_threshold` as a quality guard. Lowered from 0.45 to 0.35 after
+end-to-end recall calibration (see
+`docs/internals/recall-rag-calibration.md`).
 
-### `rag_max_items` — pop-in volume (optional, default 3)
+### `rag_max_items` — pop-in volume (optional, default 5)
 
 Maximum number of entries injected per turn, after filtering and
 deduplication against the `<project-rules>` block.
 
 ```json
-"rag_similarity_threshold": 0.45,
-"rag_max_items": 3
+"rag_similarity_threshold": 0.35,
+"rag_max_items": 5
 ```
+
+These two keys are only read by the plugin (master mode); the values
+declared server-side exist for schema validation.
 
 ---
 

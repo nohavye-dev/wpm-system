@@ -118,9 +118,10 @@ aussi les pages liées qui éclairent le contexte.*
 ### 8. Les règles du projet
 
 WPM recompose automatiquement un résumé des **conventions et décisions les
-plus fiables** du projet (le bloc « project-rules »), que l'agent lit en
-début de session. C'est ce qui lui permet de respecter les usages du projet
-sans qu'on les lui réexplique à chaque fois.
+plus fiables** du projet (le bloc « project-rules »). Selon le mode, l'agent
+le lit au début de session ou le reçoit poussé à chaque tour. C'est ce qui
+lui permet de respecter les usages du projet sans qu'on les lui réexplique à
+chaque fois.
 
 *Analogie : la page « règles de la maison » du wiki, mise à jour toute
 seule à partir des notes les plus fiables.*
@@ -133,6 +134,24 @@ perdue). C'est ce qui rend la mémoire vivante et à jour.
 
 *Analogie : prendre ses notes en réunion plutôt qu'essayer de tout
 reconstituer une semaine plus tard.*
+
+### 10. Le profil utilisateur
+
+À côté de la mémoire **projet**, WPM tient une mémoire de la **personne** :
+un profil global (prénom, langue, présentation) qui suit l'utilisateur de
+projet en projet et survit aux désinstallations. Deux sources s'y côtoient :
+
+- les **préférences déclarées** — ce que vous énoncez (« parle-moi plus
+  simplement »), enregistrées silencieusement, toujours appliquées et sans
+  expiration ; une nouvelle préférence contradictoire remplace l'ancienne ;
+- les **observations inférées** — ce que l'agent remarque lui-même
+  (habitudes, outils, style, contexte…), classées dans une taxonomie
+  fermée, injectées seulement quand un motif se répète (×2) et tant qu'il
+  reste frais (30 jours). En cas de conflit, le déclaré gagne.
+
+*Analogie : un collègue de longue durée qui se souvient de ce que vous lui
+avez demandé (déclaré) et de ce qu'il a observé en travaillant avec vous
+(inféré).*
 
 ---
 

@@ -17,7 +17,7 @@ scoring, décroissance, expansion de graphe, outils MCP.
 
 ## Présentation
 
-Le serveur expose la mémoire via MCP : 11 outils, 3 resources.
+Le serveur expose la mémoire via MCP : 14 outils, 4 resources.
 Il est lancé **par le plugin OpenCode** (qui l'enregistre automatiquement à
 partir de `wpm.config.json`) — pas besoin de le déclarer à la main. Sans
 activation (pas de `wpm.config.json` ni `WPM_DB_PATH`), il démarre inerte :
@@ -92,10 +92,14 @@ Les outils mémoire exigent un projet activé (`wpm.config.json`) ; les
 outils profils sont globaux et fonctionnent partout. La **création** et la
 bascule/suppression des profils relèvent du CLI humain (`wpm new-user`,
 `wpm current-user`, `wpm remove-user`, `wpm user-observations`) — pas du
-LLM. Seules les observations renforcées au moins deux fois remontent dans
-le bloc `<current-user>` injecté. La langue du profil courant **prime** sur
-`response_language` de la config (résolution via `resolve_response_language`,
-sans toucher aux prompts).
+LLM. Dans le bloc `<current-user>` injecté : les préférences **déclarées**
+(`source=declared`) sont toujours rendues intégralement, sans déclin ; les
+motifs **inférés** ne remontent que s'ils sont renforcés au moins deux fois
+**et** rafraîchis depuis moins de 30 jours (sinon ils dorment en base,
+visibles via `get_user_observations`). Le budget de 2000 caractères
+s'applique à la partie inférée seule. La langue du profil courant **prime**
+sur `response_language` de la config (résolution via
+`resolve_response_language`, sans toucher aux prompts).
 
 `type` et `source` sont typés (`Literal`) : une valeur hors liste est
 rejetée par le schéma avant même d'atteindre le code.
@@ -109,7 +113,7 @@ rejetée par le schéma avant même d'atteindre le code.
 | `wpm://project-rules` | Conventions/décisions du projet (≥ `confidence_threshold`), bloc `<project-rules>` |
 | `wpm://memory-rules` | Les règles d'usage (même contenu que `instructions`) |
 | `wpm://verification-commands` | Commandes comptant comme preuve forte |
-| `wpm://current-user` | Profil de l'utilisateur courant, bloc `<current-user>` (lecture fraîche à chaque accès — la base profils est écrite par d'autres process). Sections : identité (nom, langue, présentation), préférences explicites, et `Observed recurring patterns` (motifs inférés renforcés ≥ 2 fois) |
+| `wpm://current-user` | Profil de l'utilisateur courant, bloc `<current-user>` (lecture fraîche à chaque accès — la base profils est écrite par d'autres process). Sections : identité (nom, langue, présentation), préférences déclarées (toujours entières), et `Observed recurring patterns` groupé par catégorie (motifs inférés renforcés ≥ 2 fois et rafraîchis ≤ 30 jours ; budget 2000 caractères sur cette partie seule) |
 
 ---
 

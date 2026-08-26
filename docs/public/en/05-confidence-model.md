@@ -126,3 +126,8 @@ deduplicated over a time window to prevent artificial inflation.
 Everything above is configured in `wpm.config.json`, advanced section
 [`domain`](https://nohavye-dev.github.io/wpm-site/en/docs/configuration): `decay` (per type), `provenance`,
 `evidence`, plus the `retrieval` thresholds.
+
+> Not to be confused with the **user profile**: inferred observations about
+> the person follow their own freshness rule (dropped from the profile block
+> after 30 days without reinforcement), independent of this memory-confidence
+> model.

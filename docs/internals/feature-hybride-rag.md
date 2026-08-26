@@ -1,5 +1,13 @@
 # Injection hybride de mémoire (RAG) : pop-in + tool de recherche
 
+> **Statut : implémenté** (mode `plugin_master` uniquement). Ce document est
+> la fiche de conception d'origine ; l'état courant (constantes recalibrées
+> 0.35/5, canal `<current-user>` ajouté, gate memory-first alimentée par le
+> recall) fait foi dans `architecture-plugin-hote-mcp.md` et
+> `recall-rag-calibration.md`. Nuance importante : le retrait des
+> instructions « read the resource » ne concerne que le mode master ; en
+> legacy les prompts historiques sont conservés à l'octet près.
+
 ## Contexte
 
 Le système actuel expose la recherche de mémoire via un tool explicite : le LLM déclenche une requête, reçoit les x résultats les plus proches, et les analyse lui-même. Ce fonctionnement dépend entièrement du jugement du LLM pour décider *quand* chercher — avec le risque qu'il n'appelle pas l'outil alors qu'une mémoire pertinente existe.

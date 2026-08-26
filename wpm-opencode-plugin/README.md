@@ -19,23 +19,31 @@ peut pas faire :
 
 - **`config`** — enregistre le serveur MCP `wpm` (venv `python -m
   wpm_mcp_server`, `WPM_CONFIG_PATH` pointé sur le projet) + permission
-  `wpm_*` (`allow`) + les commandes slash `wpm-*`. Passe aussi
-  `default_agent` à `plan` et injecte une exception mémoire dans l'agent
-  plan : les outils `wpm_*` restent autorisés même en mode plan.
+  `wpm_*` (`allow`) + les commandes slash `wpm-*`. Injecte une exception
+  mémoire dans l'agent plan : les outils `wpm_*` restent autorisés même en
+  mode plan. `default_agent` est volontairement **non** positionné — forcer
+  `plan` faisait basculer silencieusement des tours `build` (chaque commande
+  porte son `agent: "plan"` individuellement).
 - **`command.execute.before`** — masque le long texte des commandes slash
   (part `synthetic`) et affiche un label court `/wpm-<commande>`.
 - **`chat.message`** — ré-arme la passe de persistance sur un vrai message
   utilisateur.
-- **`experimental.chat.system.transform`** — ré-injecte la carte de règles
-  compacte à chaque tour.
+- **`experimental.chat.system.transform`** — push système à chaque tour,
+  selon le mode :
+  - *plugin_master* : règles d'or + bloc `<current-user>` + règles projet +
+    pop-in RAG (recall du dernier message utilisateur), puis le nudge
+    compact en bas de contexte ;
+  - *legacy* : le nudge compact seul (le serveur hébergé par OpenCode
+    injecte lui-même les règles).
 - **`experimental.session.compacting`** — rappelle de persister ce qui ne
   l'est pas avant compaction.
 - **`tool.execute.after`** — capture les commandes de test/build/lint
   (`wpm record-execution`) sans dépendre du LLM ; suit les `query_context`.
 - **`tool.execute.before`** — nudge « memory first » conditionnel avant une
   lecture/`grep`/`glob` sans `query_context` récent.
-- **`event` (`session.idle`)** — déclenche la passe de persistance de fin de
-  session.
+- **`event` (`session.idle`)** — déclenche la passe de persistance :
+  maintenance de fond injectée entre les tours, la session continue
+  normalement après ; silence strict si rien n'a été persisté.
 
 ## Structure
 
@@ -54,13 +62,19 @@ wpm-opencode-plugin/
       settings.ts        # isEnabled / readConfigParam / resolveResponseLanguage
     infra/
       paths.ts           # resolvePythonPath (venv du serveur)
+    mcp/
+      client.ts          # client MCP stdio (serveur chaud) + lectures resources
+      bridge.ts          # pont dynamique des tools serveur en tools plugin
+      schema.ts          # JSON Schema → zod
+      entities.ts        # types résultats MCP
     prompts/
-      entities.ts        # DSL PromptTask / PromptContext
+      entities.ts        # DSL PromptTask / PromptContext / InjectionBlock
       clauses.ts         # clauses de langue (réponse attendue, note de langue)
       nudges.ts          # nudges ré-injectés + buildPersistPromptText(language)
       commands/          # un fichier par commande slash + index (buildCommands)
     server/
       hooks.ts           # createHooks(ctx) — tous les hooks
+      system-push.ts     # push déterministe par tour (règles, profil, RAG)
 ```
 
 ## Langue de réponse

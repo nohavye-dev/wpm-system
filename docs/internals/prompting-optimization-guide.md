@@ -97,7 +97,7 @@ STANDING POLICIES (apply across all tools, not tied to a single call):
 
 Every other rule (type/source selection, dedup, evidence hierarchy,
 reading query results, pin/deprecate, links, English-only content,
-end-of-session persistence) lives in the description of the relevant
+background persistence sweeps) lives in the description of the relevant
 tool — re-read it there at the moment of the decision.
 </wpm-memory-rules>
 ```
@@ -454,6 +454,9 @@ sur le point d'être violée :
 ```typescript
 const queriedRecently = new Map<string, boolean>() // sessionID -> bool
 
+// En production ce flag a trois alimentations : le bridge plugin_master
+// (onQueryContext), un recall RAG réussi (system-push.ts) et le watch
+// tool.execute.after ci-dessous (legacy).
 return {
   "tool.execute.after": async (input) => {
     if (input.tool === "wpm_query_context") {

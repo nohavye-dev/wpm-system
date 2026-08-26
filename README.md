@@ -114,10 +114,12 @@ Une fois activé, votre agent peut :
   **déclarés**, toujours injectés dans le profil et sans déclin ; une
   nouvelle déclaration contradictoire remplace l'ancienne ;
 - **s'adapter à vos habitudes** (`record_user_observation`, source
-  `inferred`) : attitudes, comportements récurrents et incompréhensions
-  notés silencieusement, puis injectés au profil dès qu'un motif se
-  répète (visible et corrigeable via `wpm user-observations` /
-  `remove-user-observation`, désactivable) ;
+  `inferred`) : habitudes, préférences d'outil, expertise, contexte,
+  style de communication, traits personnels — notés silencieusement dans
+  une taxonomie fermée, puis injectés au profil dès qu'un motif se répète
+  (×2) et tant qu'il reste frais (30 jours). Visible et corrigeable via
+  `wpm user-observations` / `remove-user-observation`, désactivable ; le
+  toggle et le plafond par session ne concernent que l'inféré.
 - lire les **règles du projet** recomposées depuis la mémoire ;
 - **sauvegarder / ré-encoder** la base hors session (`wpm export`,
   `wpm generate`, `wpm reembed`).

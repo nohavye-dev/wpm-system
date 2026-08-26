@@ -122,6 +122,7 @@ Deux architectures coexistent, choisies par une clé booléenne :
 |---|---|---|
 | Serveur MCP | hébergé par OpenCode (enregistré par le plugin) | spawné et possédé par le plugin |
 | Règles projet | tirées par l'agent (lecture de la resource) | poussées chaque tour dans le contexte |
+| Règles d'or + profil utilisateur | injectés via `initialize.instructions` + lecture de resource | poussés chaque tour dans le contexte |
 | Recherche mémoire | tool `wpm_query_context` (à l'initiative du LLM) | idem + **pop-in** automatique des mémoires fortement pertinentes |
 | Enregistrement des exécutions | via le CLI `wpm` | appel direct du serveur chaud |
 
@@ -136,23 +137,26 @@ Sans la clé (ou avec `false`), le comportement historique s'applique à
 l'identique. Les deux réglages ci-dessous ne prennent effet qu'en mode
 maître.
 
-### `rag_similarity_threshold` — seuil du pop-in (optionnel, défaut 0.45)
+### `rag_similarity_threshold` — seuil du pop-in (optionnel, défaut 0.35)
 
 Similarité cosinus minimale entre le message brut de l'utilisateur et une
 entrée mémoire pour que celle-ci soit injectée automatiquement dans le
-contexte, combinée à `confidence_threshold` comme garde de qualité.
-Calibré empiriquement pour l'embedding multilingue : les questions réelles
-cosignent typiquement 0.36–0.48 contre leurs entrées pertinentes.
+contexte, combinée à `confidence_threshold` comme garde de qualité. Abaissé
+de 0.45 à 0.35 après calibration end-to-end du rappel (voir
+`docs/internals/recall-rag-calibration.md`).
 
-### `rag_max_items` — volume du pop-in (optionnel, défaut 3)
+### `rag_max_items` — volume du pop-in (optionnel, défaut 5)
 
 Nombre maximal d'entrées injectées par tour, après filtrage et déduplication
 contre le bloc `<project-rules>`.
 
 ```json
-"rag_similarity_threshold": 0.45,
-"rag_max_items": 3
+"rag_similarity_threshold": 0.35,
+"rag_max_items": 5
 ```
+
+Ces deux clés ne sont lues que par le plugin (mode maître) ; les valeurs
+déclarées côté serveur servent à la validation du schéma.
 
 ---
 

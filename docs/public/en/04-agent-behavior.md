@@ -25,10 +25,11 @@ Three **golden rules**, in priority order:
 3. **PROOF BEFORE VALIDATION** — validate or contradict only with external,
    verifiable evidence, never with reasoning alone.
 
-**Startup sequence**: read `wpm://project-rules` → `query_context` on the
-current topic → `store_entry` as soon as a durable fact appears →
-`validate_entry` with evidence once confirmed. *(In `plugin_master` mode, the
-rules are pushed every turn instead of being read — see
+**Startup sequence**: read `wpm://project-rules` → read `wpm://current-user`
+(conversation preferences) → `query_context` on the current topic →
+`store_entry` as soon as a durable fact appears → `validate_entry` with
+evidence once confirmed. *(In `plugin_master` mode, the rules, the user
+profile and a RAG recall are pushed every turn instead of being read — see
 [`02-configuration.md`](https://nohavye-dev.github.io/wpm-site/en/docs/configuration).)*
 
 **Cross-cutting policies**:
@@ -38,6 +39,12 @@ rules are pushed every turn instead of being read — see
 - **Write at any time**: the writing tools are used in plan mode, build mode
   or any mode — the plugin grants the `wpm_*` tools in every mode, including
   plan mode. If the host still blocks a write, retry.
+- **Silent user memory**: when you state a preference ("be more concise"),
+  the agent records it as a **declared** preference without announcing it;
+  when it notices a recurring pattern about you itself, it records it as
+  **inferred** — always silently, after checking what already exists
+  (reinforce or contradictory supersede). Your statements outrank its
+  inferences; everything is visible and fixable via `wpm user-observations`.
 
 > The detail of each rule (choice of type, source, evidence hierarchy…) lives
 > in the **description of each tool**, re-read at every call — so applied

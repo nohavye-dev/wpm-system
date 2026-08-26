@@ -129,3 +129,8 @@ sont dédupliqués sur une fenêtre de temps pour éviter le gonflement artifici
 Tout ce qui précède se règle dans `wpm.config.json`, section avancée
 [`domain`](https://nohavye-dev.github.io/wpm-site/fr/docs/configuration) : `decay` (par type), `provenance`,
 `evidence`, plus les seuils de `retrieval`.
+
+> À ne pas confondre avec le **profil utilisateur** : les observations
+> inférées sur la personne suivent leur propre règle de fraîcheur (sortie du
+> bloc profil après 30 jours sans renforcement), indépendante de ce modèle
+> de confiance.

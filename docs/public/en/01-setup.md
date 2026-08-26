@@ -83,16 +83,43 @@ project".
 
 ---
 
-## 5. Disabling / uninstalling
+## 5. Your user profile
+
+The **person** memory is global and works even outside a project. Create it
+once, anywhere:
+
+```bash
+wpm new-user        # interactive: first name, language (autocomplete), introduction
+```
+
+Then manage it over time:
+
+```bash
+wpm current-user              # show the active profile
+wpm current-user <name>       # switch to another profile
+wpm current-user none         # deactivate profile usage (data is kept)
+wpm list-users                # list profiles ('*' = active)
+wpm remove-user <name>        # delete a profile
+wpm user-observations         # recorded observations + capture status
+wpm user-observations off     # stop capturing inferred patterns
+wpm remove-user-observation <id>   # fix a wrong observation
+```
+
+Profiles live in `~/.config/wpm-system/users.db` and **survive
+`wpm uninstall`**.
+
+---
+
+## 6. Disabling / uninstalling
 
 ```bash
 wpm disable      # removes wpm.config.json (data is kept)
-wpm uninstall    # complete global removal (venv, binary, plugin); --force to skip the confirmation
+wpm uninstall    # complete global removal (venv, binary, plugin); --force to skip the confirmation; user profiles are kept
 ```
 
 ---
 
-## 6. Backup and restore
+## 7. Backup and restore
 
 ```bash
 wpm export > wpm-backup.json                        # exports the database to JSON (without embeddings)

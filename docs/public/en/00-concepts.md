@@ -115,9 +115,10 @@ pages that shed light on the context.*
 ### 8. Project rules
 
 WPM automatically recomposes a summary of the project's **most reliable
-conventions and decisions** (the "project-rules" block), which the agent reads
-at the start of a session. That is what lets it follow the project's practices
-without them being re-explained every time.
+conventions and decisions** (the "project-rules" block). Depending on the
+mode, the agent reads it at the start of a session or receives it pushed on
+every turn. That is what lets it follow the project's practices without them
+being re-explained every time.
 
 *Analogy: the "house rules" page of the wiki, updated on its own from the most
 reliable notes.*
@@ -130,6 +131,22 @@ That is what keeps the memory alive and up to date.
 
 *Analogy: taking notes during a meeting rather than trying to reconstruct
 everything a week later.*
+
+### 10. The user profile
+
+Alongside **project** memory, WPM keeps a memory of the **person**: a global
+profile (first name, language, introduction) that follows the user across
+projects and survives uninstalls. Two sources coexist there:
+
+- **declared preferences** — what you state ("talk to me more simply"),
+  recorded silently, always applied and never expiring; a contradictory new
+  preference replaces the old one;
+- **inferred observations** — what the agent notices itself (habits, tools,
+  style, context…), stored in a closed taxonomy, injected only once a pattern
+  repeats (×2) and while it stays fresh (30 days). On conflict, declared wins.
+
+*Analogy: a long-time colleague who remembers what you asked of them
+(declared) and what they observed working with you (inferred).*
 
 ---
 

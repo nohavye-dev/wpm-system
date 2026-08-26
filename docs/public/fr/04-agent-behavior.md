@@ -25,10 +25,12 @@ Trois **règles d'or**, par ordre de priorité :
 3. **PROOF BEFORE VALIDATION** — valider ou contredire uniquement avec une
    preuve externe et vérifiable, jamais avec du raisonnement seul.
 
-**Séquence de démarrage** : lire `wpm://project-rules` → `query_context`
+**Séquence de démarrage** : lire `wpm://project-rules` → lire
+`wpm://current-user` (préférences de conversation) → `query_context`
 sur le sujet courant → `store_entry` dès fait durable → `validate_entry`
-avec preuve une fois confirmé. *(En mode `plugin_master`, les règles sont
-poussées chaque tour au lieu d'être lues — voir
+avec preuve une fois confirmé. *(En mode `plugin_master`, les règles, le
+profil utilisateur et un rappel RAG sont poussés chaque tour au lieu d'être
+lus — voir
 [`02-configuration.md`](https://nohavye-dev.github.io/wpm-site/fr/docs/configuration).)*
 
 **Politiques transversales** :
@@ -39,6 +41,13 @@ poussées chaque tour au lieu d'être lues — voir
   build ou n'importe quel mode — le plugin autorise les outils `wpm_*` dans
   tous les modes, y compris le mode plan. Si le host bloque malgré tout,
   réessayer.
+- **Mémoire utilisateur silencieuse** : quand vous énoncez une préférence
+  (« sois plus concis »), l'agent l'enregistre comme préférence **déclarée**
+  sans l'annoncer ; quand il remarque lui-même un motif récurrent sur vous,
+  il le note comme **inféré** — toujours en silence, après avoir consulté ce
+  qui existe déjà (renforcement ou substitution contradictoire). Vos
+  déclarations priment sur ses inférences ; tout est visible et corrigeable
+  via `wpm user-observations`.
 
 > Le détail de chaque règle (choix du type, de la source, hiérarchie des
 > preuves…) vit dans la **description de chaque outil**, relue à chaque
