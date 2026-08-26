@@ -235,3 +235,108 @@ def get_memory_stats() -> dict:
         return state.get_repo().get_stats()
     except (ValueError, WpmError, RuntimeError) as exc:
         return {"error": True, "message": str(exc)}
+
+
+@mcp.tool(
+    description=prompts.GET_USER_PROMPT
+)
+def get_user() -> dict:
+    try:
+        profile = state.get_users_repo().get_current_user()
+        if profile is None:
+            return {"current": False, "message": "no current user profile"}
+        return {"current": True, "profile": profile}
+    except (ValueError, WpmError, RuntimeError) as exc:
+        return {"error": True, "message": str(exc)}
+
+
+def _pointer_gate(repo) -> dict | None:
+    """Shared pre-check: a current user must exist.
+
+    Returns an error payload when the gate fails, None when the call may
+    proceed. Guards live at call time (not registration time) so CLI
+    toggles take effect on the very next turn without a server restart.
+    """
+    from wpm_mcp_server.storage.users import NO_CURRENT_USER_MESSAGE
+
+    if repo.get_current_name() is None:
+        return {"error": True, "message": NO_CURRENT_USER_MESSAGE}
+    return None
+
+
+def _inferred_capture_gate(repo) -> dict | None:
+    """Extra gate for inferred recordings only.
+
+    Declared statements (human preferences) are never blocked by the
+    capture flag nor by the session budget.
+    """
+    if not repo.observations_enabled():
+        return {
+            "error": True,
+            "disabled": True,
+            "message": (
+                "user observation capture is disabled — "
+                "run 'wpm user-observations on'"
+            ),
+        }
+    if not state.observation_budget_available():
+        return {
+            "error": True,
+            "message": (
+                f"observation budget exhausted for this session "
+                f"(limit {state.OBSERVATION_SESSION_LIMIT}) — stop "
+                "recording for now"
+            ),
+        }
+    return None
+
+
+@mcp.tool(
+    description=prompts.RECORD_USER_OBSERVATION_PROMPT
+)
+def record_user_observation(
+    content: str,
+    source: str = "inferred",
+    category: str | None = None,
+    reinforce_id: int | None = None,
+    replaces_id: int | None = None,
+) -> dict:
+    try:
+        repo = state.get_users_repo()
+        gated = _pointer_gate(repo)
+        if gated is not None:
+            return gated
+        if source == "inferred":
+            gated = _inferred_capture_gate(repo)
+            if gated is not None:
+                return gated
+        result = repo.record_user_observation(
+            content,
+            source=source,
+            category=category,
+            reinforce_id=reinforce_id,
+            replaces_id=replaces_id,
+        )
+        if source == "inferred":
+            state.count_observation()
+        return result
+    except (ValueError, WpmError, RuntimeError) as exc:
+        return {"error": True, "message": str(exc)}
+
+
+@mcp.tool(
+    description=prompts.GET_USER_OBSERVATIONS_PROMPT
+)
+def get_user_observations() -> dict:
+    """Listing is pointer-gated only: it stays available even when inferred
+    capture is off, so declared statements can still be deduplicated and
+    superseded."""
+    try:
+        repo = state.get_users_repo()
+        gated = _pointer_gate(repo)
+        if gated is not None:
+            return gated
+        observations = repo.get_user_observations()
+        return {"observations": observations, "total": len(observations)}
+    except (ValueError, WpmError, RuntimeError) as exc:
+        return {"error": True, "message": str(exc)}

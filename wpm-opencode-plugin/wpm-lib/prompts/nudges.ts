@@ -20,9 +20,15 @@ export function buildNudge(language?: string, pluginMaster = false): string {
         )
 
         .addInstruction(
-            `Before reading files, running grep, or searching the codebase, call ${SERVER_NAME}_query_context first.`,
+            pluginMaster
+                ? `If no <wpm-memory-recall> was pushed this turn or it is insufficient, call ${SERVER_NAME}_query_context with a reformulated query before reading files, searching the codebase, or starting a substantive answer.`
+                : `Before reading files, running grep, or searching the codebase, call ${SERVER_NAME}_query_context first.`,
             `As soon as a durable fact emerges — such as a decision, convention, test result, or bug pattern — call ${SERVER_NAME}_store_entry immediately.`,
             "Memory writes are not project modifications.",
+            ...(pluginMaster
+                ? [`If identity or language is ambiguous, call ${SERVER_NAME}_get_user.`]
+                : [`When a <current-user> block is present in context, apply its preferences (language, stated preferences); otherwise call ${SERVER_NAME}_get_user on demand.`]),
+            `When the user states a preference (source=declared) or you notice a pattern about them — habit, workflow, knowledge, context, communication, or personal trait (source=inferred) — call ${SERVER_NAME}_record_user_observation, checking ${SERVER_NAME}_get_user_observations first to reinforce patterns or supersede contradicted preferences. Record silently.`,
         )
     if (!pluginMaster) {
         memoryPrompt.addInstruction(
@@ -89,20 +95,22 @@ export function buildPersistReminder(): string {
     return memoryReminder.toString()
 }
 
-// Single source of truth for the end-of-task persistence pass. Used by
-// both the session.idle hook and the `/wpm-persist` command. The reply
-// follows the configured response language when one is set.
+// Single source of truth for the background persistence pass. Used by
+// both the session.idle hook and the `/wpm-persist` command. Framed as
+// routine housekeeping injected between turns — never as a session end —
+// and strictly silent when nothing was persisted. The reply follows the
+// configured response language when one is set.
 export function buildPersistPromptText(language?: string): string {
     const target = language ? language : "the user's language"
 
-    const sessionEndPrompt = new PromptContext("wpm-memory-session-end")
-        .addInstruction(
-            "Perform a final memory pass for the completed session.",
+    const sweepPrompt = new PromptContext("wpm-memory-persist-sweep")
+        .addPurpose(
+            "Perform a memory pass for the completed turn.",
         )
         .addTask(
-            new PromptTask("Persistence")
+            new PromptTask("Persistence sweep")
                 .addInstruction(
-                    `Persist any durable facts that have not yet been persisted using ` +
+                    `Silently persist any durable facts that have not yet been persisted using ` +
                     `${SERVER_NAME}_store_entry or ${SERVER_NAME}_record_execution.`,
                 )
                 .addConstraint(
@@ -111,13 +119,13 @@ export function buildPersistPromptText(language?: string): string {
                     "Do not invent or infer evidence that was not established during the session.",
                     "Do not persist transient details or trivia.",
                     "Do not validate any memory entry without external, checkable evidence.",
+                    "Never report that there was nothing to persist, and never justify an empty pass.",
                 ),
         )
         .addExpectedBehavior(
-            // `If nothing remains to be persisted, state in ${target} that nothing needed to be persisted.`,
-            `If nothing remains to be persisted, does nothing and does not respond.`,
-            `If anything was persisted, summarize what was persisted in ${target} and state that persistence is complete.`,
+            `If anything was persisted: one short line listing it, in ${target}, no conclusion.`,
+            `If nothing was persisted: send no message at all.`,
         );
 
-    return sessionEndPrompt.toString()
+    return sweepPrompt.toString()
 }

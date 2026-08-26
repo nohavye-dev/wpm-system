@@ -3,8 +3,8 @@ import { InjectionBlock } from "../prompts/entities"
 import { PROJECT_RULES_URI, type WpmMcpClient } from "../mcp/client"
 import type { McpCallToolResult } from "../mcp/entities"
 
-export const DEFAULT_RAG_SIMILARITY_THRESHOLD = 0.45
-export const DEFAULT_RAG_MAX_ITEMS = 3
+export const DEFAULT_RAG_SIMILARITY_THRESHOLD = 0.35
+export const DEFAULT_RAG_MAX_ITEMS = 5
 
 // Internal diagnostics for the deterministic push path; silent unless
 // WPM_DEBUG is set so a degraded server never pollutes the host's output.
@@ -27,13 +27,36 @@ export type SystemPushDeps = {
   confidenceFloor: number
   ragSimilarityThreshold: number
   ragMaxItems: number
+  // When RAG recall succeeds (picked>0), mark this session as already
+  // queried so the tool.execute.before memory-first nudge is not injected
+  // redundantly before the next read/grep/glob.
+  queriedRecently?: Map<string, boolean>
+}
+
+// Deterministic identity push: the server renders the <current-user>
+// tagged Markdown block; we push those bytes verbatim (untagged
+// InjectionBlock — same asymmetry as project rules). Fresh read each turn
+// via readCurrentUser: a CLI switch or another session's recordings must
+// take effect on the next turn, and no resources/updated notification can
+// fire for users.db.
+async function buildCurrentUserBlock(mcp: WpmMcpClient): Promise<string | undefined> {
+  let body: string | undefined
+  try {
+    body = await mcp.readCurrentUser()
+  } catch (error) {
+    debug("current-user read failed", error)
+    return undefined
+  }
+  if (!body?.trim()) return undefined
+  return new InjectionBlock().setBody(body).toString()
 }
 
 // Per-turn deterministic push, in order: golden rules (procedural),
-// project rules (deterministic data), RAG pop-in (turn-dependent data),
-// compact nudge last so the anti-dilution anchor stays at the bottom of
-// context. Every server-dependent step degrades silently to keep the push
-// off the critical path when the warm server is unavailable.
+// current-user identity, project rules (deterministic data), RAG pop-in
+// (turn-dependent data), compact nudge last so the anti-dilution anchor
+// stays at the bottom of context. Every server-dependent step degrades
+// silently to keep the push off the critical path when the warm server is
+// unavailable.
 export async function buildSystemPush(
   deps: SystemPushDeps,
   sessionID?: string,
@@ -45,6 +68,10 @@ export async function buildSystemPush(
   }
 
   if (deps.mcp && (await deps.mcp.ready())) {
+    const profileBlock = await buildCurrentUserBlock(deps.mcp)
+    if (profileBlock) {
+      blocks.push(profileBlock)
+    }
     let rulesBody: string | undefined
     try {
       rulesBody = (await deps.mcp.readResource(PROJECT_RULES_URI))?.trim()
@@ -59,6 +86,7 @@ export async function buildSystemPush(
         const recall = await buildRecallBlock(deps, deps.mcp, sessionID, rulesBody)
         if (recall) {
           blocks.push(recall)
+          deps.queriedRecently?.set(sessionID, true)
         }
       } catch (error) {
         debug("recall block failed", error)

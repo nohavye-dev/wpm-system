@@ -26,6 +26,11 @@ from wpm_mcp_server.prompts.memory_rules import build_memory_usage_rules
 from wpm_mcp_server.prompts.mode import push_mode
 from wpm_mcp_server.prompts.verification import compile_verification_patterns
 from wpm_mcp_server.storage.repository import Repository
+from wpm_mcp_server.storage.users import (
+    UserRepository,
+    connect_users_db,
+    resolve_users_db_path,
+)
 
 NOT_ACTIVATED_MESSAGE = (
     "wpm is not activated in this project: run 'wpm enable' at the project "
@@ -39,8 +44,29 @@ CONFIG_DIR = _config_path.resolve().parent if _has_config else Path.cwd()
 
 SETTINGS = load_settings(_config_path)
 
+
+def _current_user_language() -> str | None:
+    """Current profile language (if any) — overrides config's
+    response_language at resolution time, without touching any prompt text.
+
+    Resolved once at import (server start), like wpm.config.json.
+    A mid-session `wpm current-user` switch takes effect for the
+    <current-user> block on the next turn (fresh read / push), but the
+    language clause baked into SERVER_INSTRUCTIONS only refreshes on restart
+    — the block remains authoritative.
+    """
+    try:
+        profile = UserRepository(
+            connect_users_db(resolve_users_db_path())
+        ).get_current_user()
+        return (profile or {}).get("language")
+    except Exception:
+        return None
+
+
 _response_language = resolve_response_language(
-    SETTINGS.response_language, os.environ.get("WPM_RESPONSE_LANGUAGE")
+    _current_user_language() or SETTINGS.response_language,
+    os.environ.get("WPM_RESPONSE_LANGUAGE"),
 )
 SERVER_INSTRUCTIONS = build_memory_usage_rules(
     _response_language, pull_instructions=not push_mode()
@@ -58,10 +84,16 @@ mcp = FastMCP(
 )
 
 _repo: Repository | None = None
+_users_repo: UserRepository | None = None
 _project_rules_cache: str | None = None
 
 SESSION_ID = str(uuid.uuid4())
 _queried_since_last_store = False
+
+# Safety valve for behavioral observations (the prompt is deliberately
+# encouraging; this is the hard cap). Process lifetime == one session.
+OBSERVATION_SESSION_LIMIT = 20
+_observation_count = 0
 
 VERIFICATION_PATTERNS, _invalid_patterns = compile_verification_patterns(
     SETTINGS.verification_command_patterns or []
@@ -84,6 +116,19 @@ def get_repo() -> Repository:
     return _repo
 
 
+def get_users_repo() -> UserRepository:
+    """Lazy singleton for the global user-profiles store.
+
+    Deliberately independent from DB_PATH / project activation: profiles
+    are global, so the user tools work even when the server runs without
+    an activated project (the memory tools then stay inert).
+    """
+    global _users_repo
+    if _users_repo is None:
+        _users_repo = UserRepository(connect_users_db(resolve_users_db_path()))
+    return _users_repo
+
+
 def queried_since_last_store() -> bool:
     """Whether a query_context happened since the last store_entry."""
     return _queried_since_last_store
@@ -97,6 +142,15 @@ def mark_context_queried() -> None:
 def reset_queried_flag() -> None:
     global _queried_since_last_store
     _queried_since_last_store = False
+
+
+def observation_budget_available() -> bool:
+    return _observation_count < OBSERVATION_SESSION_LIMIT
+
+
+def count_observation() -> None:
+    global _observation_count
+    _observation_count += 1
 
 
 def get_cached_project_rules() -> str | None:

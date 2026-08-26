@@ -4,6 +4,10 @@ import os
 import sys
 sys.path.insert(0, "src")
 
+# Absolute so the stdio subprocess resolves the package regardless of the
+# pytest invocation directory (repo root vs this directory).
+_SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "src")
+
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
@@ -28,8 +32,9 @@ async def main_language():
         args=["-m", "wpm_mcp_server"],
         env={
             "WPM_DB_PATH": ".stdio_test_lang.db",
+            "WPM_USERS_DB_PATH": ".stdio_test_users_lang.db",
             "WPM_RESPONSE_LANGUAGE": "french",
-            "PYTHONPATH": "src",
+            "PYTHONPATH": _SRC,
         },
     )
     try:
@@ -63,7 +68,92 @@ async def main_language():
                     "MUST be written in french" in rules_text,
                 )
     finally:
-        for f in [".stdio_test_lang.db", ".stdio_test_lang.db-wal", ".stdio_test_lang.db-shm"]:
+        for f in [".stdio_test_lang.db", ".stdio_test_lang.db-wal", ".stdio_test_lang.db-shm",
+                  ".stdio_test_users_lang.db", ".stdio_test_users_lang.db-wal",
+                  ".stdio_test_users_lang.db-shm"]:
+            if os.path.exists(f):
+                os.remove(f)
+
+    print(f"\n{pass_count} passed, {fail_count} failed")
+    if fail_count > 0:
+        sys.exit(1)
+
+
+async def main_observation_disabled():
+    """Capture toggled off in users.db before the server starts: inferred
+    recordings must refuse cleanly while declared statements and reads
+    still work.
+    """
+    global pass_count, fail_count
+    from wpm_mcp_server.storage.users import (
+        UserRepository,
+        connect_users_db,
+    )
+
+    seed = connect_users_db(".stdio_test_users_off.db")
+    repo = UserRepository(seed)
+    repo.save_user("Noha", language="french")
+    repo.set_observations_enabled(False)
+    seed.close()
+
+    params = StdioServerParameters(
+        command=sys.executable,
+        args=["-m", "wpm_mcp_server"],
+        env={"WPM_USERS_DB_PATH": ".stdio_test_users_off.db", "PYTHONPATH": _SRC},
+    )
+    try:
+        async with stdio_client(params) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+
+                rec = json.loads(
+                    (
+                        await session.call_tool(
+                            "record_user_observation",
+                            {"content": "anything"},
+                        )
+                    ).content[0].text
+                )
+                check("disabled capture rejects inferred recording",
+                      rec.get("error") is True and rec.get("disabled") is True
+                      and "user-observations on" in rec.get("message", ""),
+                      f"got {rec}")
+
+                lst = json.loads(
+                    (await session.call_tool("get_user_observations", {})).content[0].text
+                )
+                check("listing still available with capture off",
+                      lst.get("error") is None and lst.get("total") == 0, f"got {lst}")
+
+                dec = json.loads(
+                    (
+                        await session.call_tool(
+                            "record_user_observation",
+                            {"content": "always answer in french", "source": "declared"},
+                        )
+                    ).content[0].text
+                )
+                check("declared recording unaffected by capture flag",
+                      dec.get("created") is True
+                      and dec["observation"]["source"] == "declared", f"got {dec}")
+
+                cur = json.loads(
+                    (await session.call_tool("get_user", {})).content[0].text
+                )
+                check("profile tools unaffected by capture flag",
+                      cur.get("current") is True and cur["profile"]["name"] == "Noha",
+                      f"got {cur}")
+
+                resource = await session.read_resource("wpm://current-user")
+                text = resource.contents[0].text
+                check("resource renders profile + declared with capture off",
+                      "<current-user>" in text
+                      and "## User preferences" in text
+                      and "always answer in french" in text
+                      and "Observed" not in text, f"got {text[:200]}")
+    finally:
+        for f in [".stdio_test_users_off.db", ".stdio_test_users_off.db-wal",
+                  ".stdio_test_users_off.db-shm"]:
             if os.path.exists(f):
                 os.remove(f)
 
@@ -77,8 +167,14 @@ async def main():
     params = StdioServerParameters(
         command=sys.executable,
         args=["-m", "wpm_mcp_server"],
-        env={"WPM_DB_PATH": ".stdio_test.db", "PYTHONPATH": "src"},
+        env={"WPM_DB_PATH": ".stdio_test.db", "WPM_USERS_DB_PATH": ".stdio_test_users.db", "PYTHONPATH": _SRC},
     )
+    # Pre-seed the global user store: profile creation is CLI-only now, and
+    # the seeded language exercises the resolveResponseLanguage override.
+    from wpm_mcp_server.storage.users import UserRepository, connect_users_db
+    _seed = connect_users_db(".stdio_test_users.db")
+    UserRepository(_seed).save_user("Noha", language="french", introduction="dev full-stack")
+    _seed.close()
     try:
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:
@@ -87,7 +183,7 @@ async def main():
                 # --- tool listing ---
                 tools = await session.list_tools()
                 names = [t.name for t in tools.tools]
-                check("11 tools registered", len(names) == 11, f"got {len(names)}: {names}")
+                check("14 tools registered", len(names) == 14, f"got {len(names)}: {names}")
                 check("store_entry present", "store_entry" in names)
                 check("query_context present", "query_context" in names)
                 check("validate_entry present", "validate_entry" in names)
@@ -99,6 +195,12 @@ async def main():
                 check("restore_entry present", "restore_entry" in names)
                 check("list_entries present", "list_entries" in names)
                 check("record_execution present", "record_execution" in names)
+                check("get_user present", "get_user" in names)
+                check("record_user_observation present", "record_user_observation" in names)
+                check("get_user_observations present", "get_user_observations" in names)
+                check("save_user absent", "save_user" not in names)
+                check("add_user_preference absent (merged)", "add_user_preference" not in names)
+                check("get_user_preferences absent (merged)", "get_user_preferences" not in names)
 
                 query_desc = ""
                 for t in tools.tools:
@@ -118,8 +220,9 @@ async def main():
                     f"len={len(inst)}",
                 )
                 check(
-                    "auto language clause follows the user's language",
-                    "same language as the user" in inst and "do not switch to English" in inst,
+                    "profile language overrides config in instructions",
+                    "MUST be written in french" in inst,
+                    f"got {inst[-200:]}",
                 )
 
                 # --- resources ---
@@ -138,6 +241,11 @@ async def main():
                 check(
                     "wpm://verification-commands resource",
                     "wpm://verification-commands" in resource_uris,
+                    f"got {resource_uris}",
+                )
+                check(
+                    "wpm://current-user resource",
+                    "wpm://current-user" in resource_uris,
                     f"got {resource_uris}",
                 )
                 rules_resource = await session.read_resource("wpm://memory-rules")
@@ -379,8 +487,100 @@ async def main():
                 listing = json.loads(list_raw.content[0].text)
                 check("list_entries has no reminder", "reminder" not in listing)
 
+                # --- user profiles: seeded profile, reads + declarations ---
+                cur = json.loads(
+                    (await session.call_tool("get_user", {})).content[0].text
+                )
+                check("get_user returns seeded profile",
+                      cur.get("current") is True and cur["profile"]["name"] == "Noha"
+                      and cur["profile"]["language"] == "french",
+                      f"got {cur}")
+
+                pref_add = json.loads(
+                    (
+                        await session.call_tool(
+                            "record_user_observation",
+                            {"content": "Noha prefers that I be more concise",
+                             "source": "declared"},
+                        )
+                    ).content[0].text
+                )
+                check("declared preference recorded",
+                      pref_add.get("created") is True
+                      and pref_add["observation"]["source"] == "declared", f"got {pref_add}")
+
+                obs_list = json.loads(
+                    (await session.call_tool("get_user_observations", {})).content[0].text
+                )
+                check("listing shows the declared statement",
+                      obs_list.get("total") == 1
+                      and obs_list["observations"][0]["source"] == "declared",
+                      f"got {obs_list}")
+
+                user_resource = await session.read_resource("wpm://current-user")
+                user_text = user_resource.contents[0].text
+                check(
+                    "current-user resource renders identity + preferences",
+                    user_text.startswith("<current-user>")
+                    and "name: Noha" in user_text
+                    and "respond in: french" in user_text
+                    and "## User preferences" in user_text
+                    and "more concise" in user_text,
+                    f"got {user_text[:200]}",
+                )
+
+                # --- inferred observations: record, reinforce, inject ---
+                obs1 = json.loads(
+                    (
+                        await session.call_tool(
+                            "record_user_observation",
+                            {"source": "inferred", "category": "workflow",
+                             "content": "mixes up rebase and merge"},
+                        )
+                    ).content[0].text
+                )
+                check("record_user_observation creates singleton",
+                      obs1.get("created") is True and obs1["observation"]["count"] == 1,
+                      f"got {obs1}")
+
+                listing = json.loads(
+                    (await session.call_tool("get_user_observations", {})).content[0].text
+                )
+                check("listing holds declared + inferred singleton",
+                      listing.get("total") == 2, f"got {listing}")
+
+                obs2 = json.loads(
+                    (
+                        await session.call_tool(
+                            "record_user_observation",
+                            {"source": "inferred", "category": "habit",
+                             "content": "confuses rebase with merge semantics",
+                             "reinforce_id": obs1["observation"]["id"]},
+                        )
+                    ).content[0].text
+                )
+                check("reinforce increments count",
+                      obs2.get("created") is False and obs2["observation"]["count"] == 2,
+                      f"got {obs2}")
+
+                user_resource = await session.read_resource("wpm://current-user")
+                user_text = user_resource.contents[0].text
+                check(
+                    "recurring observation surfaces in injected block",
+                    "Observed recurring patterns" in user_text
+                    and "(seen x2, last " in user_text,
+                    f"got {user_text[:200]}",
+                )
+
+                gated = json.loads(
+                    (await session.call_tool("get_user", {})).content[0].text
+                )
+                check("profile still current after observations", gated.get("current") is True)
+
     finally:
-        for f in [".stdio_test.db", ".stdio_test.db-wal", ".stdio_test.db-shm"]:
+        for f in [".stdio_test.db", ".stdio_test.db-wal", ".stdio_test.db-shm",
+                  ".stdio_test_users.db", ".stdio_test_users.db-wal",
+                  ".stdio_test_users.db-shm"]:
             if os.path.exists(f):
                 os.remove(f)
 
@@ -391,3 +591,4 @@ async def main():
 
 asyncio.run(main())
 asyncio.run(main_language())
+asyncio.run(main_observation_disabled())

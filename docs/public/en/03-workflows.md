@@ -75,11 +75,12 @@ If nothing emerges, the negative result is reported.
 
 ## `wpm-persist`
 
-End-of-task persistence pass. Triggered automatically when the session goes
-idle, but can also be invoked explicitly (e.g. `/wpm-persist`) to write any
-durable fact left unpersisted — decisions, confirmed results, understood bug
-patterns. If nothing remains to persist, it does nothing and does not respond;
-otherwise it summarizes what was stored and states that persistence is complete.
+Silent persistence pass, injected automatically between turns when the
+session goes idle — the session keeps running normally afterwards. Can also
+be invoked explicitly (e.g. `/wpm-persist`) to write any durable fact left
+unpersisted — decisions, confirmed results, understood bug patterns. If
+anything was persisted: one short line summarizing it. Otherwise: no message
+at all — no acknowledgment, no justification.
 
 ---
 

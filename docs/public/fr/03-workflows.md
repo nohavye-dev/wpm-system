@@ -78,12 +78,12 @@ Si rien n'émerge, le résultat négatif est signalé.
 
 ## `wpm-persist`
 
-Pass de persistance de fin de tâche. Déclenché automatiquement quand la
-session devient inactive, mais peut aussi être invoqué explicitement (ex.
-`/wpm-persist`) pour écrire tout fait durable resté non persisté —
-décisions, résultats confirmés, bug patterns compris. S'il ne reste rien à
-persister, il ne fait rien et ne répond pas ; sinon il résume ce qui a été
-stocké et indique que la persistance est terminée.
+Passe de persistance silencieuse, injectée automatiquement entre les tours
+quand la session devient inactive — la session continue normalement après.
+Invoquable explicitement (`/wpm-persist`) pour écrire tout fait durable
+resté non persisté — décisions, résultats confirmés, bug patterns compris.
+Si quelque chose a été persisté : une seule ligne courte le résumant. Sinon :
+aucun message — pas d'acquittement, pas de justification.
 
 ---
 

@@ -234,6 +234,51 @@ GET_MEMORY_STATS_PROMPT = (
     .to_string()
 )
 
+GET_USER_PROMPT = (
+    PromptTask("get_user")
+    .add_instruction(
+        "Return the current user's conversation profile: name, response language, introduction, plus the stated preferences and recorded observations.",
+        "Call it whenever you need to know who you are talking to or how to address them — especially at session start, after context compaction, or when language or tone is ambiguous.",
+        "When no profile exists, say so instead of guessing preferences.",
+    )
+    .add_constraint(
+        "Profiles describe the human user, not the project: do not feed them into project memory operations.",
+        "Profiles are managed by the human via the wpm CLI (wpm new-user, wpm current-user); you cannot create or edit them yourself.",
+    )
+    .to_string()
+)
+
+RECORD_USER_OBSERVATION_PROMPT = (
+    PromptTask("record_user_observation")
+    .add_instruction(
+        "Record one observation about the human user in the global user store. Pick the source from where the information comes:",
+        "source=declared — the user just stated it themselves (e.g. \"talk to me more simply\", \"explain more going forward\"): a durable preference about how you should behave. Category is not used.",
+        "source=inferred — you noticed a pattern yourself; pick exactly one category: habit (recurring routine, e.g. runs tests before every push), workflow (tool/process preference, e.g. prefers pnpm), knowledge (stack or domain expertise), context (factual situation, e.g. role, timezone, team), communication (interaction style, e.g. blunt feedback), personal (attitude or trait, e.g. likes being challenged); no other value exists.",
+        "Immediately before recording, call get_user_observations: for inferred patterns, if an existing one captures the same pattern pass its id as reinforce_id (increments count) instead of duplicating; for declared statements, if the new statement contradicts an existing declared preference pass its id as replaces_id — the old statement is removed.",
+        "When you notice such a pattern, record it right away — do not wait for certainty; the reinforce flow keeps the store deduplicated.",
+        "Record silently: do not announce recordings to the user; they can review and correct them via 'wpm user-observations'.",
+    )
+    .add_constraint(
+        "Never infer a durable pattern from one ambiguous signal.",
+        "Only the user's own words create declared statements; your own observations are always source=inferred and can never replace a declared preference.",
+        "This stores knowledge about the person, never project facts: it is not an alternative to store_entry.",
+    )
+    .to_string()
+)
+
+GET_USER_OBSERVATIONS_PROMPT = (
+    PromptTask("get_user_observations")
+    .add_instruction(
+        "List everything recorded about the current user: id, source (declared preference vs inferred pattern), category, content, count.",
+        "Call it before record_user_observation to decide reinforce versus add (inferred) or spot a contradictory declaration to supersede via replaces_id (declared), and on demand to review what has been learned about this user.",
+        "Declared preferences are always injected in full; only inferred patterns reinforced at least twice and refreshed within the last 30 days surface automatically in the <current-user> block — this tool shows everything.",
+    )
+    .add_constraint(
+        "Inferred observations are non-declared knowledge: treat declared preferences as authoritative on conflict.",
+    )
+    .to_string()
+)
+
 REMINDER_RELATED_CONTEXT = (
     "related_context is 1-hop associative recall — lower "
     "confidence than direct_matches, mention it cautiously."
@@ -243,7 +288,8 @@ PROJECT_RULES_PROMPT_RESOURCE = (
     PromptTask("project_rules")
     .add_instruction(
         "High-confidence project conventions and architecture decisions derived from persistent memory.",
-        "Read at session start; re-read after memory changes when conventions or architecture decisions may be affected.",
+        "Read at session start; re-read after memory changes when conventions or architecture decisions may be affected."
+        + ("" if not push_mode() else " In push mode this block is pushed automatically each turn; do not read via resource."),
         "Treat rules as derived knowledge, not immutable facts — verify against current evidence when they conflict with the project state.",
     )
     .to_string()
@@ -264,6 +310,18 @@ VERIFICATION_COMMANDS_PROMPT_RESOURCE = (
     .add_instruction(
         "The configured command patterns that qualify as strong execution_verified evidence for record_execution.",
         "Consult before recording a command result as verification evidence; only matching patterns qualify.",
+    )
+    .to_string()
+)
+
+CURRENT_USER_PROMPT_RESOURCE = (
+    PromptTask("current_user")
+    .add_instruction(
+        "The current user's conversation profile as a tagged Markdown block (<current-user>).",
+        "Read at session start and re-read when identity or preferences may have changed (user switch, profile update)."
+        + ("" if not push_mode() else " In push mode this block is pushed automatically each turn; prefer get_user when in doubt."),
+        "Apply the stated language and preferences to conversational responses; it carries no project knowledge.",
+        "May include an 'Observed recurring patterns' section: inferred, non-declared knowledge — stated preferences remain authoritative.",
     )
     .to_string()
 )

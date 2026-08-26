@@ -37,17 +37,32 @@ def _build_memory_usage_rules(response_clause: str, pull_instructions: bool = Tr
     if response_clause:
         ctx.add_instruction(response_clause)
     startup_steps = [
-        "Call query_context for the current topic before reading any project file.",
+        (
+            "If no <wpm-memory-recall> was pushed this turn or it is insufficient, "
+            "call query_context for the current topic before reading any project file."
+            if not pull_instructions
+            else "Call query_context for the current topic before reading any project file."
+        ),
         "Store each durable fact as soon as it emerges.",
         "Validate a stored fact with external evidence once independently confirmed.",
     ]
     if pull_instructions:
         startup_steps.insert(0, "Read the wpm://project-rules resource.")
+        startup_steps.insert(
+            1,
+            "Read the wpm://current-user resource and apply its conversation "
+            "preferences (name, language, stated preferences).",
+        )
     return (
         ctx.add_task(
             PromptTask("Golden Rules")
             .add_instruction(
-                "MEMORY FIRST: Call query_context on the relevant topic before reading a file, searching the codebase, or starting a substantive answer.",
+                (
+                    "MEMORY FIRST: If no <wpm-memory-recall> was pushed this turn or it is insufficient, "
+                    "call query_context with a reformulated query before reading a file, searching the codebase, or starting a substantive answer."
+                    if not pull_instructions
+                    else "MEMORY FIRST: Call query_context on the relevant topic before reading a file, searching the codebase, or starting a substantive answer."
+                ),
                 "WRITE AS YOU GO: Immediately call store_entry whenever a durable fact emerges (decisions, conventions, confirmed test results, bug patterns, other knowledge likely to remain useful) — do not defer writes until the end of a task.",
                 "PROOF BEFORE VALIDATION: Obtain external, checkable evidence (test output, logs, file paths, source code, documentation, or another relevant entry) before validate_entry or contradict_entry.",
             )
@@ -70,6 +85,8 @@ def _build_memory_usage_rules(response_clause: str, pull_instructions: bool = Tr
             .add_instruction(
                 "Prioritize reliability over completeness: prefer an underpopulated memory to one polluted with incorrect, duplicated, or artificially strengthened information.",
                 "Memory is your own state, not the project's: writing it never modifies the project. Use memory write tools whenever a durable fact emerges; if the host blocks a write, retry immediately.",
+                "When a <current-user> block is present in context, treat it as authoritative for who you are talking to and apply its preferences (language, stated preferences); re-consult get_user after compaction or when in doubt.",
+                "When the user states a preference (source=declared) or you notice a pattern about them — habit, workflow, knowledge, context, communication style, or personal trait (source=inferred) — record it with record_user_observation, checking get_user_observations first to reinforce existing patterns or supersede contradicted preferences. Record silently; do not announce it.",
                 "For entry types, source selection, deduplication, evidence hierarchy, query-result handling, pinning, deprecation, linking, native-language content, end-of-session persistence, and execution recording, consult the relevant tool description at the moment of decision.",
             )
         )

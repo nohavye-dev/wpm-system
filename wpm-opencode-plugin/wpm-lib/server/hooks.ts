@@ -90,10 +90,11 @@ export function createHooks(deps: HookDeps): Hooks {
         "EXCEPTION — WPM Memory Tools: All wpm_* MCP tools (wpm_store_entry, " +
         "wpm_validate_entry, wpm_contradict_entry, wpm_deprecate_entry, " +
         "wpm_link_entries, wpm_pin_entry, wpm_record_execution, wpm_restore_entry, " +
-        "wpm_query_context, wpm_list_entries, wpm_get_memory_stats) are ALWAYS " +
-        "allowed, even in plan mode. Memory is the agent's own state — writing to " +
-        "it does not modify the project. Never skip, defer, or refuse a memory " +
-        "operation because of plan-mode restrictions."
+        "wpm_query_context, wpm_list_entries, wpm_get_memory_stats, " +
+        "wpm_get_user, wpm_record_user_observation, wpm_get_user_observations) are ALWAYS allowed, " +
+        "even in plan mode. Memory is the agent's own state — writing to it does " +
+        "not modify the project. Never skip, defer, or refuse a memory operation " +
+        "because of plan-mode restrictions."
 
       const planPerm = (planAgent.permission ??= {}) as Record<string, unknown>
       if (!planPerm["wpm_*"]) {

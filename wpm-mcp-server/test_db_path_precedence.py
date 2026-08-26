@@ -4,6 +4,14 @@ import subprocess
 import sys
 import tempfile
 
+# Absolute so the subprocesses resolve the package regardless of the pytest
+# invocation directory (repo root vs this directory).
+_HERE = os.path.dirname(os.path.abspath(__file__))
+
+def _src_env(env: dict) -> dict:
+    env["PYTHONPATH"] = os.path.join(_HERE, "src")
+    return env
+
 # Case A: only wpm.config.json sets db_path -> server should use it
 workdir_a = tempfile.mkdtemp()
 db_path_a = os.path.join(workdir_a, "from_json.db")
@@ -12,7 +20,7 @@ with open(os.path.join(workdir_a, "wpm.config.json"), "w") as f:
 
 env_a = dict(os.environ)
 env_a.pop("WPM_DB_PATH", None)
-env_a["PYTHONPATH"] = os.path.join(os.getcwd(), "src")
+_src_env(env_a)
 subprocess.run(
     [sys.executable, "-c", "from wpm_mcp_server.server import DB_PATH; print(DB_PATH)"],
     cwd=workdir_a,
@@ -44,7 +52,7 @@ with open(os.path.join(workdir_c, "wpm.config.json"), "w") as f:
 
 env_c = dict(os.environ)
 env_c.pop("WPM_DB_PATH", None)
-env_c["PYTHONPATH"] = os.path.join(os.getcwd(), "src")
+_src_env(env_c)
 result_c = subprocess.run(
     [sys.executable, "-c", "from wpm_mcp_server.server import DB_PATH; print(DB_PATH)"],
     cwd=workdir_c,
@@ -65,7 +73,7 @@ with open(config_d, "w") as f:
     json.dump({"db_path": ".wpm/rel.db"}, f)
 env_d = dict(os.environ)
 env_d.pop("WPM_DB_PATH", None)
-env_d["PYTHONPATH"] = os.path.join(os.getcwd(), "src")
+_src_env(env_d)
 env_d["WPM_CONFIG_PATH"] = config_d
 result_d = subprocess.run(
     [sys.executable, "-c", "from wpm_mcp_server.server import DB_PATH; print(DB_PATH)"],

@@ -12,6 +12,7 @@ import { resolvePythonPath } from "../infra/paths"
 const PROTOCOL_VERSION = "2025-06-18"
 const CLIENT_INFO = { name: "wpm-opencode-plugin", version: "1.0.0" }
 export const PROJECT_RULES_URI = "wpm://project-rules"
+export const CURRENT_USER_URI = "wpm://current-user"
 const MEMORY_RULES_URI = "wpm://memory-rules"
 
 const INIT_TIMEOUT_MS = 10_000
@@ -130,6 +131,14 @@ export class WpmMcpClient {
 
   readProjectRules(): Promise<string | undefined> {
     return this.readResource(PROJECT_RULES_URI)
+  }
+
+  // Fresh read, deliberately bypassing the resource cache: users.db is
+  // written by other processes (CLI current-user switch, another session's
+  // recordings), so no resources/updated notification can ever fire for it.
+  async readCurrentUser(): Promise<string | undefined> {
+    const result = (await this.call("resources/read", { uri: CURRENT_USER_URI })) as McpReadResourceResult
+    return result?.contents?.find((c) => typeof c.text === "string")?.text
   }
 
   readMemoryRules(): Promise<string | undefined> {

@@ -78,7 +78,19 @@ En plus de `wpm enable` / `wpm disable` :
   partir d'un export (embeddings recalculés) ;
 - `wpm reembed` — ré-encoder toutes les entrées (obligatoire après un
   changement de modèle d'embedding) ;
-- `wpm uninstall` — désinstaller complètement (venv, binaire, plugin).
+- `wpm new-user` — créer (ou mettre à jour) un profil utilisateur de façon
+  interactive (prénom, langue en auto-complétion, présentation facultative) ;
+  le profil devient l'utilisateur courant ;
+- `wpm current-user [<nom>|none]` — afficher l'utilisateur courant, basculer
+  sur `<nom>`, ou désactiver l'usage des profils avec `none` (données
+  conservées) ; `--language` affiche uniquement le token de langue ;
+- `wpm list-users` — lister les profils (`*` marque l'utilisateur courant) ;
+- `wpm remove-user <nom>` — supprimer un profil ;
+- `wpm user-observations [on|off]` — statut et liste des observations
+  comportementales, ou bascule de la captation (activée par défaut) ;
+- `wpm remove-user-observation <id>` — supprimer une observation erronée ;
+- `wpm uninstall` — désinstaller complètement (venv, binaire, plugin ;
+  les profils utilisateurs sous `~/.config/wpm-system/` sont conservés).
 
 ---
 
@@ -93,6 +105,19 @@ Une fois activé, votre agent peut :
 - **capturer les tests/builds** automatiquement (`record_execution`) ;
 - **épingler / déprécier / restaurer** des souvenirs (`pin_entry`,
   `deprecate_entry`, `restore_entry`) ;
+- **se souvenir de qui vous êtes** (`get_user`, `wpm new-user`) : un profil
+  global (prénom, langue, présentation) qui suit la personne de projet en
+  projet ; la langue du profil **prime** sur la config ; appliqué
+  automatiquement à chaque tour ;
+- **appliquer vos préférences** : dites-les simplement en session (« sois
+  plus concis ») — l'agent les enregistre silencieusement comme énoncés
+  **déclarés**, toujours injectés dans le profil et sans déclin ; une
+  nouvelle déclaration contradictoire remplace l'ancienne ;
+- **s'adapter à vos habitudes** (`record_user_observation`, source
+  `inferred`) : attitudes, comportements récurrents et incompréhensions
+  notés silencieusement, puis injectés au profil dès qu'un motif se
+  répète (visible et corrigeable via `wpm user-observations` /
+  `remove-user-observation`, désactivable) ;
 - lire les **règles du projet** recomposées depuis la mémoire ;
 - **sauvegarder / ré-encoder** la base hors session (`wpm export`,
   `wpm generate`, `wpm reembed`).
@@ -120,6 +145,23 @@ scripts/update-source-checksum.sh
 
 Puis commitez le `SHA256SUMS` mis à jour. Sans cela, l'installation par
 `curl | bash` échouera sur un échec de vérification.
+
+### Tester sur l'installation globale
+
+Pour tester le worktree courant en conditions réelles sans réinstaller :
+
+```bash
+scripts/sync-install.sh        # dry-run : liste les copies prévues
+scripts/sync-install.sh -y     # applique
+scripts/sync-install.sh -t -y  # lance pytest + bun test comme garde préalable
+```
+
+Le script se base sur `git status` (modifiés **et nouveaux non commités**),
+mappe chaque fichier vers sa destination réelle (site-packages du venv,
+binaire `wpm` avec rewrite de shebang, plugins dir actif + copie de
+référence) et ignore le reste (docs, tests). Redémarrez les sessions
+opencode après application : le serveur chaud (plugin_master) garde
+l'ancien code jusqu'au restart.
 
 ### Branches et publication
 

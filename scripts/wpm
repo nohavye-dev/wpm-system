@@ -487,6 +487,273 @@ def cmd_generate(args: argparse.Namespace) -> None:
     print(f"     {n_entries} entries, {n_events} events, {n_links} links — embeddings regenerated")
 
 
+# ── users (global profiles, work anywhere — no project activation) ─────
+
+def _users_repo():
+    from wpm_mcp_server.core.errors import WpmError
+    from wpm_mcp_server.storage.users import (
+        UserRepository,
+        connect_users_db,
+        resolve_users_db_path,
+    )
+    return UserRepository(connect_users_db(resolve_users_db_path())), WpmError
+
+
+def _prompt_language_autocomplete() -> str:
+    """Interactive prefix autocomplete over SUPPORTED_LANGUAGES.
+
+    Raw terminal: typed letters in white, proposed completion in gray,
+    up/down to move among candidates, right-arrow or Enter to accept,
+    backspace/left to edit, Ctrl-C to cancel. Falls back to a plain input()
+    when stdin is not a TTY.
+    """
+    from wpm_mcp_server.core.constants import SUPPORTED_LANGUAGES, match_languages
+
+    if not sys.stdin.isatty():
+        print("Choose your language (English name, e.g. 'french'):")
+        while True:
+            value = input("> ").strip().lower()
+            if value in SUPPORTED_LANGUAGES:
+                return value
+            if value:
+                print(f"wpm: unknown language '{value}' — examples: "
+                      f"{', '.join(SUPPORTED_LANGUAGES[:10])} ...")
+        return value
+
+    import termios
+    import tty
+
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    query = ""
+    sel = 0
+    try:
+        tty.setraw(fd)
+        while True:
+            matches = match_languages(query, limit=8)
+            if query and not matches:
+                matches = [query]  # free-form beyond the list
+            sel %= max(len(matches), 1)
+            suffix = matches[sel][len(query):] if matches else ""
+            # Single-line render: typed prefix in white, proposed completion
+            # in gray — no visible candidate list.
+            sys.stdout.write("\r\x1b[2K")
+            sys.stdout.write("\x1b[37m" + "Choose your language: " + query + "\x1b[0m")
+            sys.stdout.write("\x1b[90m" + suffix + "\x1b[0m")
+            sys.stdout.flush()
+            ch = sys.stdin.read(1)
+            if ch == "\x1b":
+                seq = sys.stdin.read(2)
+                if seq == "[A":
+                    sel = (sel - 1) % max(len(matches), 1)
+                elif seq == "[B":
+                    sel = (sel + 1) % max(len(matches), 1)
+                elif seq == "[C":
+                    if matches:
+                        query = matches[sel]
+                        sel = 0
+                elif seq == "[D":
+                    query = query[:-1]
+                    sel = 0
+                continue
+            if ch in ("\r", "\n"):
+                return matches[sel] if matches else query
+            if ch in ("\x7f", "\x08"):
+                query = query[:-1]
+                sel = 0
+                continue
+            if ch == "\x03":
+                raise KeyboardInterrupt
+            if ch.isprintable():
+                query = query + ch
+                sel = 0
+    finally:
+        sys.stdout.write("\x1b[0m\r\n")
+        sys.stdout.flush()
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+
+def cmd_new_user() -> None:
+    """Interactive creation: the only path to define a user."""
+    repo, _ = _users_repo()
+
+    while True:
+        try:
+            name = input("Enter your first name: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nwpm: aborted")
+            sys.exit(0)
+        if not name:
+            print("wpm: a first name is required")
+            continue
+        if name.strip().lower() == "none":
+            print("wpm: the name 'none' is reserved (it clears the active user)")
+            continue
+        break
+
+    language = _prompt_language_autocomplete()
+
+    try:
+        introduction = input("Introduce yourself (optional, Enter to skip): ").strip() or None
+    except (EOFError, KeyboardInterrupt):
+        introduction = None
+
+    try:
+        existing = repo.get_user(name)
+    except ValueError:
+        existing = None
+    mode = "updated" if existing else "created"
+
+    print("---")
+    print(f"  name:         {name}")
+    print(f"  language:     {language}")
+    print(f"  introduction: {introduction or '(none)'}")
+    print(f"  action:       {mode} + set as current user")
+    try:
+        answer = input("Save? [Y/n] ")
+    except (EOFError, KeyboardInterrupt):
+        answer = ""
+    if answer.strip().lower() not in ("", "y", "yes"):
+        print("wpm: aborted")
+        sys.exit(0)
+
+    try:
+        result = repo.save_user(name=name, language=language, introduction=introduction)
+    except ValueError as exc:
+        print(f"wpm: {exc}")
+        sys.exit(1)
+    print(f"wpm: profile '{result['profile']['name']}' {mode} and set as current user")
+
+
+def cmd_current_user(name: str | None, language_only: bool = False) -> None:
+    repo, WpmError = _users_repo()
+    if name is not None and name.strip().lower() == "none":
+        repo.clear_current_user()
+        print("wpm: no current user — profile usage inactive")
+        print("     'wpm new-user' or 'wpm current-user <name>' to reactivate")
+        return
+    profile = repo.get_current_user()
+    if language_only:
+        print((profile or {}).get("language") or "", end="")
+        return
+    if profile is None:
+        print("wpm: no current user")
+        print("     run 'wpm new-user' to create one, or 'wpm current-user <name>'")
+        return
+    if name is None:
+        print(f"current user: {profile['name']}")
+        if profile.get("language"):
+            print(f"  language: {profile['language']}")
+        if profile.get("introduction"):
+            print(f"  introduction: {profile['introduction']}")
+        return
+    try:
+        profile = repo.set_current_user(name)
+    except WpmError as exc:
+        print(f"wpm: {exc}")
+        known = ", ".join(u["name"] for u in repo.get_users()) or "(none)"
+        print(f"wpm: known users: {known}")
+        sys.exit(1)
+    print(f"wpm: current user set to '{profile['name']}'")
+
+
+def cmd_list_users() -> None:
+    repo, _ = _users_repo()
+    users = repo.get_users()
+    if not users:
+        print("wpm: no user profiles yet — run 'wpm new-user'")
+        return
+    current = repo.get_current_user()
+    current_name = current["name"] if current else None
+    for user in users:
+        marker = "*" if user["name"] == current_name else " "
+        print(f"{marker} {user['name']}  updated {user['updated_at']}")
+    if current_name is None:
+        print("(no current user — 'wpm current-user <name>' to activate one)")
+
+
+def cmd_remove_user(name: str, yes: bool) -> None:
+    repo, WpmError = _users_repo()
+    existing = repo.get_user(name)
+    if existing is None:
+        print(f"wpm: no user profile matching '{name}'")
+        sys.exit(1)
+    display = existing["name"]
+    if not yes:
+        try:
+            answer = input(f"Delete user profile '{display}'? [y/N] ")
+        except (EOFError, KeyboardInterrupt):
+            answer = ""
+        if answer.strip().lower() not in ("y", "yes"):
+            print("wpm: aborted")
+            return
+    result = repo.remove_user(existing["name"])
+    suffix = " (was the current user)" if result.get("was_current") else ""
+    print(f"wpm: removed user '{existing['name']}'{suffix}")
+
+
+def cmd_user_observations(state_arg: str | None) -> None:
+    repo, WpmError = _users_repo()
+    if state_arg is not None and state_arg.strip().lower() in ("on", "off"):
+        enabled = state_arg.strip().lower() == "on"
+        repo.set_observations_enabled(enabled)
+        print(f"wpm: user observation capture {'enabled' if enabled else 'disabled'}")
+        return
+    if state_arg is not None:
+        print("wpm: usage — wpm user-observations [on|off]")
+        sys.exit(1)
+
+    status = "on" if repo.observations_enabled() else "off"
+    print(f"observation capture: {status} (applies to inferred patterns only)")
+    current = repo.get_current_user()
+    if current is None:
+        print("(no current user — observations require one; 'wpm new-user' to start)")
+        return
+    observations = repo.get_user_observations()
+    if not observations:
+        print("no recorded observations yet for", current["name"])
+        return
+
+    from wpm_mcp_server.core.constants import OBSERVATION_CATEGORIES
+
+    declared = [o for o in observations if o.get("source") == "declared"]
+    inferred = [o for o in observations if o.get("source") != "declared"]
+
+    def print_rows(rows):
+        by_recency = sorted(rows, key=lambda o: str(o["updated_at"]), reverse=True)
+        for obs in sorted(by_recency, key=lambda o: int(o["count"]), reverse=True):
+            last_seen = str(obs["updated_at"])[:10]
+            print(f"  [{obs['id']}] {obs['content']} (last {last_seen})")
+
+    if declared:
+        print("declared preferences:")
+        print_rows(declared)
+    if not inferred:
+        return
+
+    grouped: dict = {}
+    for obs in inferred:
+        grouped.setdefault(obs["category"] or "unknown", []).append(obs)
+    order = {c: i for i, c in enumerate(OBSERVATION_CATEGORIES)}
+    for category in sorted(grouped, key=lambda c: (order.get(c, len(order)), c)):
+        print(f"{category}:")
+        rows = grouped[category]
+        by_recency = sorted(rows, key=lambda o: str(o["updated_at"]), reverse=True)
+        for obs in sorted(by_recency, key=lambda o: int(o["count"]), reverse=True):
+            last_seen = str(obs["updated_at"])[:10]
+            print(f"  [{obs['id']}] x{obs['count']} {obs['content']} (last {last_seen})")
+
+
+def cmd_remove_user_observation(observation_id: int) -> None:
+    repo, WpmError = _users_repo()
+    try:
+        repo.remove_observation(observation_id)
+    except (WpmError, ValueError) as exc:
+        print(f"wpm: {exc}")
+        sys.exit(1)
+    print(f"wpm: removed observation {observation_id}")
+
+
 # ── main ────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -521,6 +788,24 @@ def main() -> None:
     g.add_argument("input", help="Path to the JSON export file")
     g.add_argument("--output", required=True, help="Path for the new database file")
 
+    p = sub.add_parser("new-user", help="Create (or update) a user profile interactively and make it the current user")
+
+    p = sub.add_parser("current-user", help="Show the current user (no argument), print its language (--language), or switch to <name>")
+    p.add_argument("name", nargs="?", default=None, help="Profile name to make current, or 'none' to deactivate")
+    p.add_argument("--language", action="store_true", help="Print only the current user's language token")
+
+    sub.add_parser("list-users", help="List saved user profiles ('*' marks the current one)")
+
+    p = sub.add_parser("remove-user", help="Delete a user profile")
+    p.add_argument("name", help="Profile name to delete")
+    p.add_argument("--yes", "-y", action="store_true", help="Skip confirmation")
+
+    uo = sub.add_parser("user-observations", help="Show behavioral observations and capture status (no argument) or turn capture on/off")
+    uo.add_argument("state", nargs="?", default=None, help="'on' or 'off'")
+
+    ruo = sub.add_parser("remove-user-observation", help="Delete one recorded observation by id")
+    ruo.add_argument("id", type=int, help="Observation id (see 'wpm user-observations')")
+
     args = parser.parse_args()
 
     if args.subcommand == "enable":
@@ -539,6 +824,18 @@ def main() -> None:
         cmd_reembed()
     elif args.subcommand == "generate":
         cmd_generate(args)
+    elif args.subcommand == "current-user":
+        cmd_current_user(args.name, getattr(args, "language", False))
+    elif args.subcommand == "new-user":
+        cmd_new_user()
+    elif args.subcommand == "list-users":
+        cmd_list_users()
+    elif args.subcommand == "remove-user":
+        cmd_remove_user(args.name, args.yes)
+    elif args.subcommand == "user-observations":
+        cmd_user_observations(args.state)
+    elif args.subcommand == "remove-user-observation":
+        cmd_remove_user_observation(args.id)
     else:
         parser.print_usage()
         sys.exit(1)

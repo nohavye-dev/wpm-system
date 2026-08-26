@@ -1,5 +1,6 @@
 import type { Plugin } from "@opencode-ai/plugin"
 import type { ToolDefinition } from "@opencode-ai/plugin"
+import { $ } from "bun"
 import { join } from "node:path"
 import { buildNudge, buildPersistReminder } from "./wpm-lib/prompts/nudges"
 import { isEnabled, readConfigParam, resolveResponseLanguage } from "./wpm-lib/config/settings"
@@ -42,8 +43,20 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
   const thresholdConfig = readConfigParam(directory, "confidence_threshold")
   const pluginMaster = flagParam(readConfigParam(directory, "plugin_master"))
 
+  // Current user's profile language overrides config (resolveResponseLanguage
+  // stays the single resolution mechanism — only its input changes, fetched
+  // through the wpm CLI to avoid touching any prompt text).
+  // Resolved once at plugin load, like wpm.config.json. A mid-session
+  // `wpm current-user` switch refreshes the <current-user> block on the
+  // next turn (system-push fresh read), but the nudge's language clause
+  // only refreshes on restart — the block remains authoritative.
+  let userLanguage = ""
+  try {
+    const out = await $`wpm current-user --language`.quiet().nothrow().text()
+    userLanguage = out.trim()
+  } catch {}
   const language = resolveResponseLanguage(
-    languageConfig ? String(languageConfig) : undefined,
+    userLanguage || (languageConfig ? String(languageConfig) : undefined),
     process.env.WPM_RESPONSE_LANGUAGE,
   )
   const confidenceThreshold = thresholdConfig ? String(thresholdConfig) : undefined
