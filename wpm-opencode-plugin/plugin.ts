@@ -28,12 +28,6 @@ function numberParam(value: string | number | boolean | undefined, fallback: num
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
-// Accepts the JSON boolean and its string spelling so a mistyped
-// "plugin_master": "true" still opts in, while anything else stays legacy.
-function flagParam(value: string | number | boolean | undefined): boolean {
-  return value === true || value === "true"
-}
-
 export const WpmPlugin: Plugin = async ({ client, directory }) => {
   if (!isEnabled(directory)) {
     return {}
@@ -41,7 +35,6 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
 
   const languageConfig = readConfigParam(directory, "response_language")
   const thresholdConfig = readConfigParam(directory, "confidence_threshold")
-  const pluginMaster = flagParam(readConfigParam(directory, "plugin_master"))
 
   // Current user's profile language overrides config (resolveResponseLanguage
   // stays the single resolution mechanism — only its input changes, fetched
@@ -62,32 +55,25 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
   const confidenceThreshold = thresholdConfig ? String(thresholdConfig) : undefined
   const queriedRecently = new Map<string, boolean>()
 
-  // plugin_master mode: the plugin spawns and owns the MCP server — warm
-  // embedding + rule cache shared by the tool bridge and the deterministic
-  // pushes. Legacy mode (default): opencode hosts the server via the
-  // config hook and the plugin only pushes its nudge; nothing here spawns.
+  // The plugin spawns and owns the MCP server — warm embedding + rule cache
+  // shared by the tool bridge and the deterministic pushes.
   let mcp: WpmMcpClient | undefined
   let bridgedTools: Record<string, ToolDefinition> | undefined
   let goldenRules: string | undefined
 
-  if (pluginMaster) {
-    mcp = new WpmMcpClient({
-      configPath: join(directory, "wpm.config.json"),
-      // The server renders its push prompt variant: rules arrive pushed by
-      // the plugin every turn and no resource-read tool exists in this mode.
-      env: { WPM_PROMPT_MODE: "push" },
-    })
-    registerTeardown(mcp)
-    if (await mcp.start()) {
-      ;[bridgedTools, goldenRules] = await Promise.all([
-        // The bridge feeds the memory-first gate itself: host hooks proved
-        // unreliable for plugin-defined tools.
-        buildBridgedTools(mcp, {
-          onQueryContext: (sessionID) => queriedRecently.set(sessionID, true),
-        }).catch(() => undefined),
-        mcp.readMemoryRules().catch(() => undefined),
-      ])
-    }
+  mcp = new WpmMcpClient({
+    configPath: join(directory, "wpm.config.json"),
+  })
+  registerTeardown(mcp)
+  if (await mcp.start()) {
+    ;[bridgedTools, goldenRules] = await Promise.all([
+      // The bridge feeds the memory-first gate itself: host hooks proved
+      // unreliable for plugin-defined tools.
+      buildBridgedTools(mcp, {
+        onQueryContext: (sessionID) => queriedRecently.set(sessionID, true),
+      }).catch(() => undefined),
+      mcp.readMemoryRules().catch(() => undefined),
+    ])
   }
 
   return createHooks({
@@ -95,11 +81,10 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
     directory,
     language,
     confidenceThreshold,
-    nudge: buildNudge(language, pluginMaster),
+    nudge: buildNudge(language),
     persistReminder: buildPersistReminder(),
     nudged: new Set<string>(),
     queriedRecently,
-    pluginMaster,
     mcp,
     goldenRules,
     bridgedTools,

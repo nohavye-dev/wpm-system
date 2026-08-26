@@ -58,7 +58,7 @@ class TestSchemaCoverage(unittest.TestCase):
         self.assertTrue(set(self.example["domain"]) <= domain_schema)
 
     def test_new_keys_present(self) -> None:
-        for key in ("plugin_master", "rag_similarity_threshold", "rag_max_items"):
+        for key in ("rag_similarity_threshold", "rag_max_items"):
             self.assertIn(key, self.schema["properties"])
             self.assertIn(key, self.example)
 

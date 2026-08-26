@@ -114,28 +114,13 @@ status`/`diff` : `exit 0` n'y prouve rien.
 
 ---
 
-## Mode plugin maître (`plugin_master`)
+## Pop-in mémoire (RAG)
 
-Deux architectures coexistent, choisies par une clé booléenne :
-
-| | Legacy (défaut) | `"plugin_master": true` |
-|---|---|---|
-| Serveur MCP | hébergé par OpenCode (enregistré par le plugin) | spawné et possédé par le plugin |
-| Règles projet | tirées par l'agent (lecture de la resource) | poussées chaque tour dans le contexte |
-| Règles d'or + profil utilisateur | injectés via `initialize.instructions` + lecture de resource | poussés chaque tour dans le contexte |
-| Recherche mémoire | tool `wpm_query_context` (à l'initiative du LLM) | idem + **pop-in** automatique des mémoires fortement pertinentes |
-| Enregistrement des exécutions | via le CLI `wpm` | appel direct du serveur chaud |
-
-```json
-{
-  "db_path": ".wpm/wpm.db",
-  "plugin_master": true
-}
-```
-
-Sans la clé (ou avec `false`), le comportement historique s'applique à
-l'identique. Les deux réglages ci-dessous ne prennent effet qu'en mode
-maître.
+Le plugin spawn et possède le serveur MCP (embedding chaud + cache des règles).
+À chaque tour il pousse dans le contexte : règles d'or, bloc `<current-user>`,
+règles projet et pop-in RAG des mémoires fortement pertinentes (recall du
+dernier message utilisateur). L'enregistrement des exécutions passe par un
+appel direct au serveur chaud.
 
 ### `rag_similarity_threshold` — seuil du pop-in (optionnel, défaut 0.35)
 
@@ -155,7 +140,7 @@ contre le bloc `<project-rules>`.
 "rag_max_items": 5
 ```
 
-Ces deux clés ne sont lues que par le plugin (mode maître) ; les valeurs
+Ces deux clés ne sont lues que par le plugin ; les valeurs
 déclarées côté serveur servent à la validation du schéma.
 
 ---

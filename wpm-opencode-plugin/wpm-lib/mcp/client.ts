@@ -44,8 +44,7 @@ export class WpmMcpClient {
   private readonly configPath: string
   private readonly command?: string[]
   private readonly backoffMs: number
-  // Extra environment merged over process.env for the server subprocess
-  // (e.g. WPM_PROMPT_MODE=push in plugin_master mode).
+  // Extra environment merged over process.env for the server subprocess.
   private readonly extraEnv?: Record<string, string>
   private readonly onResourcesUpdated?: () => void
   private proc?: Subprocess<"pipe", "pipe", "pipe">

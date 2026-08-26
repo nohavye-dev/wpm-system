@@ -8,26 +8,21 @@
 > son succès alimente le gate memory-first. `record-execution` passe par
 > `tools/call`. Voir « Décisions prises à l'implémentation » en fin de document.
 
-## Contexte
+## Contexte (historique)
 
-Aujourd'hui trois processus cohabitent :
+Avant la migration, trois processus cohabitaient :
 
 | Processus | Possesseur | Accès par le plugin |
 |---|---|---|
 | opencode (host) | l'utilisateur | `client` (SDK, `localhost:4096`) |
-| serveur MCP `wpm` (stdio) | opencode | ❌ — la connexion appartient au host |
+| serveur MCP `wpm` (stdio) | opencode | ❌ — la connexion appartenait au host |
 | CLI `wpm` (spawné) | le plugin via `$` | ✅ shell |
 
-Le protocole MCP est host↔serveur ; le plugin est un tiers sans poignée sur la
-connexion que tient opencode. Vérification faite dans la documentation du SDK :
-celui-ci n'expose **aucun** namespace `mcp`, `tool` ou `resource` — un plugin ne
-peut pas appeler un tool MCP ni lire une resource à travers `client`.
-
-Conséquence : pour ses besoins déterministes, le plugin contourne le serveur en
-shelloutant vers le CLI (`wpm record-execution` dans `tool.execute.after`). Chaque
-appel est un *cold start* (spawn Python + import + chargement du modèle ONNX), et
-le serveur MCP — pourtant **chaud** (embedding en RAM, cache `<project-rules>`) —
-reste hors d'atteinte du plugin.
+Le protocole MCP est host↔serveur ; le plugin était un tiers sans poignée sur la
+connexion que tenait opencode. Le plugin contournait alors le serveur en
+shelloutant vers le CLI (`wpm record-execution` dans `tool.execute.after`).
+Aujourd'hui le plugin **possède** le serveur (voir ci-dessous) — ce contexte est
+conservé pour l'historique.
 
 ## Décision : le plugin devient maître du serveur
 
@@ -108,15 +103,11 @@ reposent la permission `allow`, l'exception plan-mode et la détection de
 
 ## Livraison des instructions
 
-Aujourd'hui les golden rules (3 règles + séquence de démarrage + politiques)
-atteignent le LLM via `initialize.instructions` injecté par opencode. Le plugin
-s'appuie d'ailleurs dessus (son nudge `buildNudge` est volontairement « compact »).
-
-Une fois opencode hors circuit, le plugin est **seul** injecteur : il lit
-`wpm://memory-rules` (même source, côté serveur) et la pousse via
-`experimental.chat.system.transform`, le nudge compact restant la ré-ancre
-anti-dilution de chaque tour. La « Startup sequence » qui demandait *« Read the
-wpm://project-rules resource »* est retirée — les règles sont désormais poussées,
+Les golden rules (3 règles + séquence de démarrage + politiques) atteignent le
+LLM via le plugin, seul injecteur : il lit `wpm://memory-rules` (côté serveur)
+et la pousse via `experimental.chat.system.transform`, le nudge compact restant
+la ré-ancre anti-dilution de chaque tour. La « Startup sequence » ne contient
+plus *« Read the wpm://project-rules resource »* — les règles sont poussées,
 plus tirées (voir `feature-hybride-rag.md`).
 
 ## Répartition des responsabilités après migration
@@ -186,37 +177,19 @@ plus tirées (voir `feature-hybride-rag.md`).
    `wpm_query_context` restent à faire si les tests manuels montrent des
    doublons ; l'avis de conflit utilise les `conflicts` déjà retournés par
    `query_context`.
-8. **Étape 8 (réduction CLI)** : non exécutée ; `wpm record-execution` reste
-   disponible mais n'est plus appelé par le plugin.
-9. **Mode optionnel (`plugin_master`)** : les deux architectures coexistent,
-   choisies par clé booléenne dans `wpm.config.json` (défaut `false` =
-   legacy). Legacy : bloc `config.mcp["wpm"]` restauré verbatim, nudge seul
-   poussé, shellout CLI pour `record-execution` — l'injection
-   `initialize.instructions` par opencode redevient le canal des golden
-   rules et les tools natifs `read_mcp_resource` réapparaissent (le host
-   détecte la capability `resources`). Master : comportement décrit
-   ci-dessus. Le plugin ne spawn **jamais** de serveur en legacy.
-10. **Réglages RAG** : `rag_similarity_threshold` (0.35) et `rag_max_items`
-    (5) sont déclarés dans les `Settings` serveur mais lus par le plugin ;
-    sans effet en mode legacy.
-11. **Prompt fidelity per-mode** : les instructions « Read the wpm://…
-    resource » n'ont de sens qu'en legacy (le LLM y lit via
-    `read_mcp_resource`). En master, elles sont **omises à la construction**
-    — jamais mutées après rendu :
-    - serveur : `WPM_PROMPT_MODE=push` (posé par le plugin au spawn) fait
-      rendre à `build_memory_usage_rules` la variante sans l'étape 1
-      (renumérotation naturelle par assemblage dynamique) et retire la
-      mention `wpm://verification-commands` de la description de
-      `record_execution` ; défaut = octets historiques bit-identiques ;
-    - plugin : `buildNudge(language, pluginMaster)` insère la ligne pull
-      uniquement en legacy via l'option `{before}` des entités
-      (`addInstruction({before: true}, …)`), toutes manipulables après
-      instanciation (`clone()` partout, `InjectionBlock.clone()` inclus).
-12. **Durabilité `record_execution`** : en master, toute dégradation du
-    serveur au moment du hook bash (indisponible au check ou mort pendant
-    l'appel) bascule sur le shellout CLI autonome — parité de durabilité
-    totale avec legacy, coût nul en nominal.
-13. **Anti-hijack d'agent** : incident réel — un tour build a été basculé
+8. **Étape 8 (réduction CLI)** : exécutée ; `wpm record-execution` supprimé,
+   le hook passe par `tools/call` warm uniquement (perte en dégradé assumée).
+9. **Réglages RAG** : `rag_similarity_threshold` (0.35) et `rag_max_items`
+    (5) sont déclarés dans les `Settings` serveur mais lus par le plugin.
+10. **Prompting push-only** : les instructions « Read the wpm://… resource »
+    sont omises à la construction — jamais mutées après rendu. Le serveur rend
+    la variante sans l'étape pull et sans mention `wpm://verification-commands`
+    dans `record_execution` ; le plugin `buildNudge(language)` ne contient plus
+    la ligne pull. Variante master historique conservée à l'octet près.
+11. **Durabilité `record_execution`** : sans fallback CLI, une dégradation du
+    serveur au moment du hook bash entraîne une perte silencieuse (catch +
+    `WPM_DEBUG` log). Parité avec l'ancien fallback supprimée volontairement.
+12. **Anti-hijack d'agent** : incident réel — un tour build a été basculé
     en plan par une injection du plugin créée via `client.session.prompt`
     **sans champ `agent`** (héritage du `default_agent`=plan). Correctifs :
     `default_agent` n'est plus posé (sessions en build par défaut) ; les
@@ -226,3 +199,21 @@ plus tirées (voir `feature-hybride-rag.md`).
     par le bridge lui-même (`onQueryContext`) **et** par un recall RAG
     réussi (`system-push.ts`), les hooks hôte s'étant révélés non fiables
     pour les tools définis par plugin.
+
+## Historique : migration `legacy` → `push-only` (2026-08)
+
+`legacy` = opencode hébergeait le serveur via `config.mcp["wpm"]`, nudge seul
+poussé, `initialize.instructions` portait les golden rules, `record_execution`
+shelloutait `wpm record-execution` (cold start Python + ONNX à chaque appel).
+
+Flag `wpm.config.json:plugin_master` (défaut `false`) faisait coexister les deux
+architectures. Push activé par `WPM_PROMPT_MODE=push` + `pull_instructions`
+(`memory_rules.py:16`, `nudges.ts:15` `pluginMaster` + `{before}` pull line
+`wpm://project-rules`) + `server/prompts.py:push_mode()` pour
+`record_execution`/`project-rules`. Fallback dégradé = shellout CLI autonome
+(parité durabilité totale, coût nul en nominal).
+
+Suppression totale (mode `legacy`, flag, `mode.py`, `pull_instructions`,
+fallback CLI, commande `wpm record-execution`) → push-only canonique. Prompting
+variante master conservée à l'octet près, `WPM_PROMPT_MODE` supprimé, `buildNudge()`
+sans paramètre.

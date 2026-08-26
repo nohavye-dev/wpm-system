@@ -4,12 +4,12 @@ Le plugin OpenCode de WPM, **installé par défaut** par `install.sh` dans
 `~/.config/opencode/plugins/`. Il fait deux choses qu'un serveur MCP pur ne
 peut pas faire :
 
-1. **Enregistrer le serveur** — à partir du `wpm.config.json` du projet, le
-   hook `config` déclare le serveur MCP `wpm` et la permission `wpm_*` dans
-   la configuration d'OpenCode : aucune entrée `mcp` manuelle dans
-   `opencode.json`.
+1. **Permission et commandes** — à partir du `wpm.config.json` du projet, le
+   hook `config` déclare la permission `wpm_*` et les commandes slash `wpm-*`
+   dans la configuration d'OpenCode.
 2. **Pousser de façon déterministe** — les règles se diluent dans un long
-   contexte ; le plugin les ré-injecte au bon moment.
+   contexte ; le plugin les ré-injecte au bon moment. Il spawn et possède
+   le serveur MCP `wpm` (serveur chaud).
 
 ## Documentation
 
@@ -17,9 +17,8 @@ peut pas faire :
 
 ## Ce qu'il fait
 
-- **`config`** — enregistre le serveur MCP `wpm` (venv `python -m
-  wpm_mcp_server`, `WPM_CONFIG_PATH` pointé sur le projet) + permission
-  `wpm_*` (`allow`) + les commandes slash `wpm-*`. Injecte une exception
+- **`config`** — déclare la permission `wpm_*` (`allow`) + les commandes
+  slash `wpm-*`. Injecte une exception
   mémoire dans l'agent plan : les outils `wpm_*` restent autorisés même en
   mode plan. `default_agent` est volontairement **non** positionné — forcer
   `plan` faisait basculer silencieusement des tours `build` (chaque commande
@@ -28,17 +27,14 @@ peut pas faire :
   (part `synthetic`) et affiche un label court `/wpm-<commande>`.
 - **`chat.message`** — ré-arme la passe de persistance sur un vrai message
   utilisateur.
-- **`experimental.chat.system.transform`** — push système à chaque tour,
-  selon le mode :
-  - *plugin_master* : règles d'or + bloc `<current-user>` + règles projet +
-    pop-in RAG (recall du dernier message utilisateur), puis le nudge
-    compact en bas de contexte ;
-  - *legacy* : le nudge compact seul (le serveur hébergé par OpenCode
-    injecte lui-même les règles).
+- **`experimental.chat.system.transform`** — push système à chaque tour :
+  règles d'or + bloc `<current-user>` + règles projet + pop-in RAG (recall
+  du dernier message utilisateur), puis le nudge compact en bas de contexte.
 - **`experimental.session.compacting`** — rappelle de persister ce qui ne
   l'est pas avant compaction.
 - **`tool.execute.after`** — capture les commandes de test/build/lint
-  (`wpm record-execution`) sans dépendre du LLM ; suit les `query_context`.
+  via `record_execution` (warm `tools/call`) sans dépendre du LLM ; suit
+  les `query_context`.
 - **`tool.execute.before`** — nudge « memory first » conditionnel avant une
   lecture/`grep`/`glob` sans `query_context` récent.
 - **`event` (`session.idle`)** — déclenche la passe de persistance :

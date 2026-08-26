@@ -118,10 +118,9 @@ aussi les pages liées qui éclairent le contexte.*
 ### 8. Les règles du projet
 
 WPM recompose automatiquement un résumé des **conventions et décisions les
-plus fiables** du projet (le bloc « project-rules »). Selon le mode, l'agent
-le lit au début de session ou le reçoit poussé à chaque tour. C'est ce qui
-lui permet de respecter les usages du projet sans qu'on les lui réexplique à
-chaque fois.
+plus fiables** du projet (le bloc « project-rules ») et le plugin le pousse à
+chaque tour. C'est ce qui lui permet de respecter les usages du projet sans
+qu'on les lui réexplique à chaque fois.
 
 *Analogie : la page « règles de la maison » du wiki, mise à jour toute
 seule à partir des notes les plus fiables.*

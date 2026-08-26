@@ -6,7 +6,6 @@ logic. Kept in English on purpose: these are agent instructions.
 """
 
 from wpm_mcp_server.prompts.entities import PromptTask
-from wpm_mcp_server.prompts.mode import push_mode
 
 
 REMINDER_DEDUP = (
@@ -136,11 +135,7 @@ RECORD_EXECUTION_PROMPT = (
     .add_instruction(
         "Capture the result of a verification command as durable memory.",
         "Store the result as an execution_result entry with source=tool_execution; when succeeded, also validate it as execution_verified in the same operation.",
-        # Push variant omits the resource pointer: no resource-read tool
-        # exists when the plugin owns the server.
-        "Call record_execution immediately after running a qualifying verification command (e.g. pytest, npm test, cargo build"
-        + ("" if push_mode() else "; see the wpm://verification-commands resource for the full list")
-        + ").",
+        "Call record_execution immediately after running a qualifying verification command (e.g. pytest, npm test, cargo build).",
         "Use succeeded to record the outcome; a failed command is preserved as evidence without being validated.",
         "Use the current session_id for every record.",
     )
@@ -288,8 +283,7 @@ PROJECT_RULES_PROMPT_RESOURCE = (
     PromptTask("project_rules")
     .add_instruction(
         "High-confidence project conventions and architecture decisions derived from persistent memory.",
-        "Read at session start; re-read after memory changes when conventions or architecture decisions may be affected."
-        + ("" if not push_mode() else " In push mode this block is pushed automatically each turn; do not read via resource."),
+        "Read at session start; re-read after memory changes when conventions or architecture decisions may be affected. In push mode this block is pushed automatically each turn; do not read via resource.",
         "Treat rules as derived knowledge, not immutable facts — verify against current evidence when they conflict with the project state.",
     )
     .to_string()
@@ -318,8 +312,7 @@ CURRENT_USER_PROMPT_RESOURCE = (
     PromptTask("current_user")
     .add_instruction(
         "The current user's conversation profile as a tagged Markdown block (<current-user>).",
-        "Read at session start and re-read when identity or preferences may have changed (user switch, profile update)."
-        + ("" if not push_mode() else " In push mode this block is pushed automatically each turn; prefer get_user when in doubt."),
+        "Read at session start and re-read when identity or preferences may have changed (user switch, profile update). In push mode this block is pushed automatically each turn; prefer get_user when in doubt.",
         "Apply the stated language and preferences to conversational responses; it carries no project knowledge.",
         "May include an 'Observed recurring patterns' section: inferred, non-declared knowledge — stated preferences remain authoritative.",
     )

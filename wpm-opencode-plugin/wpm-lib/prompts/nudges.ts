@@ -2,17 +2,15 @@ import { SERVER_NAME } from "../core/constants"
 import { expectedResponseLanguage } from "./clauses"
 import { PromptTask, PromptContext } from "./entities"
 
-// Compact, host-specific re-anchor injected into the system prompt every
-// turn. Kept short on purpose: the server's initialize.instructions carry
-// the golden rules + standing policies (and the wpm://memory-rules
-// resource); this is only the dilution counter-measure, re-read at the
-// bottom of context. Carries the expected-response-language clause so it
-// sits at system level on every turn, where it wins over data language.
+// Compact re-anchor injected into the system prompt every turn. Kept short
+// on purpose: the server's initialize.instructions carry the golden rules +
+// standing policies (and the wpm://memory-rules resource); this is only the
+// dilution counter-measure, re-read at the bottom of context. Carries the
+// expected-response-language clause so it sits at system level on every
+// turn, where it wins over data language.
 //
-// pluginMaster omits the project-rules pull instruction: in that mode the
-// rules are pushed into context every turn and no resource-read tool
-// exists. Legacy (default) keeps the historical bytes.
-export function buildNudge(language?: string, pluginMaster = false): string {
+// Rules are pushed into context every turn and no resource-read tool exists.
+export function buildNudge(language?: string): string {
     const memoryPrompt = new PromptContext("wpm-memory")
         .addPurpose(
             "Use the WPM memory system as the primary source of durable project context.",
@@ -20,22 +18,12 @@ export function buildNudge(language?: string, pluginMaster = false): string {
         )
 
         .addInstruction(
-            pluginMaster
-                ? `If no <wpm-memory-recall> was pushed this turn or it is insufficient, call ${SERVER_NAME}_query_context with a reformulated query before reading files, searching the codebase, or starting a substantive answer.`
-                : `Before reading files, running grep, or searching the codebase, call ${SERVER_NAME}_query_context first.`,
+            `If no <wpm-memory-recall> was pushed this turn or it is insufficient, call ${SERVER_NAME}_query_context with a reformulated query before reading files, searching the codebase, or starting a substantive answer.`,
             `As soon as a durable fact emerges — such as a decision, convention, test result, or bug pattern — call ${SERVER_NAME}_store_entry immediately.`,
             "Memory writes are not project modifications.",
-            ...(pluginMaster
-                ? [`If identity or language is ambiguous, call ${SERVER_NAME}_get_user.`]
-                : [`When a <current-user> block is present in context, apply its preferences (language, stated preferences); otherwise call ${SERVER_NAME}_get_user on demand.`]),
+            `If identity or language is ambiguous, call ${SERVER_NAME}_get_user.`,
             `When the user states a preference (source=declared) or you notice a pattern about them — habit, workflow, knowledge, context, communication, or personal trait (source=inferred) — call ${SERVER_NAME}_record_user_observation, checking ${SERVER_NAME}_get_user_observations first to reinforce patterns or supersede contradicted preferences. Record silently.`,
         )
-    if (!pluginMaster) {
-        memoryPrompt.addInstruction(
-            { before: true },
-            "At session start, read the `wpm://project-rules` resource.",
-        )
-    }
 
     memoryPrompt
         .addTask(

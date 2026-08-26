@@ -25,12 +25,10 @@ Three **golden rules**, in priority order:
 3. **PROOF BEFORE VALIDATION** — validate or contradict only with external,
    verifiable evidence, never with reasoning alone.
 
-**Startup sequence**: read `wpm://project-rules` → read `wpm://current-user`
-(conversation preferences) → `query_context` on the current topic →
-`store_entry` as soon as a durable fact appears → `validate_entry` with
-evidence once confirmed. *(In `plugin_master` mode, the rules, the user
-profile and a RAG recall are pushed every turn instead of being read — see
-[`02-configuration.md`](https://nohavye-dev.github.io/wpm-site/en/docs/configuration).)*
+**Startup sequence**: the plugin pushes golden rules, `<current-user>`
+(conversation preferences) and project rules plus a RAG recall on every turn →
+`query_context` on the current topic → `store_entry` as soon as a durable fact
+appears → `validate_entry` with evidence once confirmed.
 
 **Cross-cutting policies**:
 

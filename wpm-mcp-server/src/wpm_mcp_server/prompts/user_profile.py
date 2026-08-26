@@ -1,9 +1,7 @@
 """Current-user resource content: Markdown rendering + tagged block.
 
 Mirrors project_rules.py: the server renders the tagged block once and
-every consumer pushes or reads those exact bytes — the legacy pull path
-(agent reads the resource) and the plugin_master push path (InjectionBlock
-setBody, no tag) stay byte-identical by construction.
+every consumer pushes those exact bytes via InjectionBlock setBody.
 """
 
 from wpm_mcp_server.core.constants import OBSERVATION_CATEGORIES

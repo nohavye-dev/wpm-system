@@ -112,27 +112,12 @@ nothing there.
 
 ---
 
-## Plugin master mode (`plugin_master`)
+## Memory pop-in (RAG)
 
-Two architectures coexist, selected by a boolean key:
-
-| | Legacy (default) | `"plugin_master": true` |
-|---|---|---|
-| MCP server | hosted by OpenCode (registered by the plugin) | spawned and owned by the plugin |
-| Project rules | pulled by the agent (resource read) | pushed into context every turn |
-| Golden rules + user profile | injected via `initialize.instructions` + resource read | pushed into context every turn |
-| Memory search | `wpm_query_context` tool (LLM-driven) | same + automatic **pop-in** of strongly relevant memories |
-| Execution recording | via the `wpm` CLI | direct warm-server call |
-
-```json
-{
-  "db_path": ".wpm/wpm.db",
-  "plugin_master": true
-}
-```
-
-Without the key (or with `false`), the historical behavior applies
-unchanged. The two settings below only take effect in master mode.
+The plugin spawns and owns the MCP server (warm embedding + rule cache).
+Every turn it pushes into context: golden rules, the `<current-user>` block,
+project rules, and a RAG pop-in of strongly relevant memories (recall of the
+last user message). Execution recording goes through a direct warm-server call.
 
 ### `rag_similarity_threshold` — pop-in threshold (optional, default 0.35)
 
@@ -152,7 +137,7 @@ deduplication against the `<project-rules>` block.
 "rag_max_items": 5
 ```
 
-These two keys are only read by the plugin (master mode); the values
+These two keys are only read by the plugin; the values
 declared server-side exist for schema validation.
 
 ---

@@ -1,12 +1,9 @@
 # Injection hybride de mémoire (RAG) : pop-in + tool de recherche
 
-> **Statut : implémenté** (mode `plugin_master` uniquement). Ce document est
-> la fiche de conception d'origine ; l'état courant (constantes recalibrées
-> 0.35/5, canal `<current-user>` ajouté, gate memory-first alimentée par le
-> recall) fait foi dans `architecture-plugin-hote-mcp.md` et
-> `recall-rag-calibration.md`. Nuance importante : le retrait des
-> instructions « read the resource » ne concerne que le mode master ; en
-> legacy les prompts historiques sont conservés à l'octet près.
+> **Statut : implémenté** (push-only). Ce document est la fiche de conception
+> d'origine ; l'état courant (constantes recalibrées 0.35/5, canal
+> `<current-user>` ajouté, gate memory-first alimentée par le recall) fait foi
+> dans `architecture-plugin-hote-mcp.md` et `recall-rag-calibration.md`.
 
 ## Contexte
 
@@ -72,7 +69,7 @@ Contrainte de latence : ce hook s'exécute sur le chemin critique de chaque tour
 
 ## Extension : pop-in des règles projet (cas dégénéré du même mécanisme)
 
-La lecture des règles de projet souffre aujourd'hui du même défaut que la recherche : c'est un **pull dépendant du LLM**. Le nudge injecte l'instruction *« At session start, read the `wpm://project-rules` resource »* (`wpm-lib/prompts/nudges.ts`), et la « Startup sequence » des golden rules la répète (`wpm_mcp_server/prompts/memory_rules.py`). Si le modèle ne lit pas la resource, les règles ne sont jamais en contexte.
+Historiquement la lecture des règles souffrait du même défaut que la recherche : **pull dépendant du LLM**. Le nudge injectait *« At session start, read the `wpm://project-rules` resource »* (`wpm-lib/prompts/nudges.ts`), et la « Startup sequence » la répétait (`wpm_mcp_server/prompts/memory_rules.py`). Aujourd'hui les règles sont **poussées** chaque tour via le serveur chaud — plus de dépendance au LLM.
 
 Les règles sont le cas dégénéré du pop-in : leur contenu est **déterministe** (`PROJECT_RULES_QUERY` fixe, filtre par `confidence_threshold`, budget 800 tokens, cache jusqu'à la prochaine mutation). Il n'y a ni message utilisateur à extraire ni seuil de similarité à calibrer.
 

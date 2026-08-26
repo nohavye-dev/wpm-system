@@ -115,10 +115,9 @@ pages that shed light on the context.*
 ### 8. Project rules
 
 WPM automatically recomposes a summary of the project's **most reliable
-conventions and decisions** (the "project-rules" block). Depending on the
-mode, the agent reads it at the start of a session or receives it pushed on
-every turn. That is what lets it follow the project's practices without them
-being re-explained every time.
+conventions and decisions** (the "project-rules" block) and the plugin pushes
+it on every turn. That is what lets it follow the project's practices without
+them being re-explained every time.
 
 *Analogy: the "house rules" page of the wiki, updated on its own from the most
 reliable notes.*

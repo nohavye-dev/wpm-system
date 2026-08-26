@@ -15,8 +15,8 @@ Project rules/conventions are exposed as the wpm://project-rules resource,
 recomputed from memory and invalidated (with a resources/updated
 notification) on every mutation. record_execution remains a tool, but rule
 16 is primarily enforced deterministically by the plugin's
-tool.execute.after hook (which shells out to `wpm record-execution`), so it
-no longer depends on the model remembering to call this tool.
+tool.execute.after hook (warm MCP call), so it no longer depends on the model
+remembering to call this tool.
 
 Host-agnostic activation: the server is active when it can resolve a database
 path — from wpm.config.json (relative to its own location, not the host's

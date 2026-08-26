@@ -16,8 +16,8 @@ function debug(message: string, error: unknown): void {
 
 export type SystemPushDeps = {
   client: PluginInput["client"]
-  // Present only in plugin_master mode; legacy mode pushes the nudge alone
-  // and never touches a server.
+  // Present when the warm server is available; degraded mode pushes the nudge
+  // alone (golden rules still pushed when cached).
   mcp?: WpmMcpClient
   // Golden rules read once at startup from wpm://memory-rules — the same
   // bytes opencode used to receive via initialize.instructions. Pushed at

@@ -1,12 +1,9 @@
 import type { Hooks, PluginInput } from "@opencode-ai/plugin"
 import type { ToolDefinition } from "@opencode-ai/plugin"
-import { $ } from "bun"
-import { join } from "node:path"
 import { SERVER_NAME } from "../core/constants"
 import { buildMemoryFirstNudge, buildPersistPromptText } from "../prompts/nudges"
 import { buildCommands } from "../prompts/commands/index"
 import { buildSystemPush, type SystemPushDeps } from "./system-push"
-import { resolvePythonPath } from "../infra/paths"
 
 export type HookDeps = SystemPushDeps & {
   directory: string
@@ -15,12 +12,8 @@ export type HookDeps = SystemPushDeps & {
   persistReminder: string
   nudged: Set<string>
   queriedRecently: Map<string, boolean>
-  // Architecture switch (wpm.config.json plugin_master): true = the plugin
-  // owns the MCP server (bridge + pushes); false = legacy, opencode hosts
-  // the server declared by the config hook below.
-  pluginMaster: boolean
-  // Dynamic bridge of the warm server's tools (wpm_*); absent in degraded
-  // mode and in legacy mode.
+  // Dynamic bridge of the warm server's tools (wpm_*); absent only in
+  // degraded mode when the server failed to start.
   bridgedTools?: Record<string, ToolDefinition>
 }
 
@@ -42,7 +35,6 @@ async function sessionAgent(
 export function createHooks(deps: HookDeps): Hooks {
   const {
     client,
-    directory,
     language,
     confidenceThreshold,
     nudge,
@@ -50,28 +42,14 @@ export function createHooks(deps: HookDeps): Hooks {
     nudged,
     queriedRecently,
     bridgedTools,
-    pluginMaster,
   } = deps
   const commands = buildCommands(language, confidenceThreshold)
 
   return {
     ...(bridgedTools ? { tool: bridgedTools } : {}),
-    // Grant plan-mode write permission. In legacy mode also register the
-    // wpm MCP server so the user does not have to declare it in
-    // opencode.json — WPM_CONFIG_PATH pins the project config regardless
-    // of the process cwd.
+    // Grant plan-mode write permission. The plugin spawns and owns the MCP
+    // server itself; opencode never hosts it.
     config: async (config) => {
-      if (!pluginMaster) {
-        config.mcp = config.mcp ?? {}
-        if (!config.mcp["wpm"]) {
-          config.mcp["wpm"] = {
-            type: "local",
-            command: [resolvePythonPath(), "-m", "wpm_mcp_server"],
-            environment: { WPM_CONFIG_PATH: join(directory, "wpm.config.json") },
-            enabled: true,
-          }
-        }
-      }
       // default_agent is intentionally NOT set: sessions start in the
       // opencode default (build). Forcing plan made every injected prompt
       // silently hijack build turns into plan (see internals decision #13).
@@ -141,13 +119,10 @@ export function createHooks(deps: HookDeps): Hooks {
       if (!noPersistRearm) nudged.delete(input.sessionID)
     },
 
-    // Per-turn system push. plugin_master: golden rules + project rules +
-    // RAG pop-in (see system-push.ts), then the compact anti-dilution nudge.
-    // Legacy: the compact nudge alone, exactly like before the migration —
-    // the golden rules reach the LLM via initialize.instructions injected
-    // by opencode from the host-owned server.
+    // Per-turn system push: golden rules + project rules + RAG pop-in
+    // (see system-push.ts), then the compact anti-dilution nudge.
     "experimental.chat.system.transform": async (input, output) => {
-      if (!pluginMaster || !deps.mcp) {
+      if (!deps.mcp) {
         output.system.push(nudge)
         return
       }
@@ -165,32 +140,27 @@ export function createHooks(deps: HookDeps): Hooks {
     },
 
     // Rule 16 (record executions) — deterministic, no model involved: every
-    // bash command that looks like a verification command is recorded.
-    // plugin_master: tools/call on the warm server (no cold start). Any
-    // degradation — server unavailable or died mid-call — falls through to
-    // the standalone CLI shellout, so an execution is never lost
-    // (durability parity with legacy). Legacy: the CLI shellout directly.
+    // bash command that looks like a verification command is recorded via
+    // the warm MCP server.
     "tool.execute.after": async (input, output) => {
       if (input.tool === `${SERVER_NAME}_query_context`) {
         queriedRecently.set(input.sessionID, true)
         return
       }
       if (input.tool !== "bash") return
-      const command = String(input.args?.command ?? "")
-      const succeeded = output.metadata?.exit === 0
-      if (pluginMaster && deps.mcp && (await deps.mcp.ready())) {
-        try {
-          await deps.mcp.callTool("record_execution", {
-            command,
-            succeeded,
-            session_id: input.sessionID,
-          })
-          return
-        } catch {}
+      if (!deps.mcp) return
+      try {
+        if (!(await deps.mcp.ready())) return
+        await deps.mcp.callTool("record_execution", {
+          command: String(input.args?.command ?? ""),
+          succeeded: output.metadata?.exit === 0,
+          session_id: input.sessionID,
+        })
+      } catch (error) {
+        if (process.env.WPM_DEBUG) {
+          console.error("[wpm] record_execution failed:", error)
+        }
       }
-      await $`wpm record-execution ${command} --succeeded=${succeeded} --session-id=${input.sessionID}`
-        .quiet()
-        .nothrow()
     },
 
     // Conditional memory-first nudge: only when about to read/search without

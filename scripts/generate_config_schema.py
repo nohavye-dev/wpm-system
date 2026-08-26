@@ -37,7 +37,6 @@ EXAMPLE_TARGET = REPO_ROOT / "wpm-mcp-server" / "wpm.config.example.json"
 EXAMPLE_OVERRIDES: dict[str, object] = {
     "db_path": ".wpm/wpm.db",
     "response_language": "auto",
-    "plugin_master": False,
     "verification_command_patterns": ["\\bmy-custom-runner\\b"],
 }
 
@@ -46,9 +45,8 @@ DESCRIPTIONS: dict[str, str] = {
     "confidence_threshold": "Minimum confidence for an entry to enter the <project-rules> block.",
     "verification_command_patterns": "Extra regexes ADDED to the built-in strong-evidence command list.",
     "response_language": 'Agent response language ("auto" or null = user language; fixed value forces it). Never governs stored content.',
-    "plugin_master": "Architecture switch: true = the opencode plugin spawns and owns the MCP server and pushes rules/RAG; false = legacy OpenCode-hosted setup.",
-    "rag_similarity_threshold": "Minimum cosine similarity between the raw user message and an entry for the RAG pop-in (master mode only).",
-    "rag_max_items": "Maximum entries injected per turn by the RAG pop-in (master mode only).",
+    "rag_similarity_threshold": "Minimum cosine similarity between the raw user message and an entry for the RAG pop-in.",
+    "rag_max_items": "Maximum entries injected per turn by the RAG pop-in.",
     "domain.provenance.base_confidence": "Starting confidence per source type.",
     "domain.provenance.default": "Default provenance confidence.",
     "domain.decay.lambda_per_type": "Confidence erosion rate per entry type.",

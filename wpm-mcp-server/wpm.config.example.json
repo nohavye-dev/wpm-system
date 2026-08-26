@@ -5,9 +5,8 @@
     "\\bmy-custom-runner\\b"
   ],
   "response_language": "auto",
-  "plugin_master": false,
-  "rag_similarity_threshold": 0.45,
-  "rag_max_items": 3,
+  "rag_similarity_threshold": 0.35,
+  "rag_max_items": 5,
   "domain": {
     "provenance": {
       "base_confidence": {

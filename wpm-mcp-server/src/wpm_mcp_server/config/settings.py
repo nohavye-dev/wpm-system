@@ -136,27 +136,18 @@ class Settings:
     # language name to match the English server instructions. Overridable
     # via WPM_RESPONSE_LANGUAGE.
     response_language: str | None = None
-    # Optional, default false. Architecture switch read by the opencode
-    # plugin: when true, the plugin spawns and owns the MCP server, bridges
-    # its tools and pushes rules/RAG into context. When false (or absent),
-    # the legacy setup applies — opencode hosts the server declared by the
-    # plugin's config hook and the plugin only pushes its compact nudge.
-    # Declared here so the shared wpm.config.json schema stays explicit and
-    # typos in it keep failing loudly; this server never reads it.
-    plugin_master: bool = False
     # Optional, default 0.35. Minimum cosine similarity between the user's
     # raw message and an entry for the plugin's deterministic pop-in (RAG)
     # to inject it — combined with confidence_threshold as a quality guard.
     # Read by the opencode plugin (system-push), not by this server; listed
     # here so the shared wpm.config.json schema stays explicit and typos in
     # it keep failing loudly. Lowered from 0.45 after end-to-end recall
-    # calibration (docs/internals/recall-rag-calibration.md). Only used
-    # when plugin_master is true.
+    # calibration (docs/internals/recall-rag-calibration.md).
     rag_similarity_threshold: float = 0.35
     # Optional, default 5. Maximum number of entries the plugin's RAG pop-in
     # injects per turn (after similarity/confidence filtering). Read by the
     # opencode plugin; declared here so wpm.config.json keeps a single,
-    # strictly-validated schema. Only used when plugin_master is true.
+    # strictly-validated schema.
     rag_max_items: int = 5
 
     # Advanced — see DomainSettings docstring.

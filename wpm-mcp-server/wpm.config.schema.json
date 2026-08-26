@@ -24,17 +24,13 @@
       "type": "string",
       "description": "Agent response language (\"auto\" or null = user language; fixed value forces it). Never governs stored content."
     },
-    "plugin_master": {
-      "type": "boolean",
-      "description": "Architecture switch: true = the opencode plugin spawns and owns the MCP server and pushes rules/RAG; false = legacy OpenCode-hosted setup."
-    },
     "rag_similarity_threshold": {
       "type": "number",
-      "description": "Minimum cosine similarity between the raw user message and an entry for the RAG pop-in (master mode only)."
+      "description": "Minimum cosine similarity between the raw user message and an entry for the RAG pop-in."
     },
     "rag_max_items": {
       "type": "integer",
-      "description": "Maximum entries injected per turn by the RAG pop-in (master mode only)."
+      "description": "Maximum entries injected per turn by the RAG pop-in."
     },
     "domain": {
       "description": "DomainSettings sub-section.",

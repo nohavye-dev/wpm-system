@@ -172,23 +172,20 @@ Le masquage du prompt à l'exécution est déjà géré par
 4. **Injection déterministe du profil** (remplace « à la demande, pas
    d'injection au démarrage » §2) : une clause légère seule laisse échouer
    le tour critique — le premier (langue/ton dès la première réponse).
-   Même logique que `record_execution` devenu déterministe. plugin_master :
-   bloc poussé chaque tour par `buildSystemPush` (lecture fraîche, cache
-   contourné — aucune notification `resources/updated` ne peut venir de la
-   CLI). Legacy : étape de démarrage « read the wpm://current-user
-   resource » dans la séquence numérotée.
+   Même logique que `record_execution` devenu déterministe : bloc poussé
+   chaque tour par `buildSystemPush` (lecture fraîche, cache contourné —
+   aucune notification `resources/updated` ne peut venir de la CLI).
 5. **Format balisé symétrique** (`prompts/user_profile.py`) : la resource
    rend un bloc `<current-user>` markdown ; le plugin pousse ces octets
-   verbatim (`InjectionBlock.setBody`, sans tag) — même asymétrie que
-   `<project-rules>`, zéro drift de rendu entre les deux modes.
+   verbatim (`InjectionBlock.setBody`, sans tag) — même source que
+   `<project-rules>`, zéro drift.
 6. **Nommage CLI en tirets** (`current-user`, `list-users`,
-   `remove-user`) : convention existante (`record-execution`).
+   `remove-user`) : convention en tirets.
 7. **Inconnue §9.3 confirmée** : `cmd_uninstall` ne touche jamais
    `~/.config/wpm-system` — profils préservés, ligne ajoutée au README.
-8. **Asymétrie resource assumée** : en mode master il n'existe pas de
-   chemin de lecture de resource côté agent ; la resource reste utile en
-   legacy et comme miroir, mais le chemin canonique est le tool
-   `get_current_user` et le push déterministe.
+8. **Asymétrie resource** : il n'existe pas de chemin de lecture de resource
+   côté agent ; la resource reste utile comme miroir/audit, mais le chemin
+   canonique est le tool `get_current_user` et le push déterministe.
 
 ## 12. Observations comportementales (extension v1)
 
@@ -347,10 +344,9 @@ Précédence : `WPM_RESPONSE_LANGUAGE` (env) > **langue du profil** >
 `response_language` (config) > « langue de l'utilisateur ». Résolution au
 démarrage (import serveur `state.py:61` / chargement plugin `plugin.ts:54`),
 comme la config. Un `wpm current-user` mid-session rafraîchit le bloc
-`<current-user>` dès le tour suivant (resource fraîche en legacy, push
-frais `system-push.ts:38` en `plugin_master`), mais la clause de langue
-figée dans `SERVER_INSTRUCTIONS`/`nudge` ne bouge qu'au restart — le bloc
-reste autoritaire.
+`<current-user>` dès le tour suivant (push frais `system-push.ts:38`), mais
+la clause de langue figée dans `SERVER_INSTRUCTIONS`/`nudge` ne bouge
+qu'au restart — le bloc reste autoritaire.
 
 ### 14.6 Décisions v2
 
@@ -406,8 +402,8 @@ jeune, supprimable à la main). `/wpm-user-preferences` n'existe plus.
    (déclarées) rendue **toujours entière** ; les groupes d'inférés
    (`### Habit`, …, ordre de priorité, tri `count DESC` puis récence,
    ligne `- content (seen xN, last YYYY-MM-DD)`) remplissent le budget
-   restant plafonné à `MAX_CURRENT_USER_CHARS = 2000`. Même rendu
-   serveur pour legacy et plugin_master (zéro drift).
+   restant plafonné à `MAX_CURRENT_USER_CHARS = 2000`. Rendu serveur
+   unique, zéro drift.
 6. **CLI** (`wpm user-observations`) : groupe `declared preferences:` en
    tête, puis catégories inférées avec `(seen xN)`/ids/`(last date)` ;
    `[on|off]` n'affecte que l'inféré ;

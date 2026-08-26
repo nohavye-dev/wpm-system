@@ -290,66 +290,6 @@ def _print_text(result: dict) -> None:
             print("Conflicts: none")
 
 
-# ── record-execution ────────────────────────────────────────────────────
-
-def _parse_bool(value: str) -> bool:
-    return value.strip().lower() in ("true", "1", "yes")
-
-
-def cmd_record_execution(args: argparse.Namespace) -> None:
-    config_path = _resolve_wpm_config()
-    if not config_path.exists():
-        print("wpm: not activated here. Run 'wpm enable' first.", file=sys.stderr)
-        sys.exit(1)
-
-    config = json.loads(config_path.read_text(encoding="utf-8"))
-    db_path_raw = config.get("db_path", "")
-    if not db_path_raw:
-        sys.exit(1)  # silent — this runs unattended from the plugin
-
-    db_path = _contained_in_project(db_path_raw)
-    if not db_path.exists():
-        sys.exit(1)  # silent — nothing recorded yet
-
-    import logging
-    import warnings
-    logging.root.handlers.clear()
-    logging.root.addHandler(logging.NullHandler())
-    logging.root.setLevel(logging.CRITICAL)
-    warnings.filterwarnings("ignore")
-
-    from wpm_mcp_server.infra import database as db
-    from wpm_mcp_server.prompts import (
-        compile_verification_patterns, looks_like_verification_command,
-    )
-    from wpm_mcp_server.infra.embeddings import get_provider, resolve_model_name
-    from wpm_mcp_server.storage import Repository
-    from wpm_mcp_server.config import load_settings
-
-    settings = load_settings(config_path)
-    patterns, _ = compile_verification_patterns(settings.verification_command_patterns or [])
-    if not looks_like_verification_command(args.command, patterns):
-        sys.exit(0)  # not a verification command — silently skip, not an error
-
-    conn = db.connect(str(db_path))
-    try:
-        repo = Repository(
-            conn=conn,
-            embedder=get_provider(),
-            settings=settings.domain,
-            model_name=resolve_model_name(),
-        )
-    except RuntimeError:
-        sys.exit(1)  # stale-embedding guard — silent, runs unattended from the plugin
-    content = f"Command executed: {args.command}\nResult: {'success' if args.succeeded else 'failure'}"
-    stored = repo.store_entry(type_="execution_result", content=content,
-                               source="tool_execution", session_id=args.session_id)
-    if args.succeeded:
-        repo.validate_entry(entry_id=stored["entry_id"], evidence_type="execution_verified",
-                             evidence_ref=args.command, session_id=args.session_id)
-    conn.close()
-
-
 # ── reembed ────────────────────────────────────────────────────────────
 
 def cmd_reembed() -> None:
@@ -773,12 +713,6 @@ def main() -> None:
     p.add_argument("--min-confidence", "-c", type=float, default=None,
                    help="Minimum confidence threshold (default: no filter)")
 
-    r = sub.add_parser("record-execution", help="Record a verification command result as memory (unattended)")
-    r.add_argument("command", help="The shell command that was run")
-    r.add_argument("--succeeded", type=_parse_bool, default=False,
-                   help="Whether the command exited successfully (true/false)")
-    r.add_argument("--session-id", default=None, help="Session id for event attribution")
-
     ex = sub.add_parser("export", help="Export the database to JSON (without embeddings)")
     ex.add_argument("-o", "--output", default=None, help="Output file path (default: stdout)")
 
@@ -816,8 +750,6 @@ def main() -> None:
         cmd_uninstall(args.force)
     elif args.subcommand == "search":
         cmd_search(args)
-    elif args.subcommand == "record-execution":
-        cmd_record_execution(args)
     elif args.subcommand == "export":
         cmd_export(args)
     elif args.subcommand == "reembed":

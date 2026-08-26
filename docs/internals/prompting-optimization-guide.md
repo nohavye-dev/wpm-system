@@ -345,103 +345,29 @@ d'impact pour le moins de risque.
 
 ### 9.1 `tool.execute.after` — fermer le trou de la règle 16, sans passer par le LLM
 
-**Correction par rapport à la version précédente de ce guide** : la doc du
-package `@opencode-ai/plugin` précise explicitement que le client SDK
-interne (`client`) n'est pas fait pour appeler des serveurs MCP — donc le
-plugin ne peut pas invoquer `wpm_record_execution` directement via
-`client`. Mais il n'en a pas besoin : **le projet a déjà le bon pattern,
-sous les yeux**, dans `scripts/wpm` (`cmd_search`) — un sous-comportement
-CLI qui instancie `Repository` directement et court-circuite le MCP
-entièrement. Ce même pattern permet de rendre la règle 16 **déterministe
-à 100 %**, sans dépendre du modèle :
-
-**a) Ajouter `wpm record-execution` au CLI**, sur le modèle exact de
-`cmd_search` dans `scripts/wpm`, en réutilisant les fonctions pures déjà
-testées de `prompts/verification.py` (`compile_verification_patterns`,
-`looks_like_verification_command`) — donc aucune logique dupliquée ou
-divergente entre le tool MCP et le CLI :
-
-```python
-def cmd_record_execution(args: argparse.Namespace) -> None:
-    config_path = _resolve_wpm_config()
-    if not config_path.exists():
-        print("wpm: not activated here.", file=sys.stderr)
-        sys.exit(1)
-    config = json.loads(config_path.read_text(encoding="utf-8"))
-    db_path = _contained_in_project(config.get("db_path", ""))
-    if not db_path.exists():
-        sys.exit(1)  # silent — this runs unattended from the plugin
-
-    from wpm_mcp_server import db
-    from wpm_mcp_server.behavior import (
-        compile_verification_patterns, looks_like_verification_command,
-    )
-    from wpm_mcp_server.embeddings import get_provider
-    from wpm_mcp_server.repository import Repository
-    from wpm_mcp_server.settings import load_settings
-
-    settings = load_settings(config_path)
-    patterns, _ = compile_verification_patterns(settings.verification_command_patterns or [])
-    if not looks_like_verification_command(args.command, patterns):
-        sys.exit(0)  # not a verification command — silently skip, not an error
-
-    conn = db.connect(str(db_path))
-    repo = Repository(conn=conn, embedder=get_provider(), settings=settings.domain)
-    content = f"Command executed: {args.command}\nResult: {'success' if args.succeeded else 'failure'}"
-    stored = repo.store_entry(type_="execution_result", content=content,
-                               source="tool_execution", session_id=args.session_id)
-    if args.succeeded:
-        repo.validate_entry(entry_id=stored["entry_id"], evidence_type="execution_verified",
-                             evidence_ref=args.command, session_id=args.session_id)
-    conn.close()
-```
-
-(Ajouter le sous-parseur `record-execution` avec `command`, `--succeeded`,
-`--session-id` sur le modèle de `search`.)
-
-**b) Dans `plugin.ts`, shell out via `$` au lieu d'injecter un texte** :
+Implémenté via le serveur chaud : le plugin possède le serveur MCP et
+appelle directement `record_execution` en `tools/call` (pas de shellout
+CLI, pas de cold start). La règle est déterministe à 100 %, sans dépendance
+au modèle :
 
 ```typescript
 "tool.execute.after": async (input, output) => {
+  if (input.tool === `${SERVER_NAME}_query_context`) { queriedRecently.set(input.sessionID, true); return }
   if (input.tool !== "bash") return
-  const command = String(output.args?.command ?? "")
-  const succeeded = output.metadata?.exitCode === 0  // vérifier le nom exact du champ
-  await $`wpm record-execution ${command} --succeeded=${succeeded} --session-id=${input.sessionID}`
-    .quiet()
-    .nothrow()
+  if (!deps.mcp) return
+  try {
+    if (!(await deps.mcp.ready())) return
+    await deps.mcp.callTool("record_execution", {
+      command: String(input.args?.command ?? ""),
+      succeeded: output.metadata?.exit === 0,
+      session_id: input.sessionID,
+    })
+  } catch (e) { if (process.env.WPM_DEBUG) console.error("[wpm] record_execution failed:", e) }
 }
 ```
 
-Résultat : plus de dépendance au modèle du tout pour cette règle — la
-commande de vérification est détectée et enregistrée que le modèle y
-pense ou non. C'est strictement supérieur à un rappel, aussi bien
-formulé soit-il, puisqu'un rappel reste une probabilité alors que ceci
-est garanti à chaque exécution.
-
-**Points à vérifier empiriquement avant de considérer ceci acquis** (je
-ne les ai pas confirmés dans la doc consultée, à valider en conditions
-réelles) :
-- le nom exact du champ contenant le code de sortie dans `output` pour
-  `tool.execute.after` (`exitCode`, `metadata.exitCode`, autre) ;
-- le nom exact du champ session dans l'objet `input` de ce hook — les
-  exemples consultés confirment `properties.sessionID` pour le hook
-  `event`, mais pas explicitly pour `tool.execute.after` ;
-- le coût de latence d'un `Bun.$` qui relance un interpréteur Python à
-  chaque commande de vérification (connexion SQLite comprise) — mesurer
-  avec `time wpm record-execution ...` avant d'appeler ça négligeable ;
-- `session_id` ici sera l'id de session OpenCode (`input.sessionID`),
-  différent de l'`_session_id` généré côté serveur MCP
-  (`uuid.uuid4()` par process stdio) — sans conséquence fonctionnelle
-  pour `record_execution` (chaque appel crée une nouvelle entrée avant de
-  la valider, donc pas de dédup inter-appel à casser), mais les
-  événements de cette entrée seront rattachés à un session_id différent
-  de ceux créés via le MCP pendant la même conversation — à documenter
-  si `wpm_metrics.py` doit un jour distinguer les deux origines.
-
-Si l'un de ces points ne tient pas en pratique, le fallback reste la
-version précédente de ce guide (rappel via
-`client.session.prompt({ noReply: true, ... })`) — moins forte mais sans
-dépendance à l'API exacte du hook.
+Plus de `wpm record-execution` CLI (supprimé `scripts/wpm:293`), plus de `Bun.$`
+à chaque `bash` — chemin chaud uniquement, no-op silencieux en dégradé.
 
 ### 9.2 `tool.execute.before` — rendre le nudge « memory first » conditionnel
 
@@ -454,9 +380,8 @@ sur le point d'être violée :
 ```typescript
 const queriedRecently = new Map<string, boolean>() // sessionID -> bool
 
-// En production ce flag a trois alimentations : le bridge plugin_master
-// (onQueryContext), un recall RAG réussi (system-push.ts) et le watch
-// tool.execute.after ci-dessous (legacy).
+// En production ce flag a deux alimentations : le bridge
+// (onQueryContext) et un recall RAG réussi (system-push.ts).
 return {
   "tool.execute.after": async (input) => {
     if (input.tool === "wpm_query_context") {
@@ -534,25 +459,21 @@ montée de version plutôt que de supposer que ça continue de fonctionner.
 ## 10. Ordre de mise en œuvre révisé
 
 1. **§3 (Literal sur `type`/`source`)** — gain immédiat, zéro risque.
-2. **§9.1a (CLI `wpm record-execution`)** — pure logique Python réutilisant
-   des fonctions déjà testées, testable indépendamment du plugin.
-3. **§9.1b (hook `tool.execute.after` → shell out vers le CLI)** — après
-   avoir vérifié empiriquement les deux points d'API en suspens (nom des
-   champs `exitCode`/`sessionID`). Ferme un vrai trou fonctionnel, pas
-   seulement une reformulation de prompt.
-4. **§9.4 (mise à jour du docstring `server/__init__.py`)** — cosmétique mais
+2. **§9.1 (`tool.execute.after` → warm call `record_execution`)** — ferme un
+   vrai trou fonctionnel, plus de shellout CLI.
+3. **§9.4 (mise à jour du docstring `server/__init__.py`)** — cosmétique mais
    rapide, à faire pendant qu'on a le contexte en tête.
-5. **§1-2 (réduction des instructions)** — une fois 9.1 et 9.3 en place,
+4. **§1-2 (réduction des instructions)** — une fois 9.1 et 9.3 en place,
    les règles 13 et 16 peuvent sortir des `instructions` sans perte.
-6. **§9.3 (`session.idle` actif)** — faible risque, gain direct sur la
+5. **§9.3 (`session.idle` actif)** — faible risque, gain direct sur la
    règle 13.
-7. **§4.1 (reminder `related_context`)** — gain fin, faible risque.
-8. **§5 (descriptions de commandes)** — gains fins côté plugin.
-9. **§9.2 (nudge conditionnel `memory first`)** — le plus risqué (état
+6. **§4.1 (reminder `related_context`)** — gain fin, faible risque.
+7. **§5 (descriptions de commandes)** — gains fins côté plugin.
+8. **§9.2 (nudge conditionnel `memory first`)** — le plus risqué (état
    par session à maintenir correctement), à valider en dernier.
-10. **§4.2 (pin_candidates dans get_memory_stats)** — priorité revue à la
-    baisse : la commande `/wpm-patterns` couvre déjà activement cette règle:
-    utile seulement comme signal passif complémentaire.
-11. **§6 (mesure)** — en parallèle de tout le reste, pas après : c'est ce
-    qui permet de juger si les changements 1 à 10 améliorent réellement
-    la conformité plutôt que de simplement déplacer du texte.
+9. **§4.2 (pin_candidates dans get_memory_stats)** — priorité revue à la
+   baisse : la commande `/wpm-patterns` couvre déjà activement cette règle:
+   utile seulement comme signal passif complémentaire.
+10. **§6 (mesure)** — en parallèle de tout le reste, pas après : c'est ce
+   qui permet de juger si les changements 1 à 9 améliorent réellement
+   la conformité plutôt que de simplement déplacer du texte.

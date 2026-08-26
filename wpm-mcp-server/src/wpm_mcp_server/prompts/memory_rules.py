@@ -3,6 +3,7 @@
 A reduced set — 3 golden rules + standing policies — with the full rule
 detail living in tool descriptions. The response-language clause is
 appended to the English base template (these are agent instructions).
+Rules are pushed into context every turn by the plugin.
 """
 
 from __future__ import annotations
@@ -12,21 +13,12 @@ from wpm_mcp_server.prompts.entities import PromptContext, PromptTask
 
 def build_memory_usage_rules(
     response_language: str | None = None,
-    *,
-    pull_instructions: bool = True,
 ) -> str:
-    """Render the usage rules, appending the language hint when non-empty.
-
-    pull_instructions: the legacy rendering includes the startup step that
-    reads the wpm://project-rules resource. The push variant (plugin-owned
-    server, WPM_PROMPT_MODE=push) omits it — rules are pushed every turn
-    and no resource-read tool exists in that mode. Default True keeps the
-    historical bytes for any caller that does not opt in.
-    """
-    return _build_memory_usage_rules(_response_clause(response_language), pull_instructions)
+    """Render the usage rules, appending the language hint when non-empty."""
+    return _build_memory_usage_rules(_response_clause(response_language))
 
 
-def _build_memory_usage_rules(response_clause: str, pull_instructions: bool = True) -> str:
+def _build_memory_usage_rules(response_clause: str) -> str:
     """Render the usage rules, appending the language hint when non-empty."""
     ctx = PromptContext(tag="wpm-memory-rules").add_purpose(
         "Maintain your own persistent weighted memory (via the wpm MCP server) to recover, persist, and validate durable knowledge."
@@ -37,32 +29,17 @@ def _build_memory_usage_rules(response_clause: str, pull_instructions: bool = Tr
     if response_clause:
         ctx.add_instruction(response_clause)
     startup_steps = [
-        (
-            "If no <wpm-memory-recall> was pushed this turn or it is insufficient, "
-            "call query_context for the current topic before reading any project file."
-            if not pull_instructions
-            else "Call query_context for the current topic before reading any project file."
-        ),
+        "If no <wpm-memory-recall> was pushed this turn or it is insufficient, "
+        "call query_context for the current topic before reading any project file.",
         "Store each durable fact as soon as it emerges.",
         "Validate a stored fact with external evidence once independently confirmed.",
     ]
-    if pull_instructions:
-        startup_steps.insert(0, "Read the wpm://project-rules resource.")
-        startup_steps.insert(
-            1,
-            "Read the wpm://current-user resource and apply its conversation "
-            "preferences (name, language, stated preferences).",
-        )
     return (
         ctx.add_task(
             PromptTask("Golden Rules")
             .add_instruction(
-                (
-                    "MEMORY FIRST: If no <wpm-memory-recall> was pushed this turn or it is insufficient, "
-                    "call query_context with a reformulated query before reading a file, searching the codebase, or starting a substantive answer."
-                    if not pull_instructions
-                    else "MEMORY FIRST: Call query_context on the relevant topic before reading a file, searching the codebase, or starting a substantive answer."
-                ),
+                "MEMORY FIRST: If no <wpm-memory-recall> was pushed this turn or it is insufficient, "
+                "call query_context with a reformulated query before reading a file, searching the codebase, or starting a substantive answer.",
                 "WRITE AS YOU GO: Immediately call store_entry whenever a durable fact emerges (decisions, conventions, confirmed test results, bug patterns, other knowledge likely to remain useful) — do not defer writes until the end of a task.",
                 "PROOF BEFORE VALIDATION: Obtain external, checkable evidence (test output, logs, file paths, source code, documentation, or another relevant entry) before validate_entry or contradict_entry.",
             )

@@ -156,8 +156,8 @@ Pour réinstaller le worktree courant en conditions réelles :
 wpm uninstall --force && ./install.sh
 ```
 
-Redémarrez les sessions opencode après : le serveur chaud (plugin_master)
-garde l'ancien code jusqu'au restart.
+Redémarrez les sessions opencode après : le serveur chaud garde
+l'ancien code jusqu'au restart.
 
 ### Branches et publication
 

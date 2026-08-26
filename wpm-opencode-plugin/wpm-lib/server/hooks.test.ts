@@ -7,12 +7,11 @@ function makeDeps(overrides: Partial<HookDeps> = {}): HookDeps {
       session: { prompt: async () => ({}) },
       app: { log: async () => true },
     } as never,
-    directory: "/tmp/legacy-project",
+    directory: "/tmp/project",
     nudge: "NUDGE",
     persistReminder: "PERSIST",
     nudged: new Set<string>(),
     queriedRecently: new Map<string, boolean>(),
-    pluginMaster: false,
     confidenceFloor: 0.5,
     ragSimilarityThreshold: 0.45,
     ragMaxItems: 3,
@@ -20,37 +19,10 @@ function makeDeps(overrides: Partial<HookDeps> = {}): HookDeps {
   }
 }
 
-describe("legacy mode (plugin_master absent/false)", () => {
-  test("config hook registers the wpm MCP server for opencode to host", async () => {
-    const hooks = createHooks(makeDeps())
-    const config: any = {}
-    await hooks.config!(config)
-    expect(config.mcp?.["wpm"]).toEqual({
-      type: "local",
-      command: [expect.stringContaining("python"), "-m", "wpm_mcp_server"],
-      environment: { WPM_CONFIG_PATH: "/tmp/legacy-project/wpm.config.json" },
-      enabled: true,
-    })
-  })
-
-  test("transform pushes the nudge alone — no golden rules, no RAG", async () => {
-    const hooks = createHooks(makeDeps({ goldenRules: "GOLDEN" }))
-    const output = { system: [] as string[] }
-    await hooks["experimental.chat.system.transform"]!({ sessionID: "s", model: {} as never }, output as never)
-    expect(output.system).toEqual(["NUDGE"])
-  })
-
-  test("no tool bridge is exposed", () => {
-    const hooks = createHooks(makeDeps())
-    expect(hooks.tool).toBeUndefined()
-  })
-})
-
-describe("plugin_master mode guards", () => {
-  test("config hook does not register an MCP server entry", async () => {
+describe("config hook", () => {
+  test("does not register an MCP server entry (plugin owns the server)", async () => {
     const hooks = createHooks(
       makeDeps({
-        pluginMaster: true,
         mcp: {
           ready: async () => false,
           readResource: async () => undefined,
@@ -63,10 +35,27 @@ describe("plugin_master mode guards", () => {
     expect(config.mcp?.["wpm"]).toBeUndefined()
   })
 
+  test("grants wpm_* permission and plan exception", async () => {
+    const hooks = createHooks(makeDeps())
+    const config: any = {}
+    await hooks.config!(config)
+    expect(config.permission["wpm_*"]).toBe("allow")
+    expect(config.agent.plan.permission["wpm_*"]).toBe("allow")
+    expect(config.agent.plan.prompt).toContain("wpm_*")
+  })
+})
+
+describe("system transform", () => {
+  test("without mcp instance falls back to nudge alone", async () => {
+    const hooks = createHooks(makeDeps())
+    const output = { system: [] as string[] }
+    await hooks["experimental.chat.system.transform"]!({ sessionID: "s", model: {} as never }, output as never)
+    expect(output.system).toEqual(["NUDGE"])
+  })
+
   test("degraded server still pushes golden rules + nudge", async () => {
     const hooks = createHooks(
       makeDeps({
-        pluginMaster: true,
         goldenRules: "GOLDEN",
         mcp: {
           ready: async () => false,
@@ -80,18 +69,17 @@ describe("plugin_master mode guards", () => {
     expect(output.system).toEqual(["GOLDEN", "NUDGE"])
   })
 
-  test("master without mcp instance falls back to nudge alone", async () => {
-    const hooks = createHooks(makeDeps({ pluginMaster: true }))
-    const output = { system: [] as string[] }
-    await hooks["experimental.chat.system.transform"]!({ sessionID: "s", model: {} as never }, output as never)
-    expect(output.system).toEqual(["NUDGE"])
+  test("no tool bridge is exposed when server failed", () => {
+    const hooks = createHooks(makeDeps())
+    expect(hooks.tool).toBeUndefined()
   })
+})
 
-  test("record_execution: degraded server never receives the call (CLI net takes over)", async () => {
+describe("record_execution", () => {
+  test("degraded server is no-op (no fallback)", async () => {
     let calls = 0
     const hooks = createHooks(
       makeDeps({
-        pluginMaster: true,
         mcp: {
           ready: async () => false,
           readResource: async () => undefined,
@@ -102,8 +90,6 @@ describe("plugin_master mode guards", () => {
         } as never,
       }),
     )
-    // The bash branch falls through to the standalone CLI net; what matters
-    // here is that the warm path is not attempted and nothing throws.
     await hooks["tool.execute.after"]!(
       { tool: "bash", sessionID: "s", callID: "c", args: { command: "npm test" } },
       { title: "", output: "", metadata: { exit: 0 } } as never,
@@ -111,6 +97,49 @@ describe("plugin_master mode guards", () => {
     expect(calls).toBe(0)
   })
 
+  test("warm server receives the call", async () => {
+    let calls = 0
+    const hooks = createHooks(
+      makeDeps({
+        mcp: {
+          ready: async () => true,
+          readResource: async () => undefined,
+          callTool: async () => {
+            calls++
+            return {}
+          },
+        } as never,
+      }),
+    )
+    await hooks["tool.execute.after"]!(
+      { tool: "bash", sessionID: "s", callID: "c", args: { command: "npm test" } },
+      { title: "", output: "", metadata: { exit: 0 } } as never,
+    )
+    expect(calls).toBe(1)
+  })
+
+  test("warm server failure is swallowed (no throw, no fallback)", async () => {
+    const hooks = createHooks(
+      makeDeps({
+        mcp: {
+          ready: async () => true,
+          readResource: async () => undefined,
+          callTool: async () => {
+            throw new Error("boom")
+          },
+        } as never,
+      }),
+    )
+    await expect(
+      hooks["tool.execute.after"]!(
+        { tool: "bash", sessionID: "s", callID: "c", args: { command: "npm test" } },
+        { title: "", output: "", metadata: { exit: 0 } } as never,
+      ),
+    ).resolves.toBeUndefined()
+  })
+})
+
+describe("agent-aware injections", () => {
   test("injected prompts carry the session's live agent, never a hardcoded one", async () => {
     const prompted: Array<{ agent?: string; noReply?: boolean }> = []
     const clientStub = {
@@ -126,21 +155,17 @@ describe("plugin_master mode guards", () => {
     }
     const deps = makeDeps({
       client: clientStub as never,
-      pluginMaster: true,
       nudged: new Set<string>(),
     })
     const hooks = createHooks(deps)
 
-    // idle net
     await (hooks as any).event({ event: { type: "session.idle", properties: { sessionID: "s1" } } })
-    // memory-first nudge (read without prior query)
     await (hooks as any)["tool.execute.before"]!({ tool: "read", sessionID: "s2", callID: "c" }, {} as never)
 
     expect(prompted.length).toBe(2)
     for (const p of prompted as Array<{ agent?: string; noReply?: boolean }>) {
       expect(p.agent).toBe("build")
     }
-    // first injection is the persist pass (expects a reply), second the noReply nudge
     expect(prompted[0]!.noReply).toBe(false)
     expect(prompted[1]!.noReply).toBe(true)
   })

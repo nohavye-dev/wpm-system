@@ -25,13 +25,10 @@ Trois **règles d'or**, par ordre de priorité :
 3. **PROOF BEFORE VALIDATION** — valider ou contredire uniquement avec une
    preuve externe et vérifiable, jamais avec du raisonnement seul.
 
-**Séquence de démarrage** : lire `wpm://project-rules` → lire
-`wpm://current-user` (préférences de conversation) → `query_context`
-sur le sujet courant → `store_entry` dès fait durable → `validate_entry`
-avec preuve une fois confirmé. *(En mode `plugin_master`, les règles, le
-profil utilisateur et un rappel RAG sont poussés chaque tour au lieu d'être
-lus — voir
-[`02-configuration.md`](https://nohavye-dev.github.io/wpm-site/fr/docs/configuration).)*
+**Séquence de démarrage** : le plugin pousse chaque tour les règles d'or,
+`<current-user>` (préférences de conversation), les règles projet et un
+rappel RAG → `query_context` sur le sujet courant → `store_entry` dès fait
+durable → `validate_entry` avec preuve une fois confirmé.
 
 **Politiques transversales** :
 
