@@ -35,6 +35,9 @@ CREATE TABLE IF NOT EXISTS entry_events (
 );
 CREATE INDEX IF NOT EXISTS idx_entry_events_entry_id ON entry_events(entry_id);
 CREATE INDEX IF NOT EXISTS idx_entry_events_session_id ON entry_events(session_id);
+CREATE INDEX IF NOT EXISTS idx_entry_events_event_type ON entry_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_entry_events_entry_id_event_type ON entry_events(entry_id, event_type);
+CREATE INDEX IF NOT EXISTS idx_entry_events_timestamp ON entry_events(timestamp DESC);
 
 CREATE TABLE IF NOT EXISTS entry_links (
     source_id TEXT NOT NULL REFERENCES entries(id),
@@ -45,6 +48,9 @@ CREATE TABLE IF NOT EXISTS entry_links (
 );
 CREATE INDEX IF NOT EXISTS idx_entry_links_source ON entry_links(source_id);
 CREATE INDEX IF NOT EXISTS idx_entry_links_target ON entry_links(target_id);
+CREATE INDEX IF NOT EXISTS idx_entry_links_relation ON entry_links(relation_type);
+CREATE INDEX IF NOT EXISTS idx_entry_links_relation_source ON entry_links(relation_type, source_id);
+CREATE INDEX IF NOT EXISTS idx_entry_links_relation_target ON entry_links(relation_type, target_id);
 
 CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
@@ -79,6 +85,10 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
         )
     except sqlite3.OperationalError:
         pass
+    # Indexes on 'status' must be created after the column exists (migration)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_status ON entries(status)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_type ON entries(type)")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_status_type ON entries(status, type)")
     conn.commit()
     return conn
 

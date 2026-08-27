@@ -6,6 +6,14 @@ import type { McpCallToolResult } from "../mcp/entities"
 export const DEFAULT_RAG_SIMILARITY_THRESHOLD = 0.35
 export const DEFAULT_RAG_MAX_ITEMS = 5
 
+// Cache for lastUserMessageText: avoids fetching the full session history
+// on every turn when the session hasn't grown (Lot 2A).
+const lastUserCache = new Map<string, { length: number; text: string | undefined }>()
+
+export function _clearLastUserCache(): void {
+  lastUserCache.clear()
+}
+
 // Internal diagnostics for the deterministic push path; silent unless
 // WPM_DEBUG is set so a degraded server never pollutes the host's output.
 function debug(message: string, error: unknown): void {
@@ -67,17 +75,20 @@ export async function buildSystemPush(
     blocks.push(deps.goldenRules.trim())
   }
 
+  let rulesBody: string | undefined
   if (deps.mcp && (await deps.mcp.ready())) {
-    const profileBlock = await buildCurrentUserBlock(deps.mcp)
+    // Profile and rules are independent — fetch in parallel (Lot 2A)
+    const [profileBlock, rulesBodyResult] = await Promise.all([
+      buildCurrentUserBlock(deps.mcp),
+      deps.mcp.readResource(PROJECT_RULES_URI).catch((error) => {
+        debug("project-rules read failed", error)
+        return undefined
+      }),
+    ])
     if (profileBlock) {
       blocks.push(profileBlock)
     }
-    let rulesBody: string | undefined
-    try {
-      rulesBody = (await deps.mcp.readResource(PROJECT_RULES_URI))?.trim()
-    } catch (error) {
-      debug("project-rules read failed", error)
-    }
+    rulesBody = rulesBodyResult?.trim()
     if (rulesBody) {
       blocks.push(rulesBody)
     }
@@ -210,13 +221,15 @@ async function lastUserMessageText(
   client: PluginInput["client"],
   sessionID: string,
 ): Promise<string | undefined> {
-  // The SDK returns every message of the session: cost grows with session
-  // length. Acceptable today (localhost HTTP, compacted sessions); if it
-  // ever shows up on the critical path, an incremental cursor or a cached
-  // last-user-message per sessionID is the pre-identified optimization.
   const result = await client.session.messages({ path: { id: sessionID } })
   const payload = (result as { data?: unknown } | undefined)?.data
   if (!Array.isArray(payload)) return undefined
+  // Lot 2A: cache by payload length — avoids re-scanning when session hasn't grown
+  const cached = lastUserCache.get(sessionID)
+  if (cached && cached.length === payload.length) {
+    return cached.text
+  }
+  let found: string | undefined
   for (let index = payload.length - 1; index >= 0; index--) {
     const message = payload[index] as {
       info?: { role?: string }
@@ -233,9 +246,18 @@ async function lastUserMessageText(
       .map((part) => String(part.text ?? ""))
       .join("\n")
       .trim()
-    if (text) return text
+    if (text) {
+      found = text
+      break
+    }
   }
-  return undefined
+  lastUserCache.set(sessionID, { length: payload.length, text: found })
+  // Bound cache size to avoid unbounded growth (solo dev, but safety)
+  if (lastUserCache.size > 200) {
+    const firstKey = lastUserCache.keys().next().value
+    if (firstKey) lastUserCache.delete(firstKey)
+  }
+  return found
 }
 
 function extractStructured(result: McpCallToolResult | undefined): QueryContextResult | undefined {

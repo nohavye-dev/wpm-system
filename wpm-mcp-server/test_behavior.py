@@ -62,8 +62,8 @@ check(
     "Startup sequence" in behavior.MEMORY_USAGE_RULES,
 )
 check(
-    "startup sequence names the project-rules resource",
-    "wpm://project-rules" in behavior.MEMORY_USAGE_RULES,
+    "startup sequence does NOT pull project-rules (push mode — rules are pushed)",
+    "wpm://project-rules" not in behavior.MEMORY_USAGE_RULES,
 )
 check(
     "rules use golden-rule trigger phrasing",

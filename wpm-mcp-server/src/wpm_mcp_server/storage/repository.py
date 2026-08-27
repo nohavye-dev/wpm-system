@@ -43,8 +43,8 @@ from wpm_mcp_server.storage import queries
 from wpm_mcp_server.storage.model_guard import ensure_embedding_model
 from wpm_mcp_server.storage.retrieval import (
     apply_token_budget,
-    collect_conflicts,
-    score_entry,
+    collect_conflicts_batch,
+    score_entries_batch,
 )
 
 @dataclass
@@ -167,25 +167,30 @@ class Repository:
             if sim >= self.settings.retrieval.min_similarity
         }
 
-        # --- expansion: 1 hop via entry_links (section 6) ---
+        # --- expansion: 1 hop via entry_links (Lot 2A: single batched query) ---
         expanded: dict[str, float] = {}
-        for entry_id, similarity in direct_ids.items():
-            for link in self.conn.execute(
-                """
-                SELECT target_id, relation_type, weight FROM entry_links WHERE source_id = ?
-                UNION
-                SELECT source_id, relation_type, weight FROM entry_links WHERE target_id = ?
+        if direct_ids:
+            placeholders = ",".join("?" for _ in direct_ids)
+            ids = list(direct_ids.keys())
+            rows = self.conn.execute(
+                f"""
+                SELECT source_id, target_id, relation_type, weight FROM entry_links
+                WHERE source_id IN ({placeholders}) OR target_id IN ({placeholders})
                 """,
-                (entry_id, entry_id),
-            ).fetchall():
-                other_id = link["target_id"] if "target_id" in link.keys() else link[0]
-                if other_id in qualified_direct or other_id == entry_id:
-                    continue
-                hop_score = similarity * self.settings.expansion.hop_decay * link["weight"]
-                expanded[other_id] = max(expanded.get(other_id, 0.0), hop_score)
+                (*ids, *ids),
+            ).fetchall()
+            for row in rows:
+                s, t, w = row["source_id"], row["target_id"], row["weight"]
+                for entry_id, other_id in ((s, t), (t, s)):
+                    if entry_id not in direct_ids:
+                        continue
+                    if other_id in qualified_direct or other_id == entry_id:
+                        continue
+                    hop_score = direct_ids[entry_id] * self.settings.expansion.hop_decay * w
+                    expanded[other_id] = max(expanded.get(other_id, 0.0), hop_score)
 
-        direct_matches = [score_entry(self.conn, self.settings, eid, sim, is_direct=True) for eid, sim in direct_ids.items()]
-        related_context = [score_entry(self.conn, self.settings, eid, sim, is_direct=False) for eid, sim in expanded.items()]
+        direct_matches = score_entries_batch(self.conn, self.settings, direct_ids, is_direct=True)
+        related_context = score_entries_batch(self.conn, self.settings, expanded, is_direct=False)
 
         # direct_matches must be strong hits: below the similarity floor an
         # entry is noise even with min_confidence=0 (the default). related_context
@@ -208,7 +213,7 @@ class Repository:
 
         direct_matches, related_context = apply_token_budget(direct_matches, related_context, token_budget)
 
-        conflicts = collect_conflicts(self.conn, [e["entry_id"] for e in direct_matches])
+        conflicts = collect_conflicts_batch(self.conn, [e["entry_id"] for e in direct_matches])
 
         for e in direct_matches:
             self._log_event(e["entry_id"], EventType.REFERENCED, evidence_type=None, evidence_ref=None, session_id=session_id)
