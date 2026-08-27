@@ -12,12 +12,15 @@ query_context has occurred since the last store_entry — the signal behind
 the rule-5 (dedup before write) reminder.
 """
 
+import logging
 import os
 import uuid
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.server import Context
+
+_logger = logging.getLogger(__name__)
 
 from wpm_mcp_server.config.settings import load_settings, resolve_response_language
 from wpm_mcp_server.infra import database as db
@@ -59,7 +62,8 @@ def _current_user_language() -> str | None:
             connect_users_db(resolve_users_db_path())
         ).get_current_user()
         return (profile or {}).get("language")
-    except Exception:
+    except Exception as exc:
+        _logger.debug("failed to load current_user language: %s", exc, exc_info=True)
         return None
 
 
@@ -162,11 +166,10 @@ def set_cached_project_rules(block: str) -> None:
 async def on_memory_mutated(ctx: Context | None) -> None:
     """Drop the project-rules cache and tell subscribed clients to reload it."""
     set_cached_project_rules(None)
+    if ctx is None or getattr(ctx, "session", None) is None:
+        _logger.debug("on_memory_mutated: no session, cache invalidated only")
+        return
     try:
-        session = ctx.session
-        if session is not None:
-            await session.send_resource_updated("wpm://project-rules")
-    except Exception:
-        # Notification is best-effort — the resource itself is always fresh
-        # on the next read.
-        pass
+        await ctx.session.send_resource_updated("wpm://project-rules")
+    except Exception as exc:
+        _logger.debug("send_resource_updated best-effort failed: %s", exc, exc_info=True)

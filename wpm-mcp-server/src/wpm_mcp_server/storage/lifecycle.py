@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from pathlib import Path
 from typing import Any
+
+_logger = logging.getLogger(__name__)
 
 from wpm_mcp_server.infra.database import META_EMBEDDING_MODEL, set_meta
 from wpm_mcp_server.infra.embeddings import EmbeddingProvider
@@ -111,8 +114,8 @@ def generate_db(
                 "UPDATE entries SET status = ? WHERE id = ?",
                 (entry.get("status", "active"), entry["id"]),
             )
-        except Exception:
-            pass
+        except sqlite3.OperationalError as exc:
+            _logger.debug("status update skipped for %s: %s", entry.get("id"), exc)
 
         embedding = embedder.embed(entry["content"])
         conn.execute(

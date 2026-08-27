@@ -17,15 +17,15 @@ from abc import ABC, abstractmethod
 
 from wpm_mcp_server.core.constants import EMBEDDING_DIM
 
-import logging as _logging
+import contextlib
+import logging
 import os as _os
 import warnings as _warnings
-_logging.root.handlers.clear()
-_logging.root.addHandler(_logging.NullHandler())
-_logging.root.setLevel(_logging.CRITICAL)
-_warnings.filterwarnings("ignore")
+
 if "HF_HUB_DISABLE_IMPLICIT_TRUST" not in _os.environ:
     _os.environ["HF_HUB_DISABLE_IMPLICIT_TRUST"] = "1"
+
+_logger = logging.getLogger(__name__)
 
 _DEFAULT_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 _ONNX_FALLBACK = "onnx/model.onnx"
@@ -108,7 +108,7 @@ class ONNXRuntimeProvider(EmbeddingProvider):
                 return ort.InferenceSession(
                     onnx_path, providers=["CPUExecutionProvider"]
                 )
-            except Exception as exc:  # pragma: no cover - environment-dependent
+            except (OSError, RuntimeError, ValueError) as exc:  # pragma: no cover - environment-dependent
                 last_error = exc
                 continue
         raise RuntimeError(
@@ -158,13 +158,45 @@ class ONNXRuntimeProvider(EmbeddingProvider):
         return vec.tolist()
 
 
+def _debug_log_file() -> Path | None:
+    """File for ONNX C++ logs when WPM_DEBUG=1, else None (Lot 2C: TUI clean + file)."""
+    if _os.environ.get("WPM_DEBUG") != "1":
+        return None
+    from pathlib import Path
+
+    base = _os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))
+    log_dir = Path(base) / "wpm-system" / "logs"
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        _logger.debug("could not create debug log dir %s: %s", log_dir, exc)
+        return None
+    return log_dir / "wpm-embeddings.log"
+
+
+@contextlib.contextmanager
+def silenced_stderr():
+    """Silence fd 2 (C++ ONNX logs) leak-free; file only when WPM_DEBUG=1 (B)."""
+    import os
+
+    debug_file = _debug_log_file()
+    flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND
+    target = str(debug_file) if debug_file else os.devnull
+    # For devnull we don't need CREAT, but it's harmless
+    null_fd = os.open(target, flags, 0o644)
+    saved = os.dup(2)
+    try:
+        os.dup2(null_fd, 2)
+        yield
+    finally:
+        try:
+            os.dup2(saved, 2)
+        finally:
+            os.close(saved)
+            os.close(null_fd)
+
+
 def get_provider(model: str | None = None) -> EmbeddingProvider:
     """Build the embedding provider (ONNX runtime, no config needed)."""
-    import os as _os2
-    _saved = _os2.dup(2)
-    _os2.dup2(_os2.open(_os2.devnull, _os2.O_WRONLY), 2)
-    try:
+    with silenced_stderr():
         return ONNXRuntimeProvider(model or resolve_model_name())
-    finally:
-        _os2.dup2(_saved, 2)
-        _os2.close(_saved)

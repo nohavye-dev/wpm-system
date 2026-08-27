@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 from pathlib import Path
 
 import sqlite_vec
+
+_logger = logging.getLogger(__name__)
 
 from wpm_mcp_server.core.constants import EMBEDDING_DIM
 
@@ -71,8 +74,10 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     conn.enable_load_extension(True)
-    sqlite_vec.load(conn)
-    conn.enable_load_extension(False)
+    try:
+        sqlite_vec.load(conn)
+    finally:
+        conn.enable_load_extension(False)
 
     conn.execute("PRAGMA foreign_keys=ON")
     conn.execute("PRAGMA journal_mode=WAL")
@@ -83,8 +88,8 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
         conn.execute(
             "ALTER TABLE entries ADD COLUMN status TEXT NOT NULL DEFAULT 'active'"
         )
-    except sqlite3.OperationalError:
-        pass
+    except sqlite3.OperationalError as exc:
+        _logger.debug("status column already exists: %s", exc)
     # Indexes on 'status' must be created after the column exists (migration)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_status ON entries(status)")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_type ON entries(type)")
