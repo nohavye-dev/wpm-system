@@ -12,7 +12,7 @@
 
 ```bash
 # Serveur (depuis la racine du repo)
-pip install -e ./wpm-mcp-server
+pip install -e "./wpm-mcp-server[dev]"
 
 # Plugin OpenCode (bun)
 cd wpm-opencode-plugin && bun install

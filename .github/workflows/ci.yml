@@ -16,7 +16,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install wpm-mcp-server
-        run: pip install -e ./wpm-mcp-server
+        run: pip install -e "./wpm-mcp-server[dev]"
       - name: Run pytest
         run: pytest wpm-mcp-server --tb=short
         env:
