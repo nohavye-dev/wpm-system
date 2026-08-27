@@ -18,8 +18,8 @@ if [ ! -f "$BUNDLE_DIR/wpm-mcp-server/pyproject.toml" ]; then
   fi
   TMP_DIR="$(mktemp -d)"
   trap 'rm -rf "$TMP_DIR"' EXIT
-  curl -fsSL "$SOURCE_TARBALL" -o "$TMP_DIR/source.tar.gz"
-  curl -fsSL "$SOURCE_SHA256SUMS" -o "$TMP_DIR/SHA256SUMS"
+  curl --proto '=https' -fsSL "$SOURCE_TARBALL" -o "$TMP_DIR/source.tar.gz"
+  curl --proto '=https' -fsSL "$SOURCE_SHA256SUMS" -o "$TMP_DIR/SHA256SUMS"
   tar -xz -C "$TMP_DIR" -f "$TMP_DIR/source.tar.gz" --strip-components=1
   if ! (cd "$TMP_DIR" && sha256sum -c SHA256SUMS --status); then
     printf 'checksum verification failed — the downloaded source bundle was corrupted or tampered with\n' >&2
@@ -61,7 +61,12 @@ printf 'installing wpm command...\n'
 mkdir -p "$BIN_DIR"
 cp "$BUNDLE_DIR/scripts/wpm" "$BIN_DIR/wpm"
 chmod +x "$BIN_DIR/wpm"
-sed -i "1s|^#!/usr/bin/env python3|#!$DATA_DIR/venv/bin/python3|" "$BIN_DIR/wpm"
+# GNU vs BSD sed: -i requires an extension on macOS
+if sed --version >/dev/null 2>&1; then
+  sed -i "1s|^#!/usr/bin/env python3|#!$DATA_DIR/venv/bin/python3|" "$BIN_DIR/wpm"
+else
+  sed -i '' "1s|^#!/usr/bin/env python3|#!$DATA_DIR/venv/bin/python3|" "$BIN_DIR/wpm"
+fi
 
 printf 'installing config schema (editor validation)...\n'
 cp "$BUNDLE_DIR/wpm-mcp-server/wpm.config.schema.json" "$DATA_DIR/wpm.config.schema.json"

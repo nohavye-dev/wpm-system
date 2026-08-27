@@ -1,0 +1,35 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.13.0
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-setuptools]
+        args: [--ignore-missing-imports]
+        files: ^wpm-mcp-server/
+
+  - repo: https://github.com/biomejs/pre-commit
+    rev: v1.9.4
+    hooks:
+      - id: biome-check
+        args: [--write]
+        files: ^wpm-opencode-plugin/
+
+  - repo: local
+    hooks:
+      - id: wpm-schema-check
+        name: wpm schema up to date
+        entry: python scripts/generate_config_schema.py --check
+        language: system
+        pass_filenames: false
+      - id: wpm-checksums
+        name: SHA256SUMS valid
+        entry: bash -c 'sha256sum -c SHA256SUMS --status'
+        language: system
+        pass_filenames: false
