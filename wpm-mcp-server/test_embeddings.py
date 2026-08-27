@@ -3,6 +3,8 @@ sys.path.insert(0, "src")
 
 import os
 
+import pytest
+
 from wpm_mcp_server.core import EMBEDDING_DIM
 from wpm_mcp_server.infra.embeddings import (
     EmbeddingProvider,
@@ -14,14 +16,14 @@ from wpm_mcp_server.infra.embeddings import (
 # (CI / quick local smoke runs). Full tests need `pip install onnxruntime tokenizers`.
 if os.environ.get("WPM_SKIP_ONNX_TEST"):
     print("SKIP: WPM_SKIP_ONNX_TEST set")
-    sys.exit(0)
+    pytest.skip("WPM_SKIP_ONNX_TEST set", allow_module_level=True)
 
 try:
     import onnxruntime  # noqa: F401
     import tokenizers  # noqa: F401
 except ImportError:
     print("SKIP: onnxruntime/tokenizers not installed")
-    sys.exit(0)
+    pytest.skip("onnxruntime/tokenizers not installed", allow_module_level=True)
 
 # 1. Default provider, dim matches EMBEDDING_DIM
 p = get_provider()
