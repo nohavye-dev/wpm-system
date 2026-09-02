@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from wpm_mcp_server.core.constants import OBSERVATION_CATEGORIES, OBSERVATION_SOURCES
@@ -82,9 +82,7 @@ def resolve_users_db_path() -> Path:
     override = os.environ.get("WPM_USERS_DB_PATH")
     if override:
         return Path(override).expanduser()
-    config_home = os.environ.get(
-        "XDG_CONFIG_HOME", str(Path.home() / ".config")
-    )
+    config_home = os.environ.get("XDG_CONFIG_HOME", str(Path.home() / ".config"))
     return Path(config_home) / "wpm-system" / "users.db"
 
 
@@ -117,7 +115,7 @@ def normalize_name(name: str) -> str:
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 class UserRepository:
@@ -142,9 +140,7 @@ class UserRepository:
         """
         key = normalize_name(name)
         now = _now()
-        row = self.conn.execute(
-            "SELECT created_at FROM users WHERE name = ?", (key,)
-        ).fetchone()
+        row = self.conn.execute("SELECT created_at FROM users WHERE name = ?", (key,)).fetchone()
         created = row is None
         if created:
             self.conn.execute(
@@ -165,9 +161,9 @@ class UserRepository:
                 """,
                 (language, introduction, now, key),
             )
-        canonical = self.conn.execute(
-            "SELECT name FROM users WHERE name = ?", (key,)
-        ).fetchone()["name"]
+        canonical = self.conn.execute("SELECT name FROM users WHERE name = ?", (key,)).fetchone()[
+            "name"
+        ]
         self._set_meta(CURRENT_USER_KEY, canonical)
         self.conn.commit()
         return {"created": created, "profile": self.get_user(key)}
@@ -180,7 +176,9 @@ class UserRepository:
             raise WpmError(f"unknown user '{key}'")
         self._set_meta(CURRENT_USER_KEY, profile["name"])
         self.conn.commit()
-        return self.get_current_user()
+        result = self.get_current_user()
+        assert result is not None  # just set, must exist
+        return result
 
     def clear_current_user(self) -> None:
         """Deactivate profile usage without deleting anything (CLI 'none')."""
@@ -204,25 +202,19 @@ class UserRepository:
     # ── reads ───────────────────────────────────────────────────────────
 
     def get_users(self) -> list[dict]:
-        rows = self.conn.execute(
-            "SELECT name, updated_at FROM users ORDER BY name"
-        ).fetchall()
+        rows = self.conn.execute("SELECT name, updated_at FROM users ORDER BY name").fetchall()
         return [dict(row) for row in rows]
 
     def get_user(self, name: str) -> dict | None:
         key = normalize_name(name)
-        row = self.conn.execute(
-            "SELECT * FROM users WHERE name = ?", (key,)
-        ).fetchone()
+        row = self.conn.execute("SELECT * FROM users WHERE name = ?", (key,)).fetchone()
         return self._row_to_profile(row) if row else None
 
     def get_current_user(self) -> dict | None:
         key = self.get_current_name()
         if not key:
             return None
-        row = self.conn.execute(
-            "SELECT * FROM users WHERE name = ?", (key,)
-        ).fetchone()
+        row = self.conn.execute("SELECT * FROM users WHERE name = ?", (key,)).fetchone()
         return self._row_to_profile(row) if row else None
 
     def get_current_name(self) -> str | None:
@@ -275,9 +267,7 @@ class UserRepository:
         if not content:
             raise ValueError("content must not be empty")
         if source not in OBSERVATION_SOURCES:
-            raise ValueError(
-                "source must be one of: " + ", ".join(OBSERVATION_SOURCES)
-            )
+            raise ValueError("source must be one of: " + ", ".join(OBSERVATION_SOURCES))
 
         now = _now()
         if source == "declared":
@@ -289,12 +279,8 @@ class UserRepository:
                     (int(replaces_id), user),
                 ).fetchone()
                 if replaced is None or replaced["source"] != "declared":
-                    raise WpmError(
-                        f"unknown declared statement {replaces_id} for current user"
-                    )
-                self.conn.execute(
-                    "DELETE FROM observations WHERE id = ?", (int(replaces_id),)
-                )
+                    raise WpmError(f"unknown declared statement {replaces_id} for current user")
+                self.conn.execute("DELETE FROM observations WHERE id = ?", (int(replaces_id),))
             cursor = self.conn.execute(
                 """
                 INSERT INTO observations
@@ -321,9 +307,7 @@ class UserRepository:
             raise ValueError("inferred observations require a category")
         category = str(category).strip()
         if category not in OBSERVATION_CATEGORIES:
-            raise ValueError(
-                "category must be one of: " + ", ".join(OBSERVATION_CATEGORIES)
-            )
+            raise ValueError("category must be one of: " + ", ".join(OBSERVATION_CATEGORIES))
         if replaces_id is not None:
             raise ValueError("replaces_id applies only to declared statements")
 

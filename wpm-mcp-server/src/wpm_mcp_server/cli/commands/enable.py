@@ -26,10 +26,11 @@ def cmd_enable(db_dir: str | None, assume_yes: bool) -> None:
 
     resolved = resolve_project_db(data["db_path"])
 
-    if not assume_yes:
-        if not confirm(f"Write {config_path} with db_path={data['db_path']}? [y/N] "):
-            print("wpm: aborted — nothing written")
-            sys.exit(0)
+    if not assume_yes and not confirm(
+        f"Write {config_path} with db_path={data['db_path']}? [y/N] "
+    ):
+        print("wpm: aborted — nothing written")
+        sys.exit(0)
 
     config_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 

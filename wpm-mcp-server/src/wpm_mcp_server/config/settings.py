@@ -45,12 +45,12 @@ class DecaySettings:
         default_factory=lambda: {
             # Half-lives (time for confidence to halve), calibrated against
             # external anchors — see docs/internals/heuristic-calibration.md.
-            EntryType.ARCHI_DECISION.value: 0.00008,   # ~1 year
-            EntryType.CONVENTION.value: 0.00016,       # ~6 months
-            EntryType.DOC.value: 0.00021,              # ~4.5 months (indicative)
-            EntryType.INSIGHT.value: 0.001,            # ~1 month
-            EntryType.BUG_PATTERN.value: 0.0016,       # ~18 days (measured)
-            EntryType.EXECUTION_RESULT.value: 0.01,    # ~3 days
+            EntryType.ARCHI_DECISION.value: 0.00008,  # ~1 year
+            EntryType.CONVENTION.value: 0.00016,  # ~6 months
+            EntryType.DOC.value: 0.00021,  # ~4.5 months (indicative)
+            EntryType.INSIGHT.value: 0.001,  # ~1 month
+            EntryType.BUG_PATTERN.value: 0.0016,  # ~18 days (measured)
+            EntryType.EXECUTION_RESULT.value: 0.01,  # ~3 days
         }
     )
     default_lambda: float = 0.001
@@ -203,7 +203,11 @@ def load_settings(config_path: str | Path | None = None) -> Settings:
     """
     settings = Settings()
 
-    path = Path(config_path or os.environ.get("WPM_CONFIG_PATH", "wpm.config.json"))
+    if config_path is not None:
+        path = Path(config_path)
+    else:
+        env_path = os.environ.get("WPM_CONFIG_PATH")
+        path = Path(env_path) if env_path else Path("wpm.config.json")
     if not path.exists():
         return settings
 
@@ -231,9 +235,7 @@ def load_settings(config_path: str | Path | None = None) -> Settings:
     return settings
 
 
-def resolve_response_language(
-    config_value: str | None, env_value: str | None
-) -> str | None:
+def resolve_response_language(config_value: str | None, env_value: str | None) -> str | None:
     """Resolve the effective response language: env overrides config, and
     "auto"/empty means "follow the user's language" (None).
 
@@ -256,28 +258,36 @@ def _validate_settings(settings: Settings) -> None:
     resource and is documented as a confidence value in [0, 1])."""
     ct = settings.confidence_threshold
     if isinstance(ct, bool) or not isinstance(ct, (int, float)):
-        raise ValueError(
-            f"confidence_threshold: expected a number between 0 and 1, "
-            f"got {ct!r}"
-        )
+        raise ValueError(f"confidence_threshold: expected a number between 0 and 1, got {ct!r}")
     if not 0.0 <= ct <= 1.0:
-        raise ValueError(
-            f"confidence_threshold: expected a value between 0 and 1, got {ct}"
-        )
+        raise ValueError(f"confidence_threshold: expected a value between 0 and 1, got {ct}")
 
     patterns = settings.verification_command_patterns
-    if patterns is not None:
-        if not isinstance(patterns, list) or not all(
-            isinstance(p, str) and p.strip() for p in patterns
-        ):
-            raise ValueError(
-                "verification_command_patterns: expected a list of non-empty "
-                f"strings, got {patterns!r}"
-            )
+    if patterns is not None and (
+        not isinstance(patterns, list)
+        or not all(isinstance(p, str) and p.strip() for p in patterns)
+    ):
+        raise ValueError(
+            f"verification_command_patterns: expected a list of non-empty strings, got {patterns!r}"
+        )
 
     rl = settings.response_language
     if rl is not None and (not isinstance(rl, str) or not rl.strip()):
         raise ValueError(
-            "response_language: expected a non-empty string (e.g. \"french\") "
-            f"or null/\"auto\", got {rl!r}"
+            'response_language: expected a non-empty string (e.g. "french") '
+            f'or null/"auto", got {rl!r}'
         )
+
+    rst = settings.rag_similarity_threshold
+    if isinstance(rst, bool) or not isinstance(rst, (int, float)):
+        raise ValueError(
+            f"rag_similarity_threshold: expected a number between 0 and 1, got {rst!r}"
+        )
+    if not 0.0 <= rst <= 1.0:
+        raise ValueError(f"rag_similarity_threshold: expected a value between 0 and 1, got {rst}")
+
+    rmi = settings.rag_max_items
+    if isinstance(rmi, bool) or not isinstance(rmi, int):
+        raise ValueError(f"rag_max_items: expected an integer >= 1, got {rmi!r}")
+    if rmi < 1:
+        raise ValueError(f"rag_max_items: expected an integer >= 1, got {rmi}")

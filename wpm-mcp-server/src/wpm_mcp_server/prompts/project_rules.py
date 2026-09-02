@@ -1,6 +1,5 @@
 """Project-rules resource content: query, budget and Markdown rendering."""
 
-
 PROJECT_RULES_QUERY = (
     "What are the project rules and conventions: commit message format, "
     "dependency and package management, coding style, testing strategy, "
@@ -24,27 +23,30 @@ def format_project_rules(result: dict) -> str:
     related_context = result.get("related_context", [])
 
     if direct_matches:
-        lines.extend([
-            "## Rules",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Rules",
+                "",
+            ]
+        )
 
         for entry in direct_matches:
             content = entry.get("content", "").strip()
             if content:
                 lines.append(
-                    f"  - [{entry.get('type')}] {content} "
-                    f"(confidence {entry.get('confidence')})"
+                    f"  - [{entry.get('type')}] {content} (confidence {entry.get('confidence')})"
                 )
 
     if related_context:
         if lines:
             lines.append("")
 
-        lines.extend([
-            "## Supporting context",
-            "",
-        ])
+        lines.extend(
+            [
+                "## Supporting context",
+                "",
+            ]
+        )
 
         for entry in related_context:
             content = entry.get("content", "").strip()

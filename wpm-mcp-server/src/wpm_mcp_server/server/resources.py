@@ -9,7 +9,7 @@
   as a tagged Markdown block; read fresh on every access.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from wpm_mcp_server.core.errors import WpmError
 from wpm_mcp_server.prompts import (
@@ -103,7 +103,7 @@ def current_user() -> str:
             return ""
         all_rows = repo.get_user_observations()
         declared = [o for o in all_rows if o.get("source") == "declared"]
-        cutoff = datetime.now(timezone.utc) - timedelta(days=OBSERVATION_STALENESS_DAYS)
+        cutoff = datetime.now(UTC) - timedelta(days=OBSERVATION_STALENESS_DAYS)
         recurring = []
         for observation in all_rows:
             if observation.get("source") != "inferred":
@@ -115,7 +115,7 @@ def current_user() -> str:
             except (KeyError, TypeError, ValueError):
                 continue
             if last_seen.tzinfo is None:
-                last_seen = last_seen.replace(tzinfo=timezone.utc)
+                last_seen = last_seen.replace(tzinfo=UTC)
             if last_seen >= cutoff:
                 recurring.append(observation)
     except (ValueError, WpmError, RuntimeError):

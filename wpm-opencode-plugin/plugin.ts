@@ -1,13 +1,15 @@
-import type { Plugin } from "@opencode-ai/plugin"
-import type { ToolDefinition } from "@opencode-ai/plugin"
-import { $ } from "bun"
 import { join } from "node:path"
-import { buildNudge, buildPersistReminder } from "./wpm-lib/prompts/nudges"
+import type { Plugin, ToolDefinition } from "@opencode-ai/plugin"
+import { $ } from "bun"
 import { isEnabled, readConfigParam, resolveResponseLanguage } from "./wpm-lib/config/settings"
-import { createHooks } from "./wpm-lib/server/hooks"
-import { DEFAULT_RAG_MAX_ITEMS, DEFAULT_RAG_SIMILARITY_THRESHOLD } from "./wpm-lib/server/system-push"
-import { WpmMcpClient } from "./wpm-lib/mcp/client"
 import { buildBridgedTools } from "./wpm-lib/mcp/bridge"
+import { WpmMcpClient } from "./wpm-lib/mcp/client"
+import { buildNudge, buildPersistReminder } from "./wpm-lib/prompts/nudges"
+import { createHooks } from "./wpm-lib/server/hooks"
+import {
+  DEFAULT_RAG_MAX_ITEMS,
+  DEFAULT_RAG_SIMILARITY_THRESHOLD,
+} from "./wpm-lib/server/system-push"
 
 const liveClients = new Set<WpmMcpClient>()
 let teardownRegistered = false
@@ -45,7 +47,11 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
   // only refreshes on restart — the block remains authoritative.
   let userLanguage = ""
   try {
-    const out = await $`wpm current-user --language`.quiet().nothrow().text()
+    const out = await $`wpm current-user --language`
+      .env({ ...process.env, WPM_CONFIG_PATH: join(directory, "wpm.config.json") })
+      .quiet()
+      .nothrow()
+      .text()
     userLanguage = out.trim()
   } catch {}
   const language = resolveResponseLanguage(
@@ -78,7 +84,6 @@ export const WpmPlugin: Plugin = async ({ client, directory }) => {
 
   return createHooks({
     client,
-    directory,
     language,
     confidenceThreshold,
     nudge: buildNudge(language),

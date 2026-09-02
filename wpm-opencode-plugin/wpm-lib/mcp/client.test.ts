@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { join } from "node:path"
-import { WpmMcpClient, PROJECT_RULES_URI } from "./client"
+import { PROJECT_RULES_URI, WpmMcpClient } from "./client"
 
 const FIXTURE = join(import.meta.dir, "fixtures", "fake-server.ts")
 

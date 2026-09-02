@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import re
 
-
 VERIFICATION_COMMAND_PATTERNS: list[str] = [
     r"\bpytest\b",
     r"\bnpm\s+(run\s+)?test\b",

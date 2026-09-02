@@ -8,9 +8,11 @@ import tempfile
 # invocation directory (repo root vs this directory).
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
+
 def _src_env(env: dict) -> dict:
     env["PYTHONPATH"] = os.path.join(_HERE, "src")
     return env
+
 
 # Case A: only wpm.config.json sets db_path -> server should use it
 workdir_a = tempfile.mkdtemp()
@@ -60,7 +62,9 @@ result_c = subprocess.run(
     capture_output=True,
     text=True,
 )
-assert result_c.returncode == 0, f"expected inert startup, got rc={result_c.returncode}: {result_c.stderr}"
+assert result_c.returncode == 0, (
+    f"expected inert startup, got rc={result_c.returncode}: {result_c.stderr}"
+)
 assert result_c.stdout.strip() == "None", f"expected DB_PATH=None, got {result_c.stdout.strip()}"
 print("OK: missing db_path starts inert (DB_PATH=None)")
 
@@ -84,5 +88,7 @@ result_d = subprocess.run(
 )
 expected_d = os.path.realpath(os.path.join(workdir_d, ".wpm/rel.db"))
 assert result_d.returncode == 0, f"unexpected failure: {result_d.stderr}"
-assert result_d.stdout.strip() == expected_d, f"expected {expected_d}, got {result_d.stdout.strip()}"
+assert result_d.stdout.strip() == expected_d, (
+    f"expected {expected_d}, got {result_d.stdout.strip()}"
+)
 print("OK: db_path resolved relative to config dir, not the host cwd ->", result_d.stdout.strip())

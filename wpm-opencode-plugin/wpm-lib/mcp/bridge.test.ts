@@ -49,16 +49,18 @@ describe("bridge query_context detection", () => {
       onQueryContext: (sessionID) => seen.push(sessionID),
     })
 
-    await tools["wpm_query_context"]!.execute({ query: "x" }, CTX("ses_a"))
+    await tools.wpm_query_context?.execute({ query: "x" }, CTX("ses_a"))
     expect(seen).toEqual(["ses_a"])
 
-    await tools["wpm_store_entry"]!.execute({ content: "y" }, CTX("ses_b"))
+    await tools.wpm_store_entry?.execute({ content: "y" }, CTX("ses_b"))
     expect(seen).toEqual(["ses_a"])
   })
 
   test("no callback registered: execution unaffected", async () => {
     const tools = await buildBridgedTools(fakeClient())
-    const result = (await tools["wpm_query_context"]!.execute({ query: "x" }, CTX("ses_c"))) as { output: string }
+    const result = (await tools.wpm_query_context?.execute({ query: "x" }, CTX("ses_c"))) as {
+      output: string
+    }
     expect(result.output).toBe("ok")
   })
 })

@@ -13,7 +13,7 @@ const decoder = new TextDecoder()
 let buffer = ""
 
 function send(message: Record<string, unknown>): void {
-  process.stdout.write(JSON.stringify(message) + "\n")
+  process.stdout.write(`${JSON.stringify(message)}\n`)
 }
 
 function handle(message: Message): void {
@@ -74,7 +74,11 @@ function handle(message: Message): void {
       if (message.params?.name === "slow") {
         // Stays pending long enough for an abort test to cancel it.
         setTimeout(() => {
-          send({ jsonrpc: "2.0", id: message.id, result: { content: [{ type: "text", text: "finally" }] } })
+          send({
+            jsonrpc: "2.0",
+            id: message.id,
+            result: { content: [{ type: "text", text: "finally" }] },
+          })
         }, 5_000)
         break
       }
@@ -84,7 +88,11 @@ function handle(message: Message): void {
           method: "notifications/resources/updated",
           params: { uri: "wpm://project-rules" },
         })
-        send({ jsonrpc: "2.0", id: message.id, result: { content: [{ type: "text", text: "invalidated" }] } })
+        send({
+          jsonrpc: "2.0",
+          id: message.id,
+          result: { content: [{ type: "text", text: "invalidated" }] },
+        })
         break
       }
       send({
@@ -99,7 +107,9 @@ function handle(message: Message): void {
         jsonrpc: "2.0",
         id: message.id,
         result: {
-          contents: [{ uri: String(message.params?.uri), text: `body:${String(message.params?.uri)}` }],
+          contents: [
+            { uri: String(message.params?.uri), text: `body:${String(message.params?.uri)}` },
+          ],
         },
       })
       break
@@ -132,4 +142,3 @@ process.stdin.on("data", (chunk: Uint8Array) => {
     newline = buffer.indexOf("\n")
   }
 })
-

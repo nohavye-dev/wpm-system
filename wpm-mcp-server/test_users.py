@@ -22,12 +22,6 @@ _tmp = tempfile.mkdtemp()
 os.environ["WPM_USERS_DB_PATH"] = os.path.join(_tmp, "users.db")
 os.environ.pop("XDG_CONFIG_HOME", None)
 
-from wpm_mcp_server.storage.users import (  # noqa: E402
-    UserRepository,
-    connect_users_db,
-    normalize_name,
-    resolve_users_db_path,
-)
 from wpm_mcp_server.core.constants import (  # noqa: E402
     SUPPORTED_LANGUAGES,
     match_languages,
@@ -36,6 +30,12 @@ from wpm_mcp_server.prompts.user_profile import (  # noqa: E402
     RECURRENCE_THRESHOLD,
     build_current_user_block,
     format_current_user,
+)
+from wpm_mcp_server.storage.users import (  # noqa: E402
+    UserRepository,
+    connect_users_db,
+    normalize_name,
+    resolve_users_db_path,
 )
 
 
@@ -81,7 +81,9 @@ except ValueError:
 
 r1 = repo.save_user("Noha", language="french", introduction="dev full-stack")
 check("first save reports created", r1["created"] is True, f"got {r1}")
-check("save makes the profile current", repo.get_current_user()["name"] == "Noha")
+cur = repo.get_current_user()
+assert cur is not None
+check("save makes the profile current", cur["name"] == "Noha")
 check("language stored", r1["profile"]["language"] == "french")
 check("introduction stored", r1["profile"]["introduction"] == "dev full-stack")
 
@@ -93,7 +95,9 @@ check("merge applies new values", r2["profile"]["language"] == "english")
 
 repo.save_user("Marc", language="english")
 check("saving another user switches current", repo.get_current_name() == "Marc")
-check("get_user matches by raw casing", repo.get_user("mArc")["name"] == "Marc")
+_user_marc = repo.get_user("mArc")
+assert _user_marc is not None
+check("get_user matches by raw casing", _user_marc["name"] == "Marc")
 
 repo.set_current_user("nOha")
 check("set_current_user normalizes and switches", repo.get_current_name() == "Noha")
@@ -135,60 +139,80 @@ except ValueError:
 o1 = repo.record_user_observation(
     "confuses rebase and merge semantics", source="inferred", category="workflow"
 )
-check("inferred created with count 1",
-      o1["created"] is True and o1["observation"]["count"] == 1
-      and o1["observation"]["source"] == "inferred", f"got {o1}")
-o2 = repo.record_user_observation(
-    "prefers terse commit messages", source="inferred", category="habit",
-    reinforce_id=o1["observation"]["id"]
+check(
+    "inferred created with count 1",
+    o1["created"] is True
+    and o1["observation"]["count"] == 1
+    and o1["observation"]["source"] == "inferred",
+    f"got {o1}",
 )
-check("reinforce bumps count instead of duplicating",
-      o2["created"] is False and o2["observation"]["count"] == 2, f"got {o2}")
-check("reinforce refreshes content and category",
-      o2["observation"]["content"] == "prefers terse commit messages"
-      and o2["observation"]["category"] == "habit")
+o2 = repo.record_user_observation(
+    "prefers terse commit messages",
+    source="inferred",
+    category="habit",
+    reinforce_id=o1["observation"]["id"],
+)
+check(
+    "reinforce bumps count instead of duplicating",
+    o2["created"] is False and o2["observation"]["count"] == 2,
+    f"got {o2}",
+)
+check(
+    "reinforce refreshes content and category",
+    o2["observation"]["content"] == "prefers terse commit messages"
+    and o2["observation"]["category"] == "habit",
+)
 o3 = repo.record_user_observation(
     "wants honest pushback on ideas", source="inferred", category="personal"
 )
 try:
-    repo.record_user_observation("y", source="inferred", category="habit",
-                                 reinforce_id=99999)
+    repo.record_user_observation("y", source="inferred", category="habit", reinforce_id=99999)
     check("reinforce unknown id rejected", False)
 except Exception:
     check("reinforce unknown id rejected", True)
 
 # declared preferences: no category, never reinforced, always listed
 d1 = repo.record_user_observation("talk to me more simply", source="declared")
-check("declared created without category",
-      d1["created"] is True and d1["observation"]["source"] == "declared"
-      and d1["observation"]["category"] is None
-      and d1["observation"]["count"] == 1, f"got {d1}")
+check(
+    "declared created without category",
+    d1["created"] is True
+    and d1["observation"]["source"] == "declared"
+    and d1["observation"]["category"] is None
+    and d1["observation"]["count"] == 1,
+    f"got {d1}",
+)
 try:
-    repo.record_user_observation("x", source="declared",
-                                 reinforce_id=o1["observation"]["id"])
+    repo.record_user_observation("x", source="declared", reinforce_id=o1["observation"]["id"])
     check("reinforce rejected on a declared recording", False)
 except ValueError as exc:
     check("reinforce rejected on a declared recording", "reinforce" in str(exc), str(exc))
 try:
-    repo.record_user_observation("w", source="inferred", category="habit",
-                                 replaces_id=d1["observation"]["id"])
+    repo.record_user_observation(
+        "w", source="inferred", category="habit", replaces_id=d1["observation"]["id"]
+    )
     check("replaces rejected from an inferred recording", False)
 except ValueError as exc:
     check("replaces rejected from an inferred recording", "declared" in str(exc), str(exc))
 
 rows = repo.get_user_observations()
-check("listing holds both sources before supersession",
-      len(rows) == 3
-      and sum(1 for r in rows if r["source"] == "declared") == 1
-      and sum(1 for r in rows if r["source"] == "inferred") == 2, f"got {rows}")
+check(
+    "listing holds both sources before supersession",
+    len(rows) == 3
+    and sum(1 for r in rows if r["source"] == "declared") == 1
+    and sum(1 for r in rows if r["source"] == "inferred") == 2,
+    f"got {rows}",
+)
 
 # contradictory declaration supersedes the old one (hard delete)
 d2 = repo.record_user_observation("be very detailed in explanations", source="declared")
 d3 = repo.record_user_observation(
     "keep explanations short", source="declared", replaces_id=d2["observation"]["id"]
 )
-check("replacement reports the replaced id",
-      d3.get("replaced") == d2["observation"]["id"], f"got {d3}")
+check(
+    "replacement reports the replaced id",
+    d3.get("replaced") == d2["observation"]["id"],
+    f"got {d3}",
+)
 try:
     repo.record_user_observation("ghost replacement", source="declared", replaces_id=99999)
     check("replace unknown declared id rejected", False)
@@ -196,9 +220,12 @@ except Exception:
     check("replace unknown declared id rejected", True)
 
 declared_now = [r for r in repo.get_user_observations() if r["source"] == "declared"]
-check("only surviving declarations remain",
-      sorted(r["content"] for r in declared_now)
-      == ["keep explanations short", "talk to me more simply"], f"got {declared_now}")
+check(
+    "only surviving declarations remain",
+    sorted(r["content"] for r in declared_now)
+    == ["keep explanations short", "talk to me more simply"],
+    f"got {declared_now}",
+)
 
 # ── rendering ───────────────────────────────────────────────────────────
 
@@ -206,36 +233,38 @@ check("empty profile renders to empty string", format_current_user(None) == "")
 all_rows = repo.get_user_observations()
 declared_rows = [r for r in all_rows if r["source"] == "declared"]
 inferred_recurring = [
-    r for r in all_rows
-    if r["source"] == "inferred" and r["count"] >= RECURRENCE_THRESHOLD
+    r for r in all_rows if r["source"] == "inferred" and r["count"] >= RECURRENCE_THRESHOLD
 ]
-check("threshold filters singletons", len(inferred_recurring) == 1,
-      f"got {inferred_recurring}")
+check("threshold filters singletons", len(inferred_recurring) == 1, f"got {inferred_recurring}")
 
 block = build_current_user_block(
     format_current_user(repo.get_current_user(), declared_rows, inferred_recurring)
 )
 check("block is tagged", block.startswith("<current-user>") and block.endswith("</current-user>"))
 check("block carries identity", "name: Marc" in block and "respond in: english" in block, block)
-check("block carries full declared section",
-      "## User preferences" in block
-      and "keep explanations short" in block
-      and "talk to me more simply" in block, block)
-check("block groups inferred by category with freshness",
-      "### Habit" in block and "(seen x2, last " in block, block)
+check(
+    "block carries full declared section",
+    "## User preferences" in block
+    and "keep explanations short" in block
+    and "talk to me more simply" in block,
+    block,
+)
+check(
+    "block groups inferred by category with freshness",
+    "### Habit" in block and "(seen x2, last " in block,
+    block,
+)
 check("singletons excluded from block", "honest pushback" not in block)
 
 # cascade: observations die with their user
 repo.save_user("Temp")
-tid = repo.record_user_observation(
-    "temporary pattern", source="inferred", category="workflow"
-)["observation"]["id"]
+tid = repo.record_user_observation("temporary pattern", source="inferred", category="workflow")[
+    "observation"
+]["id"]
 tdid = repo.record_user_observation("temp wants x", source="declared")["observation"]["id"]
 repo.remove_user("Temp")
 leftover_obs = repo.conn.execute("SELECT 1 FROM observations WHERE id=?", (tid,)).fetchone()
-leftover_declared = repo.conn.execute(
-    "SELECT 1 FROM observations WHERE id=?", (tdid,)
-).fetchone()
+leftover_declared = repo.conn.execute("SELECT 1 FROM observations WHERE id=?", (tdid,)).fetchone()
 check("removing a user cascades inferred observations", leftover_obs is None)
 check("removing a user cascades declared statements", leftover_declared is None)
 repo.set_current_user("Marc")
@@ -259,7 +288,10 @@ wpm_script = os.path.join(_here, "..", "scripts", "wpm")
 def run_cli(*args, stdin=None):
     return subprocess.run(
         [sys.executable, wpm_script, *args],
-        env=cli_env, capture_output=True, text=True, input=stdin,
+        env=cli_env,
+        capture_output=True,
+        text=True,
+        input=stdin,
     )
 
 
@@ -277,15 +309,23 @@ res = run_cli("current-user", "--language")
 check("CLI current-user --language prints token", res.stdout.strip() == "english", repr(res.stdout))
 
 res = run_cli("current-user", "ghost")
-check("CLI unknown switch fails with known list",
-      res.returncode == 1 and "ghost" in res.stdout and "Marc" in res.stdout, res.stdout)
+check(
+    "CLI unknown switch fails with known list",
+    res.returncode == 1 and "ghost" in res.stdout and "Marc" in res.stdout,
+    res.stdout,
+)
 
 # new-user: piped stdin (non-TTY fallback) -> created + current
 res = run_cli("new-user", stdin="Alice\nfrench\nAI researcher\ny\n")
-check("CLI new-user creates profile",
-      res.returncode == 0 and "created" in res.stdout, res.stderr + res.stdout)
+check(
+    "CLI new-user creates profile",
+    res.returncode == 0 and "created" in res.stdout,
+    res.stderr + res.stdout,
+)
 check("CLI new-user sets current", run_cli("current-user").stdout.startswith("current user: Alice"))
-check("CLI new-user stored language", run_cli("current-user", "--language").stdout.strip() == "french")
+check(
+    "CLI new-user stored language", run_cli("current-user", "--language").stdout.strip() == "french"
+)
 
 # new-user: same name again -> updated
 res = run_cli("new-user", stdin="Alice\nfrench\n\ny\n")
@@ -293,20 +333,23 @@ check("CLI new-user updates existing", res.returncode == 0 and "updated" in res.
 
 # new-user: abort at confirmation
 res = run_cli("new-user", stdin="Bob\nenglish\n\nn\n")
-check("CLI new-user abort keeps nothing",
-      res.returncode == 0 and "aborted" in res.stdout
-      and not any(u["name"] == "Bob" for u in repo.get_users()), res.stdout)
+check(
+    "CLI new-user abort keeps nothing",
+    res.returncode == 0
+    and "aborted" in res.stdout
+    and not any(u["name"] == "Bob" for u in repo.get_users()),
+    res.stdout,
+)
 
 # observations were recorded for Marc during the repo tests: switch back.
 run_cli("current-user", "marc")
 res = run_cli("user-observations")
-check("CLI user-observations lists declared group first",
-      res.returncode == 0
-      and "declared preferences:" in res.stdout
-      and "terse commit" in res.stdout,
-      res.stdout)
-check("CLI user-observations shows counts for inferred",
-      "x2" in res.stdout, res.stdout)
+check(
+    "CLI user-observations lists declared group first",
+    res.returncode == 0 and "declared preferences:" in res.stdout and "terse commit" in res.stdout,
+    res.stdout,
+)
+check("CLI user-observations shows counts for inferred", "x2" in res.stdout, res.stdout)
 
 res = run_cli("user-observations", "off")
 check("CLI toggle off", repo.observations_enabled() is False and "disabled" in res.stdout)

@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import sys
+
 sys.path.insert(0, "src")
 
 # Absolute so the stdio subprocess resolves the package regardless of the
@@ -38,7 +39,7 @@ async def main_language():
         },
     )
     try:
-        async with stdio_client(params) as (read, write):
+        async with stdio_client(params) as (read, write):  # noqa: SIM117
             async with ClientSession(read, write) as session:
                 init = await session.initialize()
 
@@ -61,16 +62,21 @@ async def main_language():
                     f"len={len(store_desc)}",
                 )
 
-                rules_resource = await session.read_resource("wpm://memory-rules")
-                rules_text = rules_resource.contents[0].text
+                rules_resource = await session.read_resource("wpm://memory-rules")  # pyright: ignore[reportArgumentType]
+                rules_text = rules_resource.contents[0].text  # pyright: ignore[reportAttributeAccessIssue]
                 check(
                     "memory-rules resource reflects configured language",
                     "MUST be written in french" in rules_text,
                 )
     finally:
-        for f in [".stdio_test_lang.db", ".stdio_test_lang.db-wal", ".stdio_test_lang.db-shm",
-                  ".stdio_test_users_lang.db", ".stdio_test_users_lang.db-wal",
-                  ".stdio_test_users_lang.db-shm"]:
+        for f in [
+            ".stdio_test_lang.db",
+            ".stdio_test_lang.db-wal",
+            ".stdio_test_lang.db-shm",
+            ".stdio_test_users_lang.db",
+            ".stdio_test_users_lang.db-wal",
+            ".stdio_test_users_lang.db-shm",
+        ]:
             if os.path.exists(f):
                 os.remove(f)
 
@@ -102,7 +108,7 @@ async def main_observation_disabled():
         env={"WPM_USERS_DB_PATH": ".stdio_test_users_off.db", "PYTHONPATH": _SRC},
     )
     try:
-        async with stdio_client(params) as (read, write):
+        async with stdio_client(params) as (read, write):  # noqa: SIM117
             async with ClientSession(read, write) as session:
                 await session.initialize()
 
@@ -112,18 +118,26 @@ async def main_observation_disabled():
                             "record_user_observation",
                             {"content": "anything"},
                         )
-                    ).content[0].text
+                    )
+                    .content[0]
+                    .text  # pyright: ignore[reportAttributeAccessIssue]
                 )
-                check("disabled capture rejects inferred recording",
-                      rec.get("error") is True and rec.get("disabled") is True
-                      and "user-observations on" in rec.get("message", ""),
-                      f"got {rec}")
+                check(
+                    "disabled capture rejects inferred recording",
+                    rec.get("error") is True
+                    and rec.get("disabled") is True
+                    and "user-observations on" in rec.get("message", ""),
+                    f"got {rec}",
+                )
 
                 lst = json.loads(
-                    (await session.call_tool("get_user_observations", {})).content[0].text
+                    (await session.call_tool("get_user_observations", {})).content[0].text  # pyright: ignore[reportAttributeAccessIssue]
                 )
-                check("listing still available with capture off",
-                      lst.get("error") is None and lst.get("total") == 0, f"got {lst}")
+                check(
+                    "listing still available with capture off",
+                    lst.get("error") is None and lst.get("total") == 0,
+                    f"got {lst}",
+                )
 
                 dec = json.loads(
                     (
@@ -131,29 +145,41 @@ async def main_observation_disabled():
                             "record_user_observation",
                             {"content": "always answer in french", "source": "declared"},
                         )
-                    ).content[0].text
+                    )
+                    .content[0]
+                    .text  # pyright: ignore[reportAttributeAccessIssue]
                 )
-                check("declared recording unaffected by capture flag",
-                      dec.get("created") is True
-                      and dec["observation"]["source"] == "declared", f"got {dec}")
+                check(
+                    "declared recording unaffected by capture flag",
+                    dec.get("created") is True and dec["observation"]["source"] == "declared",
+                    f"got {dec}",
+                )
 
                 cur = json.loads(
-                    (await session.call_tool("get_user", {})).content[0].text
+                    (await session.call_tool("get_user", {})).content[0].text  # pyright: ignore[reportAttributeAccessIssue]
                 )
-                check("profile tools unaffected by capture flag",
-                      cur.get("current") is True and cur["profile"]["name"] == "Noha",
-                      f"got {cur}")
+                check(
+                    "profile tools unaffected by capture flag",
+                    cur.get("current") is True and cur["profile"]["name"] == "Noha",
+                    f"got {cur}",
+                )
 
-                resource = await session.read_resource("wpm://current-user")
-                text = resource.contents[0].text
-                check("resource renders profile + declared with capture off",
-                      "<current-user>" in text
-                      and "## User preferences" in text
-                      and "always answer in french" in text
-                      and "Observed" not in text, f"got {text[:200]}")
+                resource = await session.read_resource("wpm://current-user")  # pyright: ignore[reportArgumentType]
+                text = resource.contents[0].text  # pyright: ignore[reportAttributeAccessIssue]
+                check(
+                    "resource renders profile + declared with capture off",
+                    "<current-user>" in text
+                    and "## User preferences" in text
+                    and "always answer in french" in text
+                    and "Observed" not in text,
+                    f"got {text[:200]}",
+                )
     finally:
-        for f in [".stdio_test_users_off.db", ".stdio_test_users_off.db-wal",
-                  ".stdio_test_users_off.db-shm"]:
+        for f in [
+            ".stdio_test_users_off.db",
+            ".stdio_test_users_off.db-wal",
+            ".stdio_test_users_off.db-shm",
+        ]:
             if os.path.exists(f):
                 os.remove(f)
 
@@ -167,16 +193,21 @@ async def main():
     params = StdioServerParameters(
         command=sys.executable,
         args=["-m", "wpm_mcp_server"],
-        env={"WPM_DB_PATH": ".stdio_test.db", "WPM_USERS_DB_PATH": ".stdio_test_users.db", "PYTHONPATH": _SRC},
+        env={
+            "WPM_DB_PATH": ".stdio_test.db",
+            "WPM_USERS_DB_PATH": ".stdio_test_users.db",
+            "PYTHONPATH": _SRC,
+        },
     )
     # Pre-seed the global user store: profile creation is CLI-only now, and
     # the seeded language exercises the resolveResponseLanguage override.
     from wpm_mcp_server.storage.users import UserRepository, connect_users_db
+
     _seed = connect_users_db(".stdio_test_users.db")
     UserRepository(_seed).save_user("Noha", language="french", introduction="dev full-stack")
     _seed.close()
     try:
-        async with stdio_client(params) as (read, write):
+        async with stdio_client(params) as (read, write):  # noqa: SIM117
             async with ClientSession(read, write) as session:
                 init = await session.initialize()
 
@@ -248,8 +279,8 @@ async def main():
                     "wpm://current-user" in resource_uris,
                     f"got {resource_uris}",
                 )
-                rules_resource = await session.read_resource("wpm://memory-rules")
-                rules_text = rules_resource.contents[0].text
+                rules_resource = await session.read_resource("wpm://memory-rules")  # pyright: ignore[reportArgumentType]
+                rules_text = rules_resource.contents[0].text  # pyright: ignore[reportAttributeAccessIssue]
                 check(
                     "memory-rules resource non-empty",
                     len(rules_text) > 200,
@@ -265,7 +296,7 @@ async def main():
                         "session_id": "smoke-test-session",
                     },
                 )
-                rec = json.loads(rec_raw.content[0].text)
+                rec = json.loads(rec_raw.content[0].text)  # pyright: ignore[reportAttributeAccessIssue]
                 check(
                     "record_execution stores execution_result entry",
                     rec.get("type") == "execution_result",
@@ -283,7 +314,9 @@ async def main():
                                     "session_id": "smoke-test-session",
                                 },
                             )
-                        ).content[0].text
+                        )
+                        .content[0]
+                        .text  # pyright: ignore[reportAttributeAccessIssue]
                     )
                     check(
                         "record_execution entry is validatable",
@@ -300,7 +333,7 @@ async def main():
                         "session_id": "smoke-test-session",
                     },
                 )
-                triv = json.loads(triv_raw.content[0].text)
+                triv = json.loads(triv_raw.content[0].text)  # pyright: ignore[reportAttributeAccessIssue]
                 check(
                     "record_execution rejects trivial commands",
                     triv.get("error") is True,
@@ -316,7 +349,7 @@ async def main():
                         "source": "official_doc",
                     },
                 )
-                store = json.loads(store_raw.content[0].text)
+                store = json.loads(store_raw.content[0].text)  # pyright: ignore[reportAttributeAccessIssue]
                 check("store_entry returns entry_id", "entry_id" in store)
                 check("store_entry returns type", store.get("type") == "convention")
                 check(
@@ -341,7 +374,7 @@ async def main():
                     "query_context",
                     {"query": "javascript naming convention private fields"},
                 )
-                query = json.loads(query_raw.content[0].text)
+                query = json.loads(query_raw.content[0].text)  # pyright: ignore[reportAttributeAccessIssue]
                 check(
                     "query_context returns direct_matches key",
                     "direct_matches" in query,
@@ -352,9 +385,7 @@ async def main():
                 )
                 if query.get("direct_matches"):
                     top = query["direct_matches"][0]
-                    check(
-                        "top match is our entry", top["entry_id"] == entry_id
-                    )
+                    check("top match is our entry", top["entry_id"] == entry_id)
                     check(
                         "semantic similarity > 0.3",
                         top["similarity"] > 0.3,
@@ -376,7 +407,7 @@ async def main():
                         "session_id": "smoke-test-session",
                     },
                 )
-                validate = json.loads(validate_raw.content[0].text)
+                validate = json.loads(validate_raw.content[0].text)  # pyright: ignore[reportAttributeAccessIssue]
                 check(
                     "validate_entry increases validation_score",
                     validate.get("validation_score", 0) > 0.0,
@@ -392,7 +423,7 @@ async def main():
                         "source": "agent_inference",
                     },
                 )
-                store2 = json.loads(store2_raw.content[0].text)
+                store2 = json.loads(store2_raw.content[0].text)  # pyright: ignore[reportAttributeAccessIssue]
                 second_id = store2["entry_id"]
                 check("second entry stored", "entry_id" in store2)
                 check(
@@ -410,7 +441,7 @@ async def main():
                         "evidence_ref": "project style guide says snake_case",
                     },
                 )
-                contradict = json.loads(contradict_raw.content[0].text)
+                contradict = json.loads(contradict_raw.content[0].text)  # pyright: ignore[reportAttributeAccessIssue]
                 check(
                     "contradict returns conflicting_entry_id",
                     contradict.get("conflicting_entry_id") == second_id,
@@ -420,7 +451,7 @@ async def main():
                 query2_raw = await session.call_tool(
                     "query_context", {"query": "javascript naming convention"}
                 )
-                query2 = json.loads(query2_raw.content[0].text)
+                query2 = json.loads(query2_raw.content[0].text)  # pyright: ignore[reportAttributeAccessIssue]
                 check(
                     "conflict surfaced in query",
                     len(query2.get("conflicts", [])) > 0,
@@ -441,7 +472,7 @@ async def main():
                         "weight": 0.5,
                     },
                 )
-                link = json.loads(link_raw.content[0].text)
+                link = json.loads(link_raw.content[0].text)  # pyright: ignore[reportAttributeAccessIssue]
                 check(
                     "link_entries works",
                     link.get("relation_type") == "depends_on",
@@ -459,7 +490,7 @@ async def main():
                 check(
                     "invalid type returns error",
                     err_raw.isError is True,
-                    f"got {err_raw.content[0].text if err_raw.content else ''}",
+                    f"got {err_raw.content[0].text if err_raw.content else ''}",  # pyright: ignore[reportAttributeAccessIssue]
                 )
 
                 # --- error: link nonexistent entry ---
@@ -471,7 +502,7 @@ async def main():
                         "relation_type": "related",
                     },
                 )
-                err2 = json.loads(err2_raw.content[0].text)
+                err2 = json.loads(err2_raw.content[0].text)  # pyright: ignore[reportAttributeAccessIssue]
                 check(
                     "nonexistent link returns error",
                     err2.get("error") is True,
@@ -480,45 +511,57 @@ async def main():
 
                 # --- read-only tools are silent (no reminder) ---
                 stats_raw = await session.call_tool("get_memory_stats", {})
-                stats = json.loads(stats_raw.content[0].text)
+                stats = json.loads(stats_raw.content[0].text)  # pyright: ignore[reportAttributeAccessIssue]
                 check("get_memory_stats has no reminder", "reminder" not in stats)
 
                 list_raw = await session.call_tool("list_entries", {"limit": 5})
-                listing = json.loads(list_raw.content[0].text)
+                listing = json.loads(list_raw.content[0].text)  # pyright: ignore[reportAttributeAccessIssue]
                 check("list_entries has no reminder", "reminder" not in listing)
 
                 # --- user profiles: seeded profile, reads + declarations ---
                 cur = json.loads(
-                    (await session.call_tool("get_user", {})).content[0].text
+                    (await session.call_tool("get_user", {})).content[0].text  # pyright: ignore[reportAttributeAccessIssue]
                 )
-                check("get_user returns seeded profile",
-                      cur.get("current") is True and cur["profile"]["name"] == "Noha"
-                      and cur["profile"]["language"] == "french",
-                      f"got {cur}")
+                check(
+                    "get_user returns seeded profile",
+                    cur.get("current") is True
+                    and cur["profile"]["name"] == "Noha"
+                    and cur["profile"]["language"] == "french",
+                    f"got {cur}",
+                )
 
                 pref_add = json.loads(
                     (
                         await session.call_tool(
                             "record_user_observation",
-                            {"content": "Noha prefers that I be more concise",
-                             "source": "declared"},
+                            {
+                                "content": "Noha prefers that I be more concise",
+                                "source": "declared",
+                            },
                         )
-                    ).content[0].text
+                    )
+                    .content[0]
+                    .text  # pyright: ignore[reportAttributeAccessIssue]
                 )
-                check("declared preference recorded",
-                      pref_add.get("created") is True
-                      and pref_add["observation"]["source"] == "declared", f"got {pref_add}")
+                check(
+                    "declared preference recorded",
+                    pref_add.get("created") is True
+                    and pref_add["observation"]["source"] == "declared",
+                    f"got {pref_add}",
+                )
 
                 obs_list = json.loads(
-                    (await session.call_tool("get_user_observations", {})).content[0].text
+                    (await session.call_tool("get_user_observations", {})).content[0].text  # pyright: ignore[reportAttributeAccessIssue]
                 )
-                check("listing shows the declared statement",
-                      obs_list.get("total") == 1
-                      and obs_list["observations"][0]["source"] == "declared",
-                      f"got {obs_list}")
+                check(
+                    "listing shows the declared statement",
+                    obs_list.get("total") == 1
+                    and obs_list["observations"][0]["source"] == "declared",
+                    f"got {obs_list}",
+                )
 
-                user_resource = await session.read_resource("wpm://current-user")
-                user_text = user_resource.contents[0].text
+                user_resource = await session.read_resource("wpm://current-user")  # pyright: ignore[reportArgumentType]
+                user_text = user_resource.contents[0].text  # pyright: ignore[reportAttributeAccessIssue]
                 check(
                     "current-user resource renders identity + preferences",
                     user_text.startswith("<current-user>")
@@ -534,53 +577,74 @@ async def main():
                     (
                         await session.call_tool(
                             "record_user_observation",
-                            {"source": "inferred", "category": "workflow",
-                             "content": "mixes up rebase and merge"},
+                            {
+                                "source": "inferred",
+                                "category": "workflow",
+                                "content": "mixes up rebase and merge",
+                            },
                         )
-                    ).content[0].text
+                    )
+                    .content[0]
+                    .text  # pyright: ignore[reportAttributeAccessIssue]
                 )
-                check("record_user_observation creates singleton",
-                      obs1.get("created") is True and obs1["observation"]["count"] == 1,
-                      f"got {obs1}")
+                check(
+                    "record_user_observation creates singleton",
+                    obs1.get("created") is True and obs1["observation"]["count"] == 1,
+                    f"got {obs1}",
+                )
 
                 listing = json.loads(
-                    (await session.call_tool("get_user_observations", {})).content[0].text
+                    (await session.call_tool("get_user_observations", {})).content[0].text  # pyright: ignore[reportAttributeAccessIssue]
                 )
-                check("listing holds declared + inferred singleton",
-                      listing.get("total") == 2, f"got {listing}")
+                check(
+                    "listing holds declared + inferred singleton",
+                    listing.get("total") == 2,
+                    f"got {listing}",
+                )
 
                 obs2 = json.loads(
                     (
                         await session.call_tool(
                             "record_user_observation",
-                            {"source": "inferred", "category": "habit",
-                             "content": "confuses rebase with merge semantics",
-                             "reinforce_id": obs1["observation"]["id"]},
+                            {
+                                "source": "inferred",
+                                "category": "habit",
+                                "content": "confuses rebase with merge semantics",
+                                "reinforce_id": obs1["observation"]["id"],
+                            },
                         )
-                    ).content[0].text
+                    )
+                    .content[0]
+                    .text  # pyright: ignore[reportAttributeAccessIssue]
                 )
-                check("reinforce increments count",
-                      obs2.get("created") is False and obs2["observation"]["count"] == 2,
-                      f"got {obs2}")
+                check(
+                    "reinforce increments count",
+                    obs2.get("created") is False and obs2["observation"]["count"] == 2,
+                    f"got {obs2}",
+                )
 
-                user_resource = await session.read_resource("wpm://current-user")
-                user_text = user_resource.contents[0].text
+                user_resource = await session.read_resource("wpm://current-user")  # pyright: ignore[reportArgumentType]
+                user_text = user_resource.contents[0].text  # pyright: ignore[reportAttributeAccessIssue]
                 check(
                     "recurring observation surfaces in injected block",
-                    "Observed recurring patterns" in user_text
-                    and "(seen x2, last " in user_text,
+                    "Observed recurring patterns" in user_text and "(seen x2, last " in user_text,
                     f"got {user_text[:200]}",
                 )
 
                 gated = json.loads(
-                    (await session.call_tool("get_user", {})).content[0].text
+                    (await session.call_tool("get_user", {})).content[0].text  # pyright: ignore[reportAttributeAccessIssue]
                 )
                 check("profile still current after observations", gated.get("current") is True)
 
     finally:
-        for f in [".stdio_test.db", ".stdio_test.db-wal", ".stdio_test.db-shm",
-                  ".stdio_test_users.db", ".stdio_test_users.db-wal",
-                  ".stdio_test_users.db-shm"]:
+        for f in [
+            ".stdio_test.db",
+            ".stdio_test.db-wal",
+            ".stdio_test.db-shm",
+            ".stdio_test_users.db",
+            ".stdio_test_users.db-wal",
+            ".stdio_test_users.db-shm",
+        ]:
             if os.path.exists(f):
                 os.remove(f)
 

@@ -58,8 +58,7 @@ def _build_memory_usage_rules(response_clause: str) -> str:
             )
         )
         .add_task(
-            PromptTask("Standing policies")
-            .add_instruction(
+            PromptTask("Standing policies").add_instruction(
                 "Prioritize reliability over completeness: prefer an underpopulated memory to one polluted with incorrect, duplicated, or artificially strengthened information.",
                 "Memory is your own state, not the project's: writing it never modifies the project. Use memory write tools whenever a durable fact emerges; if the host blocks a write, retry immediately.",
                 "When a <current-user> block is present in context, treat it as authoritative for who you are talking to and apply its preferences (language, stated preferences); re-consult get_user after compaction or when in doubt.",

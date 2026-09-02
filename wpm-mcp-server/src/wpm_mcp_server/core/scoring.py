@@ -8,14 +8,14 @@ same functions work whether settings came from defaults or from JSON.
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from wpm_mcp_server.core.enums import EntryType, EvidenceType
 from wpm_mcp_server.config.settings import DomainSettings
+from wpm_mcp_server.core.enums import EntryType, EvidenceType
 
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def base_confidence_for_source(source: str, settings: DomainSettings) -> float:
@@ -44,10 +44,10 @@ def confidence_at(
     base = min(1.0, provenance_score + validation_score)
     if status == "pinned":
         return base
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     last_validated = datetime.fromisoformat(last_validated_at)
     if last_validated.tzinfo is None:
-        last_validated = last_validated.replace(tzinfo=timezone.utc)
+        last_validated = last_validated.replace(tzinfo=UTC)
 
     elapsed_seconds = max(0.0, (now - last_validated).total_seconds())
     lam = settings.decay.lambda_per_type.get(entry_type.value, settings.decay.default_lambda)

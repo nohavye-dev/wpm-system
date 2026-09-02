@@ -12,6 +12,4 @@ def confirm(prompt: str, default: bool = False) -> bool:
     normalized = answer.strip().lower()
     if normalized in ("y", "yes"):
         return True
-    if normalized == "" and default:
-        return True
-    return False
+    return bool(normalized == "" and default)

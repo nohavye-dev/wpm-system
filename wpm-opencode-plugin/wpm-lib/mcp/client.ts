@@ -1,5 +1,6 @@
-import { spawn } from "bun"
 import type { Subprocess } from "bun"
+import { spawn } from "bun"
+import { resolvePythonPath } from "../infra/paths"
 import {
   isResponse,
   type JsonRpcMessage,
@@ -7,7 +8,6 @@ import {
   type McpReadResourceResult,
   type McpToolDefinition,
 } from "./entities"
-import { resolvePythonPath } from "../infra/paths"
 
 const PROTOCOL_VERSION = "2025-06-18"
 const CLIENT_INFO = { name: "wpm-opencode-plugin", version: "1.0.0" }
@@ -114,7 +114,12 @@ export class WpmMcpClient {
     args?: Record<string, unknown>,
     opts?: { signal?: AbortSignal },
   ): Promise<McpCallToolResult> {
-    return (await this.call("tools/call", { name, arguments: args ?? {} }, REQUEST_TIMEOUT_MS, opts?.signal)) as McpCallToolResult
+    return (await this.call(
+      "tools/call",
+      { name, arguments: args ?? {} },
+      REQUEST_TIMEOUT_MS,
+      opts?.signal,
+    )) as McpCallToolResult
   }
 
   // Resource contents are cached until the server signals a change via
@@ -136,7 +141,9 @@ export class WpmMcpClient {
   // written by other processes (CLI current-user switch, another session's
   // recordings), so no resources/updated notification can ever fire for it.
   async readCurrentUser(): Promise<string | undefined> {
-    const result = (await this.call("resources/read", { uri: CURRENT_USER_URI })) as McpReadResourceResult
+    const result = (await this.call("resources/read", {
+      uri: CURRENT_USER_URI,
+    })) as McpReadResourceResult
     return result?.contents?.find((c) => typeof c.text === "string")?.text
   }
 
@@ -257,12 +264,16 @@ export class WpmMcpClient {
       try {
         for await (const chunk of proc.stdout) {
           buffer += decoder.decode(chunk, { stream: true })
-          let newline: number
-          while ((newline = buffer.indexOf("\n")) >= 0) {
+          let newline = buffer.indexOf("\n")
+          while (newline >= 0) {
             const line = buffer.slice(0, newline).trim()
             buffer = buffer.slice(newline + 1)
-            if (!line) continue
+            if (!line) {
+              newline = buffer.indexOf("\n")
+              continue
+            }
             this.handleLine(line)
+            newline = buffer.indexOf("\n")
           }
         }
       } catch {}
@@ -312,7 +323,7 @@ export class WpmMcpClient {
   private send(message: Record<string, unknown>): void {
     const stdin = this.proc?.stdin
     if (!stdin) throw new Error("wpm mcp server not running")
-    stdin.write(JSON.stringify(message) + "\n")
+    stdin.write(`${JSON.stringify(message)}\n`)
   }
 
   private async call(
@@ -359,11 +370,19 @@ export class WpmMcpClient {
         reject(new Error(`wpm mcp request aborted: ${method}`))
         // Spec-correct cancellation; the server is free to ignore it.
         try {
-          this.send({ jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: id } })
+          this.send({
+            jsonrpc: "2.0",
+            method: "notifications/cancelled",
+            params: { requestId: id },
+          })
         } catch {}
       }
       this.pending.set(id, { resolve, reject, timer, dispose })
-      signal?.addEventListener("abort", onAbort as EventListener, { once: true })
+      if (signal?.aborted) {
+        onAbort?.()
+      } else {
+        signal?.addEventListener("abort", onAbort as EventListener, { once: true })
+      }
     })
     try {
       this.send({ jsonrpc: "2.0", id, method, ...(params ? { params } : {}) })

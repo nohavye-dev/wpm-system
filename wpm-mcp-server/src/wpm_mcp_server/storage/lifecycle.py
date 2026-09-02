@@ -10,9 +10,9 @@ from typing import Any
 
 _logger = logging.getLogger(__name__)
 
+from wpm_mcp_server.config.settings import DomainSettings
 from wpm_mcp_server.infra.database import META_EMBEDDING_MODEL, set_meta
 from wpm_mcp_server.infra.embeddings import EmbeddingProvider
-from wpm_mcp_server.config.settings import DomainSettings
 
 
 def export_db(conn: sqlite3.Connection) -> dict[str, Any]:
@@ -21,24 +21,9 @@ def export_db(conn: sqlite3.Connection) -> dict[str, Any]:
     Embeddings (vec_entries) are intentionally excluded — they are
     regenerated on import by generate_db().
     """
-    entries = [
-        dict(row)
-        for row in conn.execute(
-            "SELECT * FROM entries"
-        ).fetchall()
-    ]
-    events = [
-        dict(row)
-        for row in conn.execute(
-            "SELECT * FROM entry_events"
-        ).fetchall()
-    ]
-    links = [
-        dict(row)
-        for row in conn.execute(
-            "SELECT * FROM entry_links"
-        ).fetchall()
-    ]
+    entries = [dict(row) for row in conn.execute("SELECT * FROM entries").fetchall()]
+    events = [dict(row) for row in conn.execute("SELECT * FROM entry_events").fetchall()]
+    links = [dict(row) for row in conn.execute("SELECT * FROM entry_links").fetchall()]
     return {"entries": entries, "entry_events": events, "entry_links": links}
 
 
@@ -57,9 +42,7 @@ def reembed_all(
     rows = conn.execute("SELECT id, content FROM entries").fetchall()
     for row in rows:
         embedding = embedder.embed(row["content"])
-        conn.execute(
-            "DELETE FROM vec_entries WHERE entry_id = ?", (row["id"],)
-        )
+        conn.execute("DELETE FROM vec_entries WHERE entry_id = ?", (row["id"],))
         conn.execute(
             "INSERT INTO vec_entries (entry_id, embedding) VALUES (?, ?)",
             (row["id"], json.dumps(embedding)),

@@ -58,9 +58,7 @@ def _current_user_language() -> str | None:
     — the block remains authoritative.
     """
     try:
-        profile = UserRepository(
-            connect_users_db(resolve_users_db_path())
-        ).get_current_user()
+        profile = UserRepository(connect_users_db(resolve_users_db_path())).get_current_user()
         return (profile or {}).get("language")
     except Exception as exc:
         _logger.debug("failed to load current_user language: %s", exc, exc_info=True)
@@ -74,10 +72,7 @@ _response_language = resolve_response_language(
 SERVER_INSTRUCTIONS = build_memory_usage_rules(_response_language)
 
 _db_path = os.environ.get("WPM_DB_PATH") or SETTINGS.db_path
-if _db_path:
-    DB_PATH = db.resolve_within_root(_db_path, CONFIG_DIR)
-else:
-    DB_PATH = None
+DB_PATH = db.resolve_within_root(_db_path, CONFIG_DIR) if _db_path else None
 
 mcp = FastMCP(
     name="wpm-server",
@@ -158,7 +153,7 @@ def get_cached_project_rules() -> str | None:
     return _project_rules_cache
 
 
-def set_cached_project_rules(block: str) -> None:
+def set_cached_project_rules(block: str | None) -> None:
     global _project_rules_cache
     _project_rules_cache = block
 
@@ -170,6 +165,7 @@ async def on_memory_mutated(ctx: Context | None) -> None:
         _logger.debug("on_memory_mutated: no session, cache invalidated only")
         return
     try:
-        await ctx.session.send_resource_updated("wpm://project-rules")
+        # Custom wpm:// URI is valid for our resource but Pydantic AnyUrl is strict
+        await ctx.session.send_resource_updated("wpm://project-rules")  # pyright: ignore[reportArgumentType]
     except Exception as exc:
         _logger.debug("send_resource_updated best-effort failed: %s", exc, exc_info=True)

@@ -10,7 +10,7 @@ from __future__ import annotations
 import functools
 import inspect
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 from wpm_mcp_server.core.errors import WpmError
 

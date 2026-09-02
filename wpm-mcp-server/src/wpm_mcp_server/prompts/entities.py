@@ -43,21 +43,25 @@ class PromptTask:
             lines.append(f"{indent}- {instruction}")
 
         if self.constraints:
-            lines.extend([
-                "",
-                f"{constraint_heading} Constraints",
-                "",
-            ])
+            lines.extend(
+                [
+                    "",
+                    f"{constraint_heading} Constraints",
+                    "",
+                ]
+            )
 
             for constraint in self.constraints:
                 lines.append(f"{item_indent}- {constraint}")
 
         if self.expected_behavior:
-            lines.extend([
-                "",
-                f"{constraint_heading} Expected behavior",
-                "",
-            ])
+            lines.extend(
+                [
+                    "",
+                    f"{constraint_heading} Expected behavior",
+                    "",
+                ]
+            )
 
             for item in self.expected_behavior:
                 lines.append(f"{item_indent}- {item}")
@@ -107,18 +111,22 @@ class PromptContext:
         ]
 
         if self.purpose:
-            lines.extend([
-                "## Purpose",
-                "",
-                *(f"  - {item}" for item in self.purpose),
-                "",
-            ])
+            lines.extend(
+                [
+                    "## Purpose",
+                    "",
+                    *(f"  - {item}" for item in self.purpose),
+                    "",
+                ]
+            )
 
         if self.instructions or self.tasks:
-            lines.extend([
-                "## Instructions",
-                "",
-            ])
+            lines.extend(
+                [
+                    "## Instructions",
+                    "",
+                ]
+            )
 
             for instruction in self.instructions:
                 lines.append(f"  - {instruction}")
@@ -135,12 +143,14 @@ class PromptContext:
             lines.append("")
 
         if self.expected_behavior:
-            lines.extend([
-                "## Expected behavior",
-                "",
-                *(f"  - {item}" for item in self.expected_behavior),
-                "",
-            ])
+            lines.extend(
+                [
+                    "## Expected behavior",
+                    "",
+                    *(f"  - {item}" for item in self.expected_behavior),
+                    "",
+                ]
+            )
 
         lines.append(f"</{self.tag}>")
 

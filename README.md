@@ -139,6 +139,6 @@ et la **validation du modèle de confiance** sur de vrais projets.
 
 ## Pour les mainteneurs
 
-Workflow complet (prérequis, installation dev, tests, checksums, branches, publication, debug) : voir [CONTRIBUTING.md](CONTRIBUTING.md).
+Setup dev (fresh clone) : `bash scripts/setup-dev.sh` — voir [CONTRIBUTING.md](CONTRIBUTING.md) pour le workflow complet (prérequis, tests, checksums, branches, publication, debug).
 
 > Avant chaque push : `scripts/update-source-checksum.sh` puis commit du `SHA256SUMS` — sinon `curl | bash` échoue.

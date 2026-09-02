@@ -1,14 +1,20 @@
 import sys
+
 sys.path.insert(0, "src")
 
-import tempfile, os, json, hashlib, math
+import hashlib
+import math
+import os
+import tempfile
+
 from wpm_mcp_server.infra import database as db
-from wpm_mcp_server.storage import Repository, export_db, generate_db
 from wpm_mcp_server.infra.embeddings import EmbeddingProvider
+from wpm_mcp_server.storage import Repository, export_db, generate_db
 
 
 class _StubEmbedder(EmbeddingProvider):
     dim = 384
+
     def embed(self, text: str) -> list[float]:
         vec = [0.0] * self.dim
         for i in range(self.dim):
@@ -25,13 +31,30 @@ src_db = tempfile.mktemp(suffix=".db")
 conn = db.connect(src_db)
 repo = Repository(conn=conn, embedder=embedder)
 
-e1 = repo.store_entry(type_="archi_decision", content="Use Parameter Object pattern for large constructors in C# services", source="observed_code")
-e2 = repo.store_entry(type_="convention", content="Parameter objects for constructors should be immutable records", source="observed_code")
-e3 = repo.store_entry(type_="bug_pattern", content="MassImport pipeline fails silently when Astech API returns partial payload", source="tool_execution")
+e1 = repo.store_entry(
+    type_="archi_decision",
+    content="Use Parameter Object pattern for large constructors in C# services",
+    source="observed_code",
+)
+e2 = repo.store_entry(
+    type_="convention",
+    content="Parameter objects for constructors should be immutable records",
+    source="observed_code",
+)
+e3 = repo.store_entry(
+    type_="bug_pattern",
+    content="MassImport pipeline fails silently when Astech API returns partial payload",
+    source="tool_execution",
+)
 
 repo.link_entries(source_id=e2["entry_id"], target_id=e1["entry_id"], relation_type="depends_on")
 
-v1 = repo.validate_entry(entry_id=e1["entry_id"], evidence_type="execution_verified", evidence_ref="test_run_1", session_id="sess-1")
+v1 = repo.validate_entry(
+    entry_id=e1["entry_id"],
+    evidence_type="execution_verified",
+    evidence_ref="test_run_1",
+    session_id="sess-1",
+)
 conn.close()
 
 # 2. Export
@@ -48,7 +71,9 @@ for entry in data["entries"]:
     assert "embedding" not in entry, "embedding should not be in export"
     assert entry["content"], f"entry {entry['id']} has empty content"
 
-print(f"export OK: {len(data['entries'])} entries, {len(data['entry_events'])} events, {len(data['entry_links'])} links")
+print(
+    f"export OK: {len(data['entries'])} entries, {len(data['entry_events'])} events, {len(data['entry_links'])} links"
+)
 
 # 3. Generate a new database from the export
 gen_db = tempfile.mktemp(suffix=".db")
@@ -69,13 +94,18 @@ assert gen_ids == orig_ids, f"IDs not preserved: {gen_ids} != {orig_ids}"
 # Content preserved
 for row in rows:
     if row["id"] == e1["entry_id"]:
-        assert row["content"] == "Use Parameter Object pattern for large constructors in C# services"
+        assert (
+            row["content"] == "Use Parameter Object pattern for large constructors in C# services"
+        )
         assert row["type"] == "archi_decision"
         assert row["source"] == "observed_code"
     elif row["id"] == e2["entry_id"]:
         assert row["content"] == "Parameter objects for constructors should be immutable records"
     elif row["id"] == e3["entry_id"]:
-        assert row["content"] == "MassImport pipeline fails silently when Astech API returns partial payload"
+        assert (
+            row["content"]
+            == "MassImport pipeline fails silently when Astech API returns partial payload"
+        )
 
 # Events preserved
 events = conn2.execute("SELECT * FROM entry_events").fetchall()
@@ -90,8 +120,11 @@ assert links[0]["relation_type"] == "depends_on"
 
 # 5. Verify embeddings were generated (vector search works)
 from wpm_mcp_server.config import DomainSettings
+
 repo2 = Repository(conn=conn2, embedder=embedder, settings=DomainSettings())
-result = repo2.query_context(query="Use Parameter Object pattern for large constructors in C# services")
+result = repo2.query_context(
+    query="Use Parameter Object pattern for large constructors in C# services"
+)
 assert len(result["direct_matches"]) > 0, "vector search returned no results on generated db"
 print(f"vector search on generated db: {len(result['direct_matches'])} direct matches")
 
@@ -106,7 +139,7 @@ assert len(data2["entry_links"]) == len(data["entry_links"])
 # Same IDs and content
 orig_entries = sorted(data["entries"], key=lambda e: e["id"])
 gen_entries = sorted(data2["entries"], key=lambda e: e["id"])
-for o, g in zip(orig_entries, gen_entries):
+for o, g in zip(orig_entries, gen_entries, strict=False):
     assert o["id"] == g["id"]
     assert o["content"] == g["content"]
     assert o["type"] == g["type"]

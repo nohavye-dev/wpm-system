@@ -21,7 +21,9 @@ def prompt_language() -> str:
             if value in SUPPORTED_LANGUAGES:
                 return value
             if value:
-                print(f"wpm: unknown language '{value}' — examples: {', '.join(SUPPORTED_LANGUAGES[:10])} ...")
+                print(
+                    f"wpm: unknown language '{value}' — examples: {', '.join(SUPPORTED_LANGUAGES[:10])} ..."
+                )
         return value  # unreachable
 
     # Try prompt_toolkit, fallback to plain input if not installed
@@ -64,4 +66,6 @@ def _fallback_plain() -> str:
         if value in SUPPORTED_LANGUAGES:
             return value
         if value:
-            print(f"wpm: unknown language '{value}' — examples: {', '.join(SUPPORTED_LANGUAGES[:10])} ...")
+            print(
+                f"wpm: unknown language '{value}' — examples: {', '.join(SUPPORTED_LANGUAGES[:10])} ..."
+            )

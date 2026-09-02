@@ -1,7 +1,7 @@
 import type { PluginInput } from "@opencode-ai/plugin"
-import { InjectionBlock } from "../prompts/entities"
 import { PROJECT_RULES_URI, type WpmMcpClient } from "../mcp/client"
 import type { McpCallToolResult } from "../mcp/entities"
+import { InjectionBlock } from "../prompts/entities"
 
 export const DEFAULT_RAG_SIMILARITY_THRESHOLD = 0.35
 export const DEFAULT_RAG_MAX_ITEMS = 5
@@ -65,10 +65,7 @@ async function buildCurrentUserBlock(mcp: WpmMcpClient): Promise<string | undefi
 // stays at the bottom of context. Every server-dependent step degrades
 // silently to keep the push off the critical path when the warm server is
 // unavailable.
-export async function buildSystemPush(
-  deps: SystemPushDeps,
-  sessionID?: string,
-): Promise<string[]> {
+export async function buildSystemPush(deps: SystemPushDeps, sessionID?: string): Promise<string[]> {
   const blocks: string[] = []
 
   if (deps.goldenRules?.trim()) {
@@ -166,9 +163,9 @@ async function buildRecallBlock(
     // match survives the server's MAX_PROJECT_RULES_CHARS tail truncation,
     // which can otherwise cut an entry mid-content and hide it from a full
     // substring match.
-    .filter((entry) => !renderedInRules(entry.content!, rulesBody))
+    .filter((entry) => !renderedInRules(entry.content as string, rulesBody))
     .filter((entry) => {
-      const id = entry.entry_id ?? entry.content!
+      const id = entry.entry_id ?? (entry.content as string)
       if (seen.has(id)) return false
       seen.add(id)
       return true
@@ -190,8 +187,9 @@ async function buildRecallBlock(
     return undefined
   }
 
-  const block = new InjectionBlock("wpm-memory-recall")
-    .addPurpose("Automatically recalled durable memories relevant to this request.")
+  const block = new InjectionBlock("wpm-memory-recall").addPurpose(
+    "Automatically recalled durable memories relevant to this request.",
+  )
   for (const entry of picked) {
     block.addItem(
       `[${entry.type ?? "unknown"}] ${entry.content} ` +
@@ -233,15 +231,18 @@ async function lastUserMessageText(
   for (let index = payload.length - 1; index >= 0; index--) {
     const message = payload[index] as {
       info?: { role?: string }
-      parts?: Array<{ type?: string; text?: string; synthetic?: boolean; metadata?: Record<string, unknown> }>
+      parts?: Array<{
+        type?: string
+        text?: string
+        synthetic?: boolean
+        metadata?: Record<string, unknown>
+      }>
     }
     if (message.info?.role !== "user") continue
     const text = (message.parts ?? [])
       .filter(
         (part) =>
-          part.type === "text" &&
-          !part.synthetic &&
-          part.metadata?.wpm_no_persist_rearm !== true,
+          part.type === "text" && !part.synthetic && part.metadata?.wpm_no_persist_rearm !== true,
       )
       .map((part) => String(part.text ?? ""))
       .join("\n")

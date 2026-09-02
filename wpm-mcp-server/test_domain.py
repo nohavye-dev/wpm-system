@@ -1,14 +1,15 @@
 import sys
+
 sys.path.insert(0, "src")
 
+from wpm_mcp_server.config import DomainSettings
 from wpm_mcp_server.core import (
     EMBEDDING_DIM,
     EntryType,
-    EvidenceType,
     EventType,
+    EvidenceType,
     RelationType,
 )
-from wpm_mcp_server.config import DomainSettings
 
 norms = DomainSettings()
 
@@ -62,7 +63,11 @@ assert norms.validation.score_min < norms.validation.score_max
 print("OK: validation score bounds are sane")
 
 # --- retrieval weights sum to 1.0 ---
-rw = norms.retrieval.weight_similarity + norms.retrieval.weight_confidence + norms.retrieval.weight_centrality
+rw = (
+    norms.retrieval.weight_similarity
+    + norms.retrieval.weight_confidence
+    + norms.retrieval.weight_centrality
+)
 assert abs(rw - 1.0) < 0.01, f"retrieval weights sum to {rw}, expected ~1.0"
 print("OK: retrieval weights normalize to ~1.0")
 
@@ -77,8 +82,7 @@ for e in EvidenceType:
     confirm = norms.evidence.confirm_weight[e.value]
     contradict = norms.evidence.contradict_weight[e.value]
     assert contradict >= confirm, (
-        f"{e.value}: contradict weight ({contradict}) must be >= "
-        f"confirm weight ({confirm})"
+        f"{e.value}: contradict weight ({contradict}) must be >= confirm weight ({confirm})"
     )
 print("OK: evidence weights are asymmetric (contradict >= confirm)")
 

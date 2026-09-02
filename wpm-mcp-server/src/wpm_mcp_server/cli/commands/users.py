@@ -114,10 +114,9 @@ def cmd_remove_user(name: str, yes: bool) -> None:
         print(f"wpm: no user profile matching '{name}'")
         sys.exit(1)
     display = existing["name"]
-    if not yes:
-        if not confirm(f"Delete user profile '{display}'? [y/N] "):
-            print("wpm: aborted")
-            return
+    if not yes and not confirm(f"Delete user profile '{display}'? [y/N] "):
+        print("wpm: aborted")
+        return
     result = repo.remove_user(existing["name"])
     suffix = " (was the current user)" if result.get("was_current") else ""
     print(f"wpm: removed user '{existing['name']}'{suffix}")

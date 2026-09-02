@@ -11,9 +11,7 @@ export function readConfigParam(
   param: string,
 ): string | number | boolean | undefined {
   try {
-    const config = JSON.parse(
-      readFileSync(join(directory, "wpm.config.json"), "utf8"),
-    )
+    const config = JSON.parse(readFileSync(join(directory, "wpm.config.json"), "utf8"))
     return config[param] ?? undefined
   } catch {
     return undefined
@@ -28,7 +26,7 @@ export function resolveResponseLanguage(
   configValue: string | undefined,
   envValue: string | undefined,
 ): string | undefined {
-  const value = envValue && envValue.trim() ? envValue : configValue
+  const value = envValue?.trim() ? envValue : configValue
   if (value == null) return undefined
   const stripped = value.trim()
   if (!stripped || stripped.toLowerCase() === "auto") return undefined

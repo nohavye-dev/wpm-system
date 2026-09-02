@@ -1,17 +1,22 @@
 import sys
+
 sys.path.insert(0, "src")
 
-import tempfile, os
-from wpm_mcp_server.infra import database as db
-from wpm_mcp_server.storage import Repository
-from wpm_mcp_server.infra.embeddings import EmbeddingProvider
-
 import hashlib
+import os
+import tempfile
+
+from wpm_mcp_server.infra import database as db
+from wpm_mcp_server.infra.embeddings import EmbeddingProvider
+from wpm_mcp_server.storage import Repository
+
 
 class _StubEmbedder(EmbeddingProvider):
     dim = 384
+
     def embed(self, text: str) -> list[float]:
         import math
+
         vec = [0.0] * self.dim
         for i in range(self.dim):
             digest = hashlib.sha256(f"{text}:{i}".encode()).digest()
@@ -19,18 +24,33 @@ class _StubEmbedder(EmbeddingProvider):
         norm = math.sqrt(sum(v * v for v in vec))
         return [v / norm for v in vec] if norm > 0 else vec
 
+
 tmp = tempfile.mktemp(suffix=".db")
 conn = db.connect(tmp)
 repo = Repository(conn=conn, embedder=_StubEmbedder())
 
 # 1. store a few entries
-e1 = repo.store_entry(type_="archi_decision", content="Use Parameter Object pattern for large constructors in C# services", source="agent_inference")
-e2 = repo.store_entry(type_="convention", content="Parameter objects for constructors should be immutable records", source="observed_code")
-e3 = repo.store_entry(type_="bug_pattern", content="MassImport pipeline fails silently when Astech API returns partial payload", source="tool_execution")
+e1 = repo.store_entry(
+    type_="archi_decision",
+    content="Use Parameter Object pattern for large constructors in C# services",
+    source="agent_inference",
+)
+e2 = repo.store_entry(
+    type_="convention",
+    content="Parameter objects for constructors should be immutable records",
+    source="observed_code",
+)
+e3 = repo.store_entry(
+    type_="bug_pattern",
+    content="MassImport pipeline fails silently when Astech API returns partial payload",
+    source="tool_execution",
+)
 print("stored:", e1, e2, e3)
 
 # 2. explicit link
-link = repo.link_entries(source_id=e2["entry_id"], target_id=e1["entry_id"], relation_type="depends_on")
+link = repo.link_entries(
+    source_id=e2["entry_id"], target_id=e1["entry_id"], relation_type="depends_on"
+)
 print("linked:", link)
 
 # 3. query
@@ -38,24 +58,46 @@ result = repo.query_context(query="constructor parameter object pattern C# servi
 print("direct_matches:", len(result["direct_matches"]))
 print("related_context:", len(result["related_context"]))
 for m in result["direct_matches"]:
-    print("  direct:", m["entry_id"][:8], m["type"], round(m["score"], 3), round(m["confidence"], 3))
+    print(
+        "  direct:", m["entry_id"][:8], m["type"], round(m["score"], 3), round(m["confidence"], 3)
+    )
 for m in result["related_context"]:
     print("  related:", m["entry_id"][:8], m["type"], round(m["score"], 3))
 
 # 4. validate with real evidence
-v1 = repo.validate_entry(entry_id=e1["entry_id"], evidence_type="execution_verified", evidence_ref="test_suite_run_142", session_id="sess-1")
+v1 = repo.validate_entry(
+    entry_id=e1["entry_id"],
+    evidence_type="execution_verified",
+    evidence_ref="test_suite_run_142",
+    session_id="sess-1",
+)
 print("validated:", v1)
 
 # 4b. duplicate validation same session -> should dedup
-v1b = repo.validate_entry(entry_id=e1["entry_id"], evidence_type="execution_verified", evidence_ref="test_suite_run_142", session_id="sess-1")
+v1b = repo.validate_entry(
+    entry_id=e1["entry_id"],
+    evidence_type="execution_verified",
+    evidence_ref="test_suite_run_142",
+    session_id="sess-1",
+)
 print("validated (dup, should note dedup):", v1b)
 
 # 4c. agent_reasoning should not move score
-v1c = repo.validate_entry(entry_id=e1["entry_id"], evidence_type="agent_reasoning", evidence_ref="i think so", session_id="sess-1")
+v1c = repo.validate_entry(
+    entry_id=e1["entry_id"],
+    evidence_type="agent_reasoning",
+    evidence_ref="i think so",
+    session_id="sess-1",
+)
 print("validated (agent_reasoning, should be excluded):", v1c)
 
 # 5. contradict
-v2 = repo.contradict_entry(entry_id=e2["entry_id"], conflicting_entry_id=e3["entry_id"], evidence_type="cross_reference", evidence_ref="entry_id:" + e3["entry_id"])
+v2 = repo.contradict_entry(
+    entry_id=e2["entry_id"],
+    conflicting_entry_id=e3["entry_id"],
+    evidence_type="cross_reference",
+    evidence_ref="entry_id:" + e3["entry_id"],
+)
 print("contradicted:", v2)
 
 # 6. query again, confidence for e1 should now be higher (validated), conflicts should show for e2
@@ -116,7 +158,11 @@ all_ids = {m["entry_id"] for m in result_pinned["direct_matches"]} | {
     m["entry_id"] for m in result_pinned["related_context"]
 }
 assert e1["entry_id"] in all_ids, "pinned entry should still appear in queries"
-matched = [m for m in result_pinned["direct_matches"] + result_pinned["related_context"] if m["entry_id"] == e1["entry_id"]]
+matched = [
+    m
+    for m in result_pinned["direct_matches"] + result_pinned["related_context"]
+    if m["entry_id"] == e1["entry_id"]
+]
 assert len(matched) == 1
 assert matched[0]["status"] == "pinned"
 print("pin OK")
@@ -153,21 +199,33 @@ print("restore OK")
 # 13. error: pin/deprecate/restore on nonexistent entry
 try:
     repo.pin_entry(entry_id="nonexistent-id")
-    assert False, "should have raised"
+    raise AssertionError("should have raised")
 except Exception as exc:
     assert "not found" in str(exc)
 print("OK, pin nonexistent raised")
 
 # 14. potential_contradictions: identical content should flag
-e_same = repo.store_entry(type_="convention", content="Use camelCase for all JavaScript private fields", source="observed_code")
-assert isinstance(e_same["potential_contradictions"], list), "potential_contradictions should be a list"
+e_same = repo.store_entry(
+    type_="convention",
+    content="Use camelCase for all JavaScript private fields",
+    source="observed_code",
+)
+assert isinstance(e_same["potential_contradictions"], list), (
+    "potential_contradictions should be a list"
+)
 same_ids = {c["entry_id"] for c in e_same["potential_contradictions"]}
 assert e_same["entry_id"] not in same_ids, "should not flag itself"
 
 # Store the SAME content again — identical vectors, distance=0, similarity=1.0
-e_dup = repo.store_entry(type_="convention", content="Use camelCase for all JavaScript private fields", source="observed_code")
+e_dup = repo.store_entry(
+    type_="convention",
+    content="Use camelCase for all JavaScript private fields",
+    source="observed_code",
+)
 dup_ids = {c["entry_id"] for c in e_dup["potential_contradictions"]}
-assert e_same["entry_id"] in dup_ids, "storing duplicate content should flag the earlier entry as potential contradiction"
+assert e_same["entry_id"] in dup_ids, (
+    "storing duplicate content should flag the earlier entry as potential contradiction"
+)
 assert e_dup["entry_id"] not in dup_ids, "should not flag itself"
 print("potential_contradictions OK")
 
@@ -178,9 +236,13 @@ assert len(all_entries["entries"]) <= 50
 
 repo.deprecate_entry(entry_id=e3["entry_id"])
 all2 = repo.list_entries()
-assert e3["entry_id"] not in {e["entry_id"] for e in all2["entries"]}, "deprecated entry excluded by default"
+assert e3["entry_id"] not in {e["entry_id"] for e in all2["entries"]}, (
+    "deprecated entry excluded by default"
+)
 all3 = repo.list_entries(status="deprecated")
-assert e3["entry_id"] in {e["entry_id"] for e in all3["entries"]}, "deprecated included when requested"
+assert e3["entry_id"] in {e["entry_id"] for e in all3["entries"]}, (
+    "deprecated included when requested"
+)
 repo.restore_entry(entry_id=e3["entry_id"])
 
 # 16. list_entries: type filter

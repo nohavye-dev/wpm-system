@@ -13,14 +13,13 @@ WPM_EMBEDDING_MODEL to override.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-
-from wpm_mcp_server.core.constants import EMBEDDING_DIM
-
 import contextlib
 import logging
 import os as _os
-import warnings as _warnings
+from abc import ABC, abstractmethod
+from pathlib import Path
+
+from wpm_mcp_server.core.constants import EMBEDDING_DIM
 
 if "HF_HUB_DISABLE_IMPLICIT_TRUST" not in _os.environ:
     _os.environ["HF_HUB_DISABLE_IMPLICIT_TRUST"] = "1"
@@ -105,15 +104,16 @@ class ONNXRuntimeProvider(EmbeddingProvider):
         for rel_path in candidates:
             try:
                 onnx_path = hf_hub_download(repo, rel_path)
-                return ort.InferenceSession(
-                    onnx_path, providers=["CPUExecutionProvider"]
-                )
-            except (OSError, RuntimeError, ValueError) as exc:  # pragma: no cover - environment-dependent
+                return ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
+            except (
+                OSError,
+                RuntimeError,
+                ValueError,
+            ) as exc:  # pragma: no cover - environment-dependent
                 last_error = exc
                 continue
         raise RuntimeError(
-            f"could not load any ONNX export for {repo} "
-            f"(tried {candidates})"
+            f"could not load any ONNX export for {repo} (tried {candidates})"
         ) from last_error
 
     def embed(self, text: str) -> list[float]:
@@ -131,9 +131,7 @@ class ONNXRuntimeProvider(EmbeddingProvider):
         if "attention_mask" in input_names:
             feed["attention_mask"] = attention_mask
         if "token_type_ids" in input_names:
-            feed["token_type_ids"] = np.zeros(
-                (1, len(encoded.ids)), dtype=np.int64
-            )
+            feed["token_type_ids"] = np.zeros((1, len(encoded.ids)), dtype=np.int64)
 
         outputs = self._session.run(None, feed)
         embeddings = outputs[0]
@@ -149,10 +147,7 @@ class ONNXRuntimeProvider(EmbeddingProvider):
         elif embeddings.ndim == 2:
             vec = embeddings[0].astype(np.float64)  # [dim]
         else:
-            raise ValueError(
-                f"unexpected ONNX output rank {embeddings.ndim} "
-                "(expected 2 or 3)"
-            )
+            raise ValueError(f"unexpected ONNX output rank {embeddings.ndim} (expected 2 or 3)")
 
         vec = vec / (np.linalg.norm(vec) or 1.0)
         return vec.tolist()
@@ -162,7 +157,6 @@ def _debug_log_file() -> Path | None:
     """File for ONNX C++ logs when WPM_DEBUG=1, else None (Lot 2C: TUI clean + file)."""
     if _os.environ.get("WPM_DEBUG") != "1":
         return None
-    from pathlib import Path
 
     base = _os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))
     log_dir = Path(base) / "wpm-system" / "logs"

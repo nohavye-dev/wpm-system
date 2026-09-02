@@ -16,17 +16,22 @@ from wpm_mcp_server.server.state import mcp
 from wpm_mcp_server.server.tool_errors import tool_errors
 
 EntryType = Literal[
-    "doc", "archi_decision", "insight", "convention",
-    "bug_pattern", "execution_result",
+    "doc",
+    "archi_decision",
+    "insight",
+    "convention",
+    "bug_pattern",
+    "execution_result",
 ]
 EntrySource = Literal[
-    "official_doc", "observed_code", "tool_execution", "agent_inference",
+    "official_doc",
+    "observed_code",
+    "tool_execution",
+    "agent_inference",
 ]
 
 
-@mcp.tool(
-    description=prompts.STORE_ENTRY_PROMPT
-)
+@mcp.tool(description=prompts.STORE_ENTRY_PROMPT)
 @tool_errors(prefix_value_error="invalid type: ")
 async def store_entry(ctx: Context, type: EntryType, content: str, source: EntrySource) -> dict:
     result = state.get_repo().store_entry(
@@ -44,9 +49,7 @@ async def store_entry(ctx: Context, type: EntryType, content: str, source: Entry
     return result
 
 
-@mcp.tool(
-    description=prompts.QUERY_CONTEXT_PROMPT
-)
+@mcp.tool(description=prompts.QUERY_CONTEXT_PROMPT)
 @tool_errors
 def query_context(query: str, min_confidence: float = 0.0, token_budget: int = 2000) -> dict:
     result = state.get_repo().query_context(
@@ -66,9 +69,7 @@ def query_context(query: str, min_confidence: float = 0.0, token_budget: int = 2
     return result
 
 
-@mcp.tool(
-    description=prompts.VALIDATE_ENTRY_PROMPT
-)
+@mcp.tool(description=prompts.VALIDATE_ENTRY_PROMPT)
 @tool_errors
 async def validate_entry(
     ctx: Context, entry_id: str, evidence_type: str, evidence_ref: str, session_id: str
@@ -83,9 +84,7 @@ async def validate_entry(
     return result
 
 
-@mcp.tool(
-    description=prompts.CONTRADICT_ENTRY_PROMPT
-)
+@mcp.tool(description=prompts.CONTRADICT_ENTRY_PROMPT)
 @tool_errors
 async def contradict_entry(
     ctx: Context, entry_id: str, conflicting_entry_id: str, evidence_type: str, evidence_ref: str
@@ -100,9 +99,7 @@ async def contradict_entry(
     return result
 
 
-@mcp.tool(
-    description=prompts.LINK_ENTRIES_PROMPT
-)
+@mcp.tool(description=prompts.LINK_ENTRIES_PROMPT)
 @tool_errors
 async def link_entries(
     ctx: Context, source_id: str, target_id: str, relation_type: str, weight: float = 1.0
@@ -117,9 +114,7 @@ async def link_entries(
     return result
 
 
-@mcp.tool(
-    description=prompts.RECORD_EXECUTION_PROMPT
-)
+@mcp.tool(description=prompts.RECORD_EXECUTION_PROMPT)
 @tool_errors
 async def record_execution(ctx: Context, command: str, succeeded: bool, session_id: str) -> dict:
     if not looks_like_verification_command(command, state.VERIFICATION_PATTERNS):
@@ -140,7 +135,10 @@ async def record_execution(ctx: Context, command: str, succeeded: bool, session_
         ]
     )
     store_result = repo.store_entry(
-        type_="execution_result", content=content, source="tool_execution", session_id=state.SESSION_ID
+        type_="execution_result",
+        content=content,
+        source="tool_execution",
+        session_id=state.SESSION_ID,
     )
     entry_id = store_result["entry_id"]
     if succeeded:
@@ -161,9 +159,7 @@ async def record_execution(ctx: Context, command: str, succeeded: bool, session_
     }
 
 
-@mcp.tool(
-    description=prompts.PIN_ENTRY_PROMPT
-)
+@mcp.tool(description=prompts.PIN_ENTRY_PROMPT)
 @tool_errors
 async def pin_entry(ctx: Context, entry_id: str) -> dict:
     result = state.get_repo().pin_entry(entry_id=entry_id)
@@ -171,9 +167,7 @@ async def pin_entry(ctx: Context, entry_id: str) -> dict:
     return result
 
 
-@mcp.tool(
-    description=prompts.DEPRECATE_ENTRY_PROMPT
-)
+@mcp.tool(description=prompts.DEPRECATE_ENTRY_PROMPT)
 @tool_errors
 async def deprecate_entry(ctx: Context, entry_id: str) -> dict:
     result = state.get_repo().deprecate_entry(entry_id=entry_id)
@@ -181,9 +175,7 @@ async def deprecate_entry(ctx: Context, entry_id: str) -> dict:
     return result
 
 
-@mcp.tool(
-    description=prompts.RESTORE_ENTRY_PROMPT
-)
+@mcp.tool(description=prompts.RESTORE_ENTRY_PROMPT)
 @tool_errors
 async def restore_entry(ctx: Context, entry_id: str) -> dict:
     result = state.get_repo().restore_entry(entry_id=entry_id)
@@ -191,31 +183,33 @@ async def restore_entry(ctx: Context, entry_id: str) -> dict:
     return result
 
 
-@mcp.tool(
-    description=prompts.LIST_ENTRIES_PROMPT
-)
+@mcp.tool(description=prompts.LIST_ENTRIES_PROMPT)
 @tool_errors
-def list_entries(type: str | None = None, status: str | None = None,
-                 min_confidence: float | None = None, max_confidence: float | None = None,
-                 limit: int = 50, offset: int = 0) -> dict:
+def list_entries(
+    type: str | None = None,
+    status: str | None = None,
+    min_confidence: float | None = None,
+    max_confidence: float | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict:
     return state.get_repo().list_entries(
-        type=type, status=status,
-        min_confidence=min_confidence, max_confidence=max_confidence,
-        limit=limit, offset=offset,
+        type=type,
+        status=status,
+        min_confidence=min_confidence,
+        max_confidence=max_confidence,
+        limit=limit,
+        offset=offset,
     )
 
 
-@mcp.tool(
-    description=prompts.GET_MEMORY_STATS_PROMPT
-)
+@mcp.tool(description=prompts.GET_MEMORY_STATS_PROMPT)
 @tool_errors
 def get_memory_stats() -> dict:
     return state.get_repo().get_stats()
 
 
-@mcp.tool(
-    description=prompts.GET_USER_PROMPT
-)
+@mcp.tool(description=prompts.GET_USER_PROMPT)
 @tool_errors
 def get_user() -> dict:
     profile = state.get_users_repo().get_current_user()
@@ -248,10 +242,7 @@ def _inferred_capture_gate(repo) -> dict | None:
         return {
             "error": True,
             "disabled": True,
-            "message": (
-                "user observation capture is disabled — "
-                "run 'wpm user-observations on'"
-            ),
+            "message": ("user observation capture is disabled — run 'wpm user-observations on'"),
         }
     if not state.observation_budget_available():
         return {
@@ -265,9 +256,7 @@ def _inferred_capture_gate(repo) -> dict | None:
     return None
 
 
-@mcp.tool(
-    description=prompts.RECORD_USER_OBSERVATION_PROMPT
-)
+@mcp.tool(description=prompts.RECORD_USER_OBSERVATION_PROMPT)
 @tool_errors
 def record_user_observation(
     content: str,
@@ -296,9 +285,7 @@ def record_user_observation(
     return result
 
 
-@mcp.tool(
-    description=prompts.GET_USER_OBSERVATIONS_PROMPT
-)
+@mcp.tool(description=prompts.GET_USER_OBSERVATIONS_PROMPT)
 @tool_errors
 def get_user_observations() -> dict:
     """Listing is pointer-gated only: it stays available even when inferred

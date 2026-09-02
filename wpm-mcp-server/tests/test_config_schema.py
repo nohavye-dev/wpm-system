@@ -17,8 +17,9 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 sys.path.insert(0, str(REPO_ROOT / "wpm-mcp-server" / "src"))
 
-import generate_config_schema as gen  # noqa: E402
-from wpm_mcp_server.config.settings import DomainSettings, Settings, load_settings  # noqa: E402
+import generate_config_schema as gen  # noqa: E402  # pyright: ignore[reportMissingImports]
+
+from wpm_mcp_server.config.settings import Settings, load_settings  # noqa: E402
 
 
 def field_paths(cls: type, prefix: str = "") -> set[str]:
@@ -67,10 +68,15 @@ class TestLoaderTolerance(unittest.TestCase):
     def test_dollar_meta_key_is_tolerated(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = pathlib.Path(tmp) / "wpm.config.json"
-            path.write_text(json.dumps({
-                "$schema": "/somewhere/wpm.config.schema.json",
-                "db_path": ".wpm/wpm.db",
-            }), encoding="utf-8")
+            path.write_text(
+                json.dumps(
+                    {
+                        "$schema": "/somewhere/wpm.config.schema.json",
+                        "db_path": ".wpm/wpm.db",
+                    }
+                ),
+                encoding="utf-8",
+            )
             settings = load_settings(path)
             self.assertEqual(settings.db_path, ".wpm/wpm.db")
 

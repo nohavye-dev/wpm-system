@@ -3,7 +3,8 @@ import { InjectionBlock } from "./entities"
 
 describe("InjectionBlock", () => {
   test("tag-less block renders the server body verbatim (project rules)", () => {
-    const body = "<project-rules>\n## Rules\n\n  - [convention] x (confidence 0.9)\n</project-rules>"
+    const body =
+      "<project-rules>\n## Rules\n\n  - [convention] x (confidence 0.9)\n</project-rules>"
     const block = new InjectionBlock().setBody(body)
     expect(block.isEmpty()).toBe(false)
     expect(block.toString()).toBe(body)
@@ -22,7 +23,9 @@ describe("InjectionBlock", () => {
     const rendered = block.toString()
     expect(rendered).toContain("<wpm-memory-recall>")
     expect(rendered).toContain("## Purpose")
-    expect(rendered).toContain("- Automatically recalled durable memories relevant to this request.")
+    expect(rendered).toContain(
+      "- Automatically recalled durable memories relevant to this request.",
+    )
     expect(rendered).toContain("- [insight] bun runs TS (similarity 0.82, confidence 0.90)")
     expect(rendered).toContain("## Notes")
     expect(rendered.endsWith("</wpm-memory-recall>")).toBe(true)

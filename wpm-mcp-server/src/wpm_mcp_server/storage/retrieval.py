@@ -180,13 +180,13 @@ def collect_conflicts_batch(conn: sqlite3.Connection, entry_ids: list[str]) -> l
     """Batch version (Lot 2A): 2 queries instead of N+1."""
     if not entry_ids:
         return []
-    deprecated = set(
+    deprecated = {
         row["id"]
         for row in conn.execute(
             "SELECT id FROM entries WHERE status = ?",
             (EntryStatus.DEPRECATED.value,),
         ).fetchall()
-    )
+    }
     filtered = [eid for eid in entry_ids if eid not in deprecated]
     if not filtered:
         return []
@@ -203,12 +203,11 @@ def collect_conflicts_batch(conn: sqlite3.Connection, entry_ids: list[str]) -> l
     for row in rows:
         a, b = row["a"], row["b"]
         for entry_id, other in ((a, b), (b, a)):
-            if entry_id in filtered and other not in deprecated:
+            if entry_id in filtered and other not in deprecated and entry_id in set(filtered):
                 # Only emit if entry_id was in the requested set
                 # (avoids duplicating both directions when both are in filtered)
                 # but keep original flat format: each link once per requested entry
-                if entry_id in set(filtered):
-                    conflicts.append({"entry_id": entry_id, "contradicted_by": other})
+                conflicts.append({"entry_id": entry_id, "contradicted_by": other})
         # The above double counts; deduplicate by tracking (entry_id, other)
     # Deduplicate while preserving order of discovery
     seen: set[tuple[str, str]] = set()

@@ -214,16 +214,23 @@ pin_candidates_rows = self.conn.execute(
     """
 ).fetchall()
 pin_candidates = [
-    row["id"] for row in pin_candidates_rows
+    row["id"]
+    for row in pin_candidates_rows
     if confidence_at(
-        entry_type=EntryType(row["type"]), provenance_score=row["provenance_score"],
-        validation_score=row["validation_score"], last_validated_at=row["last_validated_at"],
-        status=row["status"], settings=self.settings,
-    ) > 0.7
+        entry_type=EntryType(row["type"]),
+        provenance_score=row["provenance_score"],
+        validation_score=row["validation_score"],
+        last_validated_at=row["last_validated_at"],
+        status=row["status"],
+        settings=self.settings,
+    )
+    > 0.7
 ]
 if pin_candidates:
     stats["pin_candidates"] = pin_candidates
-    stats["reminder"] = f"{len(pin_candidates)} entries validated 3+ times could be pinned via pin_entry."
+    stats["reminder"] = (
+        f"{len(pin_candidates)} entries validated 3+ times could be pinned via pin_entry."
+    )
 ```
 
 **Nuance à noter** : la commande `/wpm-patterns`

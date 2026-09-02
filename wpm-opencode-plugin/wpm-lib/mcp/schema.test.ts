@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { jsonSchemaToZodRawShape } from "./schema"
 import { tool } from "@opencode-ai/plugin"
+import { jsonSchemaToZodRawShape } from "./schema"
 
 describe("jsonSchemaToZodRawShape", () => {
   test("store_entry-like schema: enum required fields", () => {
@@ -13,10 +13,10 @@ describe("jsonSchemaToZodRawShape", () => {
       },
       required: ["type", "content", "source"],
     }) as Record<string, any>
-    expect(shape.type!.parse("doc")).toBe("doc")
-    expect(() => shape.type!.parse("nope")).toThrow()
-    expect(shape.content!.parse("x")).toBe("x")
-    expect(shape.source!.safeParse("observed_code").success).toBe(true)
+    expect(shape.type?.parse("doc")).toBe("doc")
+    expect(() => shape.type?.parse("nope")).toThrow()
+    expect(shape.content?.parse("x")).toBe("x")
+    expect(shape.source?.safeParse("observed_code").success).toBe(true)
   })
 
   test("list_entries-like schema: nullable optionals with defaults omitted", () => {
@@ -28,10 +28,10 @@ describe("jsonSchemaToZodRawShape", () => {
         offset: { default: 0, title: "Offset", type: "integer" },
       },
     }) as Record<string, any>
-    expect(shape.status!.safeParse(undefined).success).toBe(true)
-    expect(shape.status!.safeParse(null).success).toBe(true)
-    expect(shape.status!.safeParse("active").success).toBe(true)
-    expect(shape.limit!.parse(10)).toBe(10)
+    expect(shape.status?.safeParse(undefined).success).toBe(true)
+    expect(shape.status?.safeParse(null).success).toBe(true)
+    expect(shape.status?.safeParse("active").success).toBe(true)
+    expect(shape.limit?.parse(10)).toBe(10)
   })
 
   test("record_execution-like schema: boolean required", () => {
@@ -43,8 +43,8 @@ describe("jsonSchemaToZodRawShape", () => {
       },
       required: ["command", "succeeded"],
     }) as Record<string, any>
-    expect(shape.succeeded!.parse(true)).toBe(true)
-    expect(() => shape.succeeded!.parse("yes")).toThrow()
+    expect(shape.succeeded?.parse(true)).toBe(true)
+    expect(() => shape.succeeded?.parse("yes")).toThrow()
   })
 
   test("empty and exotic schemas degrade permissively", () => {
@@ -57,7 +57,13 @@ describe("jsonSchemaToZodRawShape", () => {
     }) as Record<string, any>
     expect(exotic.weird.safeParse([1, 2]).success).toBe(true)
 
-    const definition = tool({ description: "", args: exotic as never, execute: async () => ({ output: "ok" }) })
-    expect(definition.execute({ weird: [1] } as never, {} as never)).resolves.toEqual({ output: "ok" })
+    const definition = tool({
+      description: "",
+      args: exotic as never,
+      execute: async () => ({ output: "ok" }),
+    })
+    expect(definition.execute({ weird: [1] } as never, {} as never)).resolves.toEqual({
+      output: "ok",
+    })
   })
 })

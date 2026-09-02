@@ -1,12 +1,10 @@
-import type { Hooks, PluginInput } from "@opencode-ai/plugin"
-import type { ToolDefinition } from "@opencode-ai/plugin"
+import type { Hooks, PluginInput, ToolDefinition } from "@opencode-ai/plugin"
 import { SERVER_NAME } from "../core/constants"
-import { buildMemoryFirstNudge, buildPersistPromptText } from "../prompts/nudges"
 import { buildCommands } from "../prompts/commands/index"
+import { buildMemoryFirstNudge, buildPersistPromptText } from "../prompts/nudges"
 import { buildSystemPush, type SystemPushDeps } from "./system-push"
 
 export type HookDeps = SystemPushDeps & {
-  directory: string
   language?: string
   confidenceThreshold?: string
   persistReminder: string
@@ -53,7 +51,8 @@ export function createHooks(deps: HookDeps): Hooks {
       // default_agent is intentionally NOT set: sessions start in the
       // opencode default (build). Forcing plan made every injected prompt
       // silently hijack build turns into plan (see internals decision #13).
-      const permission = (config.permission ??= {}) as Record<string, unknown>
+      if (config.permission == null) config.permission = {}
+      const permission = config.permission as Record<string, unknown>
       if (!permission["wpm_*"]) {
         permission["wpm_*"] = "allow"
       }
@@ -61,8 +60,10 @@ export function createHooks(deps: HookDeps): Hooks {
       // The built-in plan agent has no custom prompt, so setting one adds
       // instructions without replacing anything. Permission rules are
       // appended (last match wins), so wpm_*: allow takes effect.
-      const agents = (config.agent ??= {}) as Record<string, unknown>
-      const planAgent = (agents.plan ??= {}) as Record<string, unknown>
+      if (config.agent == null) config.agent = {}
+      const agents = config.agent as Record<string, unknown>
+      if (agents.plan == null) agents.plan = {}
+      const planAgent = agents.plan as Record<string, unknown>
 
       planAgent.prompt =
         "EXCEPTION — WPM Memory Tools: All wpm_* MCP tools (wpm_store_entry, " +
@@ -74,11 +75,13 @@ export function createHooks(deps: HookDeps): Hooks {
         "not modify the project. Never skip, defer, or refuse a memory operation " +
         "because of plan-mode restrictions."
 
-      const planPerm = (planAgent.permission ??= {}) as Record<string, unknown>
+      if (planAgent.permission == null) planAgent.permission = {}
+      const planPerm = planAgent.permission as Record<string, unknown>
       if (!planPerm["wpm_*"]) {
         planPerm["wpm_*"] = "allow"
       }
-      const commandsConfig = (config.command ??= {})
+      if (config.command == null) config.command = {}
+      const commandsConfig = config.command
       for (const [name, def] of Object.entries(commands)) {
         if (!commandsConfig[name]) {
           commandsConfig[name] = {
@@ -103,8 +106,8 @@ export function createHooks(deps: HookDeps): Hooks {
           part.metadata = { wpm_no_persist_rearm: true }
         }
       }
-      const label = ["/" + input.command, input.arguments]
-        .filter(Boolean).join(" ")
+      const label = [`/${input.command}`, input.arguments].filter(Boolean).join(" ")
+      // @ts-ignore: output.parts widened union from host SDK
       output.parts.unshift({ type: "text", text: label } as any)
     },
 
@@ -123,6 +126,7 @@ export function createHooks(deps: HookDeps): Hooks {
     // (see system-push.ts), then the compact anti-dilution nudge.
     "experimental.chat.system.transform": async (input, output) => {
       if (!deps.mcp) {
+        if (deps.goldenRules?.trim()) output.system.push(deps.goldenRules.trim())
         output.system.push(nudge)
         return
       }
@@ -141,24 +145,50 @@ export function createHooks(deps: HookDeps): Hooks {
 
     // Rule 16 (record executions) — deterministic, no model involved: every
     // bash command that looks like a verification command is recorded via
-    // the warm MCP server.
+    // the warm MCP server. Degraded = no-op with observability.
     "tool.execute.after": async (input, output) => {
       if (input.tool === `${SERVER_NAME}_query_context`) {
         queriedRecently.set(input.sessionID, true)
+        if (queriedRecently.size > 500) {
+          const first = queriedRecently.keys().next().value as string | undefined
+          if (first) queriedRecently.delete(first)
+        }
         return
       }
       if (input.tool !== "bash") return
       if (!deps.mcp) return
+      const command = String(input.args?.command ?? "")
+      const succeeded = output.metadata?.exit === 0
+      let shouldLogDegraded = false
       try {
-        if (!(await deps.mcp.ready())) return
-        await deps.mcp.callTool("record_execution", {
-          command: String(input.args?.command ?? ""),
-          succeeded: output.metadata?.exit === 0,
+        if (!(await deps.mcp.ready())) {
+          shouldLogDegraded = true
+          return
+        }
+        const result = await deps.mcp.callTool("record_execution", {
+          command,
+          succeeded,
           session_id: input.sessionID,
         })
+        // Server returns {error:true} for trivial commands — not a failure, just not recorded.
+        if ((result as { error?: boolean })?.error) return
       } catch (error) {
+        shouldLogDegraded = true
         if (process.env.WPM_DEBUG) {
           console.error("[wpm] record_execution failed:", error)
+        }
+      } finally {
+        if (shouldLogDegraded) {
+          await client.app
+            .log({
+              body: {
+                service: "wpm",
+                level: "warn",
+                message: "record_execution degraded — no warm server",
+                extra: { command, succeeded, sessionID: input.sessionID },
+              },
+            })
+            .catch(() => {})
         }
       }
     },
@@ -194,25 +224,35 @@ export function createHooks(deps: HookDeps): Hooks {
     // hijack the session into default_agent (plan) mid-task.
     event: async ({ event }) => {
       if (event.type !== "session.idle") return
-      const sessionID: string | undefined = (event as any).properties?.sessionID
+      const sessionID: string | undefined =
+        (event as { properties?: { sessionID?: string; sessionId?: string } }).properties
+          ?.sessionID ??
+        (event as { properties?: { sessionID?: string; sessionId?: string } }).properties?.sessionId
       if (!sessionID || nudged.has(sessionID)) return
-      nudged.add(sessionID)
       const agent = await sessionAgent(client, sessionID)
-      await client.session.prompt({
-        path: { id: sessionID },
-        body: {
-          noReply: false,
-          ...(agent ? { agent } : {}),
-          parts: [
-            {
-              type: "text",
-              text: buildPersistPromptText(language),
-              synthetic: true,
-              metadata: { wpm_no_persist_rearm: true },
-            },
-          ],
-        },
-      })
+      try {
+        await client.session.prompt({
+          path: { id: sessionID },
+          body: {
+            noReply: false,
+            ...(agent ? { agent } : {}),
+            parts: [
+              {
+                type: "text",
+                text: buildPersistPromptText(language),
+                synthetic: true,
+                metadata: { wpm_no_persist_rearm: true },
+              },
+            ],
+          },
+        })
+        nudged.add(sessionID)
+        // Bound the nudged set — long-lived sessions could leak.
+        if (nudged.size > 500) {
+          const first = nudged.values().next().value as string | undefined
+          if (first) nudged.delete(first)
+        }
+      } catch {}
     },
   }
 }

@@ -21,9 +21,7 @@ def compute_stats(conn: sqlite3.Connection, settings: DomainSettings) -> dict[st
 
     by_type = {
         row["type"]: row["c"]
-        for row in conn.execute(
-            "SELECT type, COUNT(*) AS c FROM entries GROUP BY type"
-        ).fetchall()
+        for row in conn.execute("SELECT type, COUNT(*) AS c FROM entries GROUP BY type").fetchall()
     }
 
     never_validated = [
@@ -113,12 +111,17 @@ def compute_stats(conn: sqlite3.Connection, settings: DomainSettings) -> dict[st
         """
     ).fetchall()
     pin_candidates = [
-        row["id"] for row in pin_candidates_rows
+        row["id"]
+        for row in pin_candidates_rows
         if confidence_at(
-            entry_type=EntryType(row["type"]), provenance_score=row["provenance_score"],
-            validation_score=row["validation_score"], last_validated_at=row["last_validated_at"],
-            status=row["status"], settings=settings,
-        ) > 0.7
+            entry_type=EntryType(row["type"]),
+            provenance_score=row["provenance_score"],
+            validation_score=row["validation_score"],
+            last_validated_at=row["last_validated_at"],
+            status=row["status"],
+            settings=settings,
+        )
+        > 0.7
     ]
 
     stats = {
@@ -133,22 +136,21 @@ def compute_stats(conn: sqlite3.Connection, settings: DomainSettings) -> dict[st
     if pin_candidates:
         stats["pin_candidates"] = pin_candidates
         stats["reminder"] = (
-            f"{len(pin_candidates)} entries validated 3+ times could be "
-            "pinned via pin_entry."
+            f"{len(pin_candidates)} entries validated 3+ times could be pinned via pin_entry."
         )
     return stats
 
 
 def list_entries(
-conn: sqlite3.Connection,
-settings: DomainSettings,
-*,
-type: str | None = None,
-status: str | None = None,
-min_confidence: float | None = None,
-max_confidence: float | None = None,
-limit: int = 50,
-offset: int = 0,
+    conn: sqlite3.Connection,
+    settings: DomainSettings,
+    *,
+    type: str | None = None,
+    status: str | None = None,
+    min_confidence: float | None = None,
+    max_confidence: float | None = None,
+    limit: int = 50,
+    offset: int = 0,
 ) -> dict[str, Any]:
     """Paginated, filterable listing of entries with current confidence."""
     limit = max(1, min(limit, 200))
@@ -189,15 +191,17 @@ offset: int = 0,
             continue
         if max_confidence is not None and conf > max_confidence:
             continue
-        entries_with_confidence.append({
-            "entry_id": row["id"],
-            "type": row["type"],
-            "content": row["content"][:200],
-            "source": row["source"],
-            "status": row["status"],
-            "confidence": round(conf, 4),
-            "created_at": row["created_at"],
-        })
+        entries_with_confidence.append(
+            {
+                "entry_id": row["id"],
+                "type": row["type"],
+                "content": row["content"][:200],
+                "source": row["source"],
+                "status": row["status"],
+                "confidence": round(conf, 4),
+                "created_at": row["created_at"],
+            }
+        )
 
     entries_with_confidence.sort(key=lambda e: e["confidence"], reverse=True)
     total = len(entries_with_confidence)

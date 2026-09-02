@@ -31,6 +31,10 @@ Package layout:
 - tools.py / resources.py: the handlers, registered on import.
 """
 
+from wpm_mcp_server.server import (
+    resources,  # noqa: F401  (registers the resources)
+    tools,  # noqa: F401  (registers the tools)
+)
 from wpm_mcp_server.server.state import (  # noqa: F401
     CONFIG_DIR,
     DB_PATH,
@@ -40,8 +44,6 @@ from wpm_mcp_server.server.state import (  # noqa: F401
     VERIFICATION_PATTERNS,
     mcp,
 )
-from wpm_mcp_server.server import tools  # noqa: F401  (registers the tools)
-from wpm_mcp_server.server import resources  # noqa: F401  (registers the resources)
 
 
 def main() -> None:

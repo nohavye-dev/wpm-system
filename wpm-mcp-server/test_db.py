@@ -1,18 +1,18 @@
 import sys
+
 sys.path.insert(0, "src")
 
+import contextlib
 import os
 import tempfile
 
-from wpm_mcp_server.infra import database as db
 from wpm_mcp_server.core import EMBEDDING_DIM
+from wpm_mcp_server.infra import database as db
 
 # --- connect creates the database file ---
 tmp = tempfile.mktemp(suffix=".db")
-try:
+with contextlib.suppress(FileNotFoundError):
     os.remove(tmp)
-except FileNotFoundError:
-    pass
 
 conn = db.connect(tmp)
 assert os.path.exists(tmp), "db file should exist after connect"
@@ -31,10 +31,7 @@ print("OK: journal_mode is WAL")
 
 # --- schema tables exist ---
 tables = {
-    r[0]
-    for r in conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table'"
-    ).fetchall()
+    r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
 }
 assert "entries" in tables, "entries table should exist"
 assert "entry_events" in tables, "entry_events table should exist"
@@ -43,12 +40,17 @@ assert "vec_entries" in tables, "vec_entries virtual table should exist"
 print("OK: all schema tables created")
 
 # --- entries table has correct columns ---
-cols = {
-    r[1]
-    for r in conn.execute("PRAGMA table_info('entries')").fetchall()
+cols = {r[1] for r in conn.execute("PRAGMA table_info('entries')").fetchall()}
+expected = {
+    "id",
+    "type",
+    "content",
+    "source",
+    "provenance_score",
+    "validation_score",
+    "last_validated_at",
+    "created_at",
 }
-expected = {"id", "type", "content", "source", "provenance_score",
-            "validation_score", "last_validated_at", "created_at"}
 assert cols >= expected, f"entries table missing columns: {expected - cols}"
 print("OK: entries table columns correct")
 

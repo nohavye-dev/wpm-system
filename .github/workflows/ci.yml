@@ -17,6 +17,8 @@ jobs:
           python-version: "3.11"
       - name: Install wpm-mcp-server
         run: pip install -e "./wpm-mcp-server[dev]"
+      - name: Check Python formatting (ruff)
+        run: ruff format --check wpm-mcp-server
       - name: Run pytest
         run: pytest wpm-mcp-server --tb=short
         env:
@@ -43,6 +45,3 @@ jobs:
         run: bun run typecheck
       - name: Tests
         run: bun test
-      - name: Lint (Biome)
-        # Non-blocking until codebase is formatted to Biome (see Étape 2)
-        run: bun run lint || echo "::warning::Biome found issues — will be fixed in Étape 2"

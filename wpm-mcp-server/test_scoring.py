@@ -1,9 +1,11 @@
 import sys
+
 sys.path.insert(0, "src")
 
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
+from wpm_mcp_server.config import DomainSettings
 from wpm_mcp_server.core import EntryType, EvidenceType
 from wpm_mcp_server.core.scoring import (
     apply_evidence,
@@ -11,7 +13,6 @@ from wpm_mcp_server.core.scoring import (
     confidence_at,
     now_iso,
 )
-from wpm_mcp_server.config import DomainSettings
 
 norms = DomainSettings()
 
@@ -27,7 +28,7 @@ print("OK: base_confidence_for_source matches provenance defaults")
 
 # --- confidence_at: no decay immediately ---
 
-now = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+now = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
 last = "2026-01-01T12:00:00+00:00"
 
 c = confidence_at(

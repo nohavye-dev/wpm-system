@@ -1,0 +1,32 @@
+{
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {},
+  "editor.rulers": [100],
+  "files.associations": {
+    "wpm.config.json": "jsonc"
+  },
+  "files.watcherExclude": {
+    "**/.wpm/**": true,
+    "**/node_modules/**": true,
+    "**/__pycache__/**": true
+  },
+  "files.exclude": {
+    "**/.venv": false
+  },
+  "problems.decorations.enabled": true,
+  // Python — Ruff (wpm-mcp-server/pyproject.toml)
+  "[python]": {
+    "editor.defaultFormatter": "astral-sh.ruff"
+  },
+  "python.defaultInterpreterPath": "${workspaceFolder}/wpm-mcp-server/.venv/bin/python",
+  "python.interpreterPath": "${workspaceFolder}/wpm-mcp-server/.venv/bin/python",
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.exclude": ["**/.venv/**", "**/__pycache__/**", "**/.pytest_cache/**", "**/.mypy_cache/**"],
+  "ruff.enable": true,
+  "ruff.format.enable": true,
+  "ruff.lint.enable": false,
+  "typescript.tsserver.experimental.enableProjectDiagnostics": true,
+  "typescript.preferences.includePackageJsonAutoImports": "on"
+}

@@ -20,22 +20,46 @@ def main() -> None:
     p = sub.add_parser("search", help="Search the project's persistent memory")
     p.add_argument("query", help="Search query (any language — multilingual embedding model)")
     p.add_argument("--json", "-j", action="store_true", help="Output as JSON")
-    p.add_argument("--min-confidence", "-c", type=float, default=None, help="Minimum confidence threshold (default: no filter)")
+    p.add_argument(
+        "--min-confidence",
+        "-c",
+        type=float,
+        default=None,
+        help="Minimum confidence threshold (default: no filter)",
+    )
 
     ex = sub.add_parser("export", help="Export the database to JSON (without embeddings)")
     ex.add_argument("-o", "--output", default=None, help="Output file path (default: stdout)")
 
-    sub.add_parser("reembed", help="Re-embed all stored entries with the active embedding model (required after an embedding model change)")
+    sub.add_parser(
+        "reembed",
+        help="Re-embed all stored entries with the active embedding model (required after an embedding model change)",
+    )
 
-    g = sub.add_parser("generate", help="Generate a new database from a JSON export (regenerates embeddings)")
+    g = sub.add_parser(
+        "generate", help="Generate a new database from a JSON export (regenerates embeddings)"
+    )
     g.add_argument("input", help="Path to the JSON export file")
     g.add_argument("--output", required=True, help="Path for the new database file")
 
-    sub.add_parser("new-user", help="Create (or update) a user profile interactively and make it the current user")
+    sub.add_parser(
+        "new-user",
+        help="Create (or update) a user profile interactively and make it the current user",
+    )
 
-    p = sub.add_parser("current-user", help="Show the current user (no argument), print its language (--language), or switch to <name>")
-    p.add_argument("name", nargs="?", default=None, help="Profile name to make current, or 'none' to deactivate")
-    p.add_argument("--language", action="store_true", help="Print only the current user's language token")
+    p = sub.add_parser(
+        "current-user",
+        help="Show the current user (no argument), print its language (--language), or switch to <name>",
+    )
+    p.add_argument(
+        "name",
+        nargs="?",
+        default=None,
+        help="Profile name to make current, or 'none' to deactivate",
+    )
+    p.add_argument(
+        "--language", action="store_true", help="Print only the current user's language token"
+    )
 
     sub.add_parser("list-users", help="List saved user profiles ('*' marks the current one)")
 
@@ -43,7 +67,10 @@ def main() -> None:
     p.add_argument("name", help="Profile name to delete")
     p.add_argument("--yes", "-y", action="store_true", help="Skip confirmation")
 
-    uo = sub.add_parser("user-observations", help="Show behavioral observations and capture status (no argument) or turn capture on/off")
+    uo = sub.add_parser(
+        "user-observations",
+        help="Show behavioral observations and capture status (no argument) or turn capture on/off",
+    )
     uo.add_argument("state", nargs="?", default=None, help="'on' or 'off'")
 
     ruo = sub.add_parser("remove-user-observation", help="Delete one recorded observation by id")

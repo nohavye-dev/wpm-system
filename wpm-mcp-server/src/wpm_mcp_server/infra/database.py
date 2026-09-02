@@ -85,9 +85,7 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     conn.executescript(SCHEMA_SQL)
     conn.execute(VEC_TABLE_SQL_TEMPLATE.format(dim=EMBEDDING_DIM))
     try:
-        conn.execute(
-            "ALTER TABLE entries ADD COLUMN status TEXT NOT NULL DEFAULT 'active'"
-        )
+        conn.execute("ALTER TABLE entries ADD COLUMN status TEXT NOT NULL DEFAULT 'active'")
     except sqlite3.OperationalError as exc:
         _logger.debug("status column already exists: %s", exc)
     # Indexes on 'status' must be created after the column exists (migration)
@@ -113,8 +111,7 @@ def resolve_within_root(db_path: str | Path, root: str | Path | None = None) -> 
     raw = str(db_path)
     if raw.endswith(os.sep):
         raise RuntimeError(
-            f"db_path {raw!r} must be a file path, not a directory "
-            "(trailing separator)"
+            f"db_path {raw!r} must be a file path, not a directory (trailing separator)"
         )
     root_real = os.path.realpath(str(root or os.getcwd()))
     if os.path.isabs(raw):
@@ -128,8 +125,7 @@ def resolve_within_root(db_path: str | Path, root: str | Path | None = None) -> 
         )
     if not resolved.startswith(root_real + os.sep):
         raise RuntimeError(
-            f"db_path {str(db_path)!r} must live inside the project "
-            f"directory ({root_real})"
+            f"db_path {str(db_path)!r} must live inside the project directory ({root_real})"
         )
     return Path(resolved)
 
@@ -140,9 +136,7 @@ resolve_within_cwd = resolve_within_root
 
 def get_meta(conn: sqlite3.Connection, key: str) -> str | None:
     """Read a value from the meta table (None when the key is absent)."""
-    row = conn.execute(
-        "SELECT value FROM meta WHERE key = ?", (key,)
-    ).fetchone()
+    row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
     return row["value"] if row else None
 
 

@@ -19,7 +19,7 @@ import json
 import sqlite3
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from wpm_mcp_server.config.settings import DomainSettings
@@ -34,7 +34,6 @@ from wpm_mcp_server.core.errors import WpmError
 from wpm_mcp_server.core.scoring import (
     apply_evidence,
     base_confidence_for_source,
-    confidence_at,
     now_iso,
 )
 from wpm_mcp_server.infra.database import META_EMBEDDING_MODEL, set_meta
@@ -46,6 +45,7 @@ from wpm_mcp_server.storage.retrieval import (
     collect_conflicts_batch,
     score_entries_batch,
 )
+
 
 @dataclass
 class Repository:
@@ -76,7 +76,13 @@ class Repository:
             """,
             (entry_id, entry_type.value, content, source, provenance_score, timestamp, timestamp),
         )
-        self._log_event(entry_id, EventType.CREATED, evidence_type=None, evidence_ref=None, session_id=session_id)
+        self._log_event(
+            entry_id,
+            EventType.CREATED,
+            evidence_type=None,
+            evidence_ref=None,
+            session_id=session_id,
+        )
 
         embedding = self.embedder.embed(content)
         self.conn.execute(
@@ -95,15 +101,21 @@ class Repository:
             "provenance_score": provenance_score,
             "confidence": provenance_score,
             "potential_contradictions": [
-                {"entry_id": s["entry_id"], "similarity": s["similarity"],
-                 "type": s["type"], "content": s["content"][:100]}
+                {
+                    "entry_id": s["entry_id"],
+                    "similarity": s["similarity"],
+                    "type": s["type"],
+                    "content": s["content"][:100],
+                }
                 for s in similar
                 if s["entry_id"] != entry_id
                 and s["similarity"] >= self.settings.expansion.contradiction_alert_threshold
             ],
         }
 
-    def _process_similar_entries(self, entry_id: str, embedding: list[float]) -> list[dict[str, Any]]:
+    def _process_similar_entries(
+        self, entry_id: str, embedding: list[float]
+    ) -> list[dict[str, Any]]:
         """Query vector index for entries similar to the new embedding.
         Create implicit 'related' links above auto_link_similarity_threshold.
         Return the full list (including self) for contradiction detection."""
@@ -123,12 +135,14 @@ class Repository:
         for row in rows:
             other_id = row["entry_id"]
             similarity = 1.0 - row["distance"]
-            results.append({
-                "entry_id": other_id,
-                "type": row["type"],
-                "content": row["content"],
-                "similarity": round(similarity, 4),
-            })
+            results.append(
+                {
+                    "entry_id": other_id,
+                    "type": row["type"],
+                    "content": row["content"],
+                    "similarity": round(similarity, 4),
+                }
+            )
             if other_id != entry_id and similarity >= threshold:
                 self.conn.execute(
                     """
@@ -162,9 +176,7 @@ class Repository:
 
         direct_ids = {row["entry_id"]: (1.0 - row["distance"]) for row in candidates}
         qualified_direct = {
-            eid
-            for eid, sim in direct_ids.items()
-            if sim >= self.settings.retrieval.min_similarity
+            eid for eid, sim in direct_ids.items() if sim >= self.settings.retrieval.min_similarity
         }
 
         # --- expansion: 1 hop via entry_links (Lot 2A: single batched query) ---
@@ -205,18 +217,28 @@ class Repository:
         related_context = [
             e
             for e in related_context
-            if e and e["confidence"] >= self.settings.expansion.min_confidence and e["confidence"] >= min_confidence
+            if e
+            and e["confidence"] >= self.settings.expansion.min_confidence
+            and e["confidence"] >= min_confidence
         ]
 
         direct_matches.sort(key=lambda e: e["score"], reverse=True)
         related_context.sort(key=lambda e: e["score"], reverse=True)
 
-        direct_matches, related_context = apply_token_budget(direct_matches, related_context, token_budget)
+        direct_matches, related_context = apply_token_budget(
+            direct_matches, related_context, token_budget
+        )
 
         conflicts = collect_conflicts_batch(self.conn, [e["entry_id"] for e in direct_matches])
 
         for e in direct_matches:
-            self._log_event(e["entry_id"], EventType.REFERENCED, evidence_type=None, evidence_ref=None, session_id=session_id)
+            self._log_event(
+                e["entry_id"],
+                EventType.REFERENCED,
+                evidence_type=None,
+                evidence_ref=None,
+                session_id=session_id,
+            )
         self.conn.commit()
 
         return {
@@ -299,10 +321,22 @@ class Repository:
                 session_id=session_id,
             )
             self.conn.commit()
-            return {"entry_id": entry_id, "validation_score": row["validation_score"], "note": "agent_reasoning excluded from score"}
+            return {
+                "entry_id": entry_id,
+                "validation_score": row["validation_score"],
+                "note": "agent_reasoning excluded from score",
+            }
 
-        if session_id and not is_contradiction and self._is_duplicate_validation(entry_id, session_id):
-            return {"entry_id": entry_id, "validation_score": row["validation_score"], "note": "deduplicated: already validated in this session window"}
+        if (
+            session_id
+            and not is_contradiction
+            and self._is_duplicate_validation(entry_id, session_id)
+        ):
+            return {
+                "entry_id": entry_id,
+                "validation_score": row["validation_score"],
+                "note": "deduplicated: already validated in this session window",
+            }
 
         new_score = apply_evidence(
             current_validation_score=row["validation_score"],
@@ -332,7 +366,7 @@ class Repository:
 
     def _is_duplicate_validation(self, entry_id: str, session_id: str) -> bool:
         cutoff = (
-            datetime.now(timezone.utc) - timedelta(seconds=self.settings.validation.dedup_window_seconds)
+            datetime.now(UTC) - timedelta(seconds=self.settings.validation.dedup_window_seconds)
         ).isoformat()
         row = self.conn.execute(
             """
@@ -345,7 +379,9 @@ class Repository:
         return row is not None
 
     # --- link_entries -----------------------------------------------------
-    def link_entries(self, *, source_id: str, target_id: str, relation_type: str, weight: float = 1.0) -> dict[str, Any]:
+    def link_entries(
+        self, *, source_id: str, target_id: str, relation_type: str, weight: float = 1.0
+    ) -> dict[str, Any]:
         rel = RelationType(relation_type)
         for eid in (source_id, target_id):
             if self.conn.execute("SELECT 1 FROM entries WHERE id = ?", (eid,)).fetchone() is None:
@@ -360,7 +396,12 @@ class Repository:
             (source_id, target_id, rel.value, weight),
         )
         self.conn.commit()
-        return {"source_id": source_id, "target_id": target_id, "relation_type": rel.value, "weight": weight}
+        return {
+            "source_id": source_id,
+            "target_id": target_id,
+            "relation_type": rel.value,
+            "weight": weight,
+        }
 
     # --- pin_entry / deprecate_entry / restore_entry -------------------------
     def pin_entry(self, *, entry_id: str) -> dict[str, Any]:
@@ -372,12 +413,16 @@ class Repository:
     def restore_entry(self, *, entry_id: str) -> dict[str, Any]:
         return self._set_status(entry_id, EntryStatus.ACTIVE, EventType.RESTORED)
 
-    def _set_status(self, entry_id: str, status: EntryStatus, event_type: EventType) -> dict[str, Any]:
+    def _set_status(
+        self, entry_id: str, status: EntryStatus, event_type: EventType
+    ) -> dict[str, Any]:
         row = self.conn.execute("SELECT * FROM entries WHERE id = ?", (entry_id,)).fetchone()
         if row is None:
             raise WpmError(f"entry not found: {entry_id}")
         self.conn.execute("UPDATE entries SET status = ? WHERE id = ?", (status.value, entry_id))
-        self._log_event(entry_id, event_type, evidence_type=None, evidence_ref=None, session_id=None)
+        self._log_event(
+            entry_id, event_type, evidence_type=None, evidence_ref=None, session_id=None
+        )
         self.conn.commit()
         return {"entry_id": entry_id, "status": status.value}
 

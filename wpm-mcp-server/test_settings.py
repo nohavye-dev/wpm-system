@@ -1,9 +1,10 @@
 import sys
+
 sys.path.insert(0, "src")
 
 import json
-import tempfile
 import os
+import tempfile
 
 from wpm_mcp_server.config import load_settings, resolve_response_language
 
@@ -70,7 +71,7 @@ assert s3.domain.provenance.base_confidence["official_doc"] == 0.9
 print("OK: full example file loads")
 
 # 4. Unknown top-level section -> raises
-bad = {"not_a_real_section": {}}
+bad: dict[str, object] = {"not_a_real_section": {}}
 tmp2 = tempfile.mktemp(suffix=".json")
 with open(tmp2, "w") as f:
     json.dump(bad, f)
@@ -94,22 +95,26 @@ except ValueError as exc:
 os.remove(tmp3)
 
 # 6. End-to-end: repository actually uses overridden settings
-from wpm_mcp_server.infra import database as db
-from wpm_mcp_server.storage import Repository
-
 import hashlib
 
-class _StubEmbedder:
+from wpm_mcp_server.infra import database as db
+from wpm_mcp_server.infra.embeddings import EmbeddingProvider
+from wpm_mcp_server.storage import Repository
+
+
+class _StubEmbedder(EmbeddingProvider):
     dim = 384
 
     def embed(self, text: str) -> list[float]:
         import math
+
         vec = [0.0] * self.dim
         for i in range(self.dim):
             digest = hashlib.sha256(f"{text}:{i}".encode()).digest()
             vec[i] = (int.from_bytes(digest[:4], "big") % 1000 - 500) / 500.0
         norm = math.sqrt(sum(v * v for v in vec))
         return [v / norm for v in vec] if norm > 0 else vec
+
 
 tmp_db = tempfile.mktemp(suffix=".db")
 conn = db.connect(tmp_db)
@@ -121,9 +126,16 @@ with open(tmp4, "w") as f:
 settings = load_settings(tmp4).domain
 
 repo = Repository(conn=conn, embedder=_StubEmbedder(), settings=settings)
-result = repo.store_entry(type_="insight", content="test with custom default provenance", source="unknown_source_not_in_table")
+result = repo.store_entry(
+    type_="insight",
+    content="test with custom default provenance",
+    source="unknown_source_not_in_table",
+)
 assert result["provenance_score"] == 0.99, result
-print("OK: repository actually applies overridden settings, got provenance_score =", result["provenance_score"])
+print(
+    "OK: repository actually applies overridden settings, got provenance_score =",
+    result["provenance_score"],
+)
 
 os.remove(tmp_db)
 os.remove(tmp4)
@@ -141,7 +153,10 @@ print("OK: confidence_threshold is a top-level optional scalar, domain still def
 os.remove(tmp5)
 
 # 7b. Old top-level "plugin" key now raises (unknown top-level key)
-bad4 = {"db_path": "/custom/path/wpm.db", "plugin": {"mcp_command": "uv", "confidence_threshold": 0.6}}
+bad4 = {
+    "db_path": "/custom/path/wpm.db",
+    "plugin": {"mcp_command": "uv", "confidence_threshold": 0.6},
+}
 tmp5b = tempfile.mktemp(suffix=".json")
 with open(tmp5b, "w") as f:
     json.dump(bad4, f)
@@ -240,10 +255,10 @@ for bad_rl in ("", "   ", 3, True, ["french"]):
 assert resolve_response_language(None, None) is None
 assert resolve_response_language("french", None) == "french"
 assert resolve_response_language("french", "german") == "german"  # env wins
-assert resolve_response_language("french", "  ") == "french"      # blank env ignored
+assert resolve_response_language("french", "  ") == "french"  # blank env ignored
 assert resolve_response_language("auto", None) is None
 assert resolve_response_language("Auto", None) is None
-assert resolve_response_language(" french ", None) == "french"    # stripped
+assert resolve_response_language(" french ", None) == "french"  # stripped
 print("OK: resolve_response_language precedence and normalization")
 
 print("ALL SETTINGS TESTS OK")

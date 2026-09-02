@@ -33,7 +33,9 @@ def _opencode_plugin_dir() -> Path:
 
 def cmd_uninstall(force: bool = False) -> None:
     if not force:
-        print("This will remove the server venv, data, the 'wpm' binary, the OpenCode plugin, the pip-installed server and the embedding model cache.")
+        print(
+            "This will remove the server venv, data, the 'wpm' binary, the OpenCode plugin, the pip-installed server and the embedding model cache."
+        )
         if not confirm("Continue? [y/N] "):
             print("wpm: aborted")
             return
@@ -64,7 +66,11 @@ def cmd_uninstall(force: bool = False) -> None:
             wpm_mcp_bin.unlink()
             print(f"wpm: removed {wpm_mcp_bin}")
     for site in _user_site_packages_dirs():
-        for pattern in ("wpm_mcp_server", "wpm_mcp_server-*.dist-info", "__editable__.wpm_mcp_server-*.pth"):
+        for pattern in (
+            "wpm_mcp_server",
+            "wpm_mcp_server-*.dist-info",
+            "__editable__.wpm_mcp_server-*.pth",
+        ):
             for match in glob.glob(str(site / pattern)):
                 p = Path(match)
                 if p.is_dir():

@@ -5,8 +5,8 @@ Script-style (module-level asserts + prints) so it runs both under pytest
 (conftest runs it via runpy) and directly with `python test_behavior.py`.
 """
 
-import re
 import sys
+
 sys.path.insert(0, "src")
 
 from wpm_mcp_server import prompts as behavior
@@ -42,8 +42,7 @@ check(
 )
 check(
     "rules mention write-as-you-go discipline",
-    "write" in behavior.MEMORY_USAGE_RULES.lower()
-    and "go" in behavior.MEMORY_USAGE_RULES.lower(),
+    "write" in behavior.MEMORY_USAGE_RULES.lower() and "go" in behavior.MEMORY_USAGE_RULES.lower(),
 )
 check(
     "rules mention query_context preamble",
@@ -75,7 +74,7 @@ check(
 # --- response language builder ---
 check(
     "MEMORY_USAGE_RULES is the auto (None) variant",
-    behavior.MEMORY_USAGE_RULES == behavior.build_memory_usage_rules(None),
+    behavior.build_memory_usage_rules(None) == behavior.MEMORY_USAGE_RULES,
 )
 auto_rules = behavior.build_memory_usage_rules(None)
 check(
@@ -181,8 +180,7 @@ check(
 budget = behavior.PROJECT_RULES_TOKEN_BUDGET
 result = {
     "direct_matches": [
-        {"type": "convention", "content": "Word " * 2000, "confidence": 0.9}
-        for _ in range(50)
+        {"type": "convention", "content": "Word " * 2000, "confidence": 0.9} for _ in range(50)
     ],
     "related_context": [],
 }

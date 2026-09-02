@@ -7,7 +7,6 @@ logic. Kept in English on purpose: these are agent instructions.
 
 from wpm_mcp_server.prompts.entities import PromptTask
 
-
 REMINDER_DEDUP = (
     PromptTask("Memory deduplication reminder")
     .add_instruction(
@@ -247,7 +246,7 @@ RECORD_USER_OBSERVATION_PROMPT = (
     PromptTask("record_user_observation")
     .add_instruction(
         "Record one observation about the human user in the global user store. Pick the source from where the information comes:",
-        "source=declared — the user just stated it themselves (e.g. \"talk to me more simply\", \"explain more going forward\"): a durable preference about how you should behave. Category is not used.",
+        'source=declared — the user just stated it themselves (e.g. "talk to me more simply", "explain more going forward"): a durable preference about how you should behave. Category is not used.',
         "source=inferred — you noticed a pattern yourself; pick exactly one category: habit (recurring routine, e.g. runs tests before every push), workflow (tool/process preference, e.g. prefers pnpm), knowledge (stack or domain expertise), context (factual situation, e.g. role, timezone, team), communication (interaction style, e.g. blunt feedback), personal (attitude or trait, e.g. likes being challenged); no other value exists.",
         "Immediately before recording, call get_user_observations: for inferred patterns, if an existing one captures the same pattern pass its id as reinforce_id (increments count) instead of duplicating; for declared statements, if the new statement contradicts an existing declared preference pass its id as replaces_id — the old statement is removed.",
         "When you notice such a pattern, record it right away — do not wait for certainty; the reinforce flow keeps the store deduplicated.",
@@ -283,7 +282,7 @@ PROJECT_RULES_PROMPT_RESOURCE = (
     PromptTask("project_rules")
     .add_instruction(
         "High-confidence project conventions and architecture decisions derived from persistent memory.",
-        "Read at session start; re-read after memory changes when conventions or architecture decisions may be affected. In push mode this block is pushed automatically each turn; do not read via resource.",
+        "This block is pushed automatically each turn; do not read via resource. Re-read after memory changes when conventions or architecture decisions may be affected.",
         "Treat rules as derived knowledge, not immutable facts — verify against current evidence when they conflict with the project state.",
     )
     .to_string()
@@ -312,7 +311,7 @@ CURRENT_USER_PROMPT_RESOURCE = (
     PromptTask("current_user")
     .add_instruction(
         "The current user's conversation profile as a tagged Markdown block (<current-user>).",
-        "Read at session start and re-read when identity or preferences may have changed (user switch, profile update). In push mode this block is pushed automatically each turn; prefer get_user when in doubt.",
+        "This block is pushed automatically each turn; prefer get_user when in doubt. Re-read when identity or preferences may have changed (user switch, profile update).",
         "Apply the stated language and preferences to conversational responses; it carries no project knowledge.",
         "May include an 'Observed recurring patterns' section: inferred, non-declared knowledge — stated preferences remain authoritative.",
     )

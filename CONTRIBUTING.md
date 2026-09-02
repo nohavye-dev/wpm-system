@@ -10,6 +10,17 @@
 
 ## 2. Installation dev
 
+**Voie recommandée (fresh clone) :**
+
+```bash
+bash scripts/setup-dev.sh
+# Crée wpm-mcp-server/.venv, installe wpm-mcp-server[dev] (pytest+ruff+mypy),
+# fait bun install, installe pre-commit (ruff-format + schema + checksums),
+# vérifie ruff format --check + tsc --noEmit + schema + mypy (non bloquant).
+```
+
+**Manuel :**
+
 ```bash
 # Serveur (depuis la racine du repo)
 pip install -e "./wpm-mcp-server[dev]"
@@ -18,11 +29,13 @@ pip install -e "./wpm-mcp-server[dev]"
 cd wpm-opencode-plugin && bun install
 bun run typecheck   # tsc --noEmit — plus d'erreur bun-types
 bun test            # 30 tests (bridge, client, schema, nudges, hooks)
-bun run lint        # biome check . (warning non-bloquant)
 
 # Pre-commit (optionnel mais recommandé)
 pip install pre-commit && pre-commit install
-# Lance ruff, mypy, biome, generate_config_schema --check et sha256sum -c
+# Lance ruff-format, generate_config_schema --check et sha256sum -c
+# mypy/ruff check restent disponibles manuellement :
+#   wpm-mcp-server/.venv/bin/mypy wpm-mcp-server/src --ignore-missing-imports
+#   wpm-mcp-server/.venv/bin/ruff check wpm-mcp-server
 ```
 
 `install.sh` reste la voie globale utilisateur : crée `~/.local/share/wpm-system/venv`, pré-télécharge le modèle ONNX `paraphrase-multilingual-MiniLM-L12-v2` (~120 MB quantifié, `EMBEDDING_DIM=384`), installe `~/.local/bin/wpm` et le plugin `~/.config/opencode/plugins/wpm-plugin.ts` + `wpm-lib/`.
@@ -39,7 +52,7 @@ pytest wpm-mcp-server -q            # 19 tests
 bun run typecheck --cwd wpm-opencode-plugin && bun test --cwd wpm-opencode-plugin
 ```
 
-La CI (`.github/workflows/ci.yml`) vérifie : `pytest` (`WPM_SKIP_ONNX_TEST=1`) + `generate_config_schema --check` + `sha256sum -c` + `bun typecheck/test/lint`.
+La CI (`.github/workflows/ci.yml`) vérifie : `ruff format --check` + `pytest` (`WPM_SKIP_ONNX_TEST=1`) + `generate_config_schema --check` + `sha256sum -c` + `bun typecheck/test`.
 La PR est examinée par le mainteneur.
 
 ## 4. Avant de pousser — Checksums

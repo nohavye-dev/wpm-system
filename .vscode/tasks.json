@@ -1,0 +1,15 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "wpm: tsc typecheck workspace",
+      "type": "shell",
+      "command": "${userHome}/.bun/bin/bun run typecheck",
+      "options": { "cwd": "${workspaceFolder}/wpm-opencode-plugin" },
+      "presentation": { "reveal": "never", "panel": "dedicated" },
+      "problemMatcher": "$tsc",
+      "group": "build",
+      "runOptions": { "runOn": "folderOpen" }
+    }
+  ]
+}

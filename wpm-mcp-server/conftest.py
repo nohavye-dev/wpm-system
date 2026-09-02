@@ -36,9 +36,6 @@ class ScriptModule(pytest.Module):
 
 
 def pytest_pycollect_makemodule(module_path: Path, parent):
-    if (
-        module_path.suffix == ".py"
-        and module_path.parent == Path(__file__).resolve().parent
-    ):
+    if module_path.suffix == ".py" and module_path.parent == Path(__file__).resolve().parent:
         return ScriptModule.from_parent(parent, path=module_path)
     return None

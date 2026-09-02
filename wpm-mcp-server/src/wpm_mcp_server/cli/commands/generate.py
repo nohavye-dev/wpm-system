@@ -16,8 +16,13 @@ def cmd_generate(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     raw = json.loads(input_path.read_text(encoding="utf-8"))
-    if not isinstance(raw, dict) or not all(k in raw for k in ("entries", "entry_events", "entry_links")):
-        print("wpm: invalid export file — expected keys: entries, entry_events, entry_links", file=sys.stderr)
+    if not isinstance(raw, dict) or not all(
+        k in raw for k in ("entries", "entry_events", "entry_links")
+    ):
+        print(
+            "wpm: invalid export file — expected keys: entries, entry_events, entry_links",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     output_path = Path(args.output)

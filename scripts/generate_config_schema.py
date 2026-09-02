@@ -103,7 +103,10 @@ def leaf_schema(tp: object) -> dict:
     if origin in (list, typing.List):
         return {"type": "array", "items": leaf_schema(typing.get_args(tp)[0])}
     if origin in (dict, typing.Dict):
-        return {"type": "object", "additionalProperties": leaf_schema(typing.get_args(tp)[1])}
+        return {
+            "type": "object",
+            "additionalProperties": leaf_schema(typing.get_args(tp)[1]),
+        }
     raise ValueError(f"unsupported leaf type {tp!r}")
 
 
@@ -118,7 +121,10 @@ def schema_for(cls: type, prefix: str = "") -> dict:
 
         node: dict[str, object]
         if dataclasses.is_dataclass(tp) and isinstance(tp, type):
-            node = {"description": description or f"{tp.__name__} sub-section.", **schema_for(tp, f"{dotted}.")}
+            node = {
+                "description": description or f"{tp.__name__} sub-section.",
+                **schema_for(tp, f"{dotted}."),
+            }
         else:
             node = leaf_schema(tp)
             if description:
@@ -150,7 +156,11 @@ def build_example() -> dict:
                 out[field.name] = EXAMPLE_OVERRIDES[dotted]
                 continue
             value = default_of(field)
-            out[field.name] = walk(type(value), f"{dotted}.") if dataclasses.is_dataclass(value) else value
+            out[field.name] = (
+                walk(type(value), f"{dotted}.")
+                if dataclasses.is_dataclass(value)
+                else value
+            )
         return out
 
     return walk(Settings)
@@ -162,7 +172,11 @@ def dump(document: dict) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="exit 1 if the committed files drift from Settings")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="exit 1 if the committed files drift from Settings",
+    )
     args = parser.parse_args()
 
     outputs = {
@@ -170,7 +184,11 @@ def main() -> int:
         EXAMPLE_TARGET: build_example(),
     }
     if args.check:
-        drifted = [str(path) for path, doc in outputs.items() if path.read_text(encoding="utf-8") != dump(doc)]
+        drifted = [
+            str(path)
+            for path, doc in outputs.items()
+            if path.read_text(encoding="utf-8") != dump(doc)
+        ]
         for path in drifted:
             print(f"drifted: {path}", file=sys.stderr)
         return 1 if drifted else 0

@@ -1,9 +1,9 @@
-import { tool } from "@opencode-ai/plugin"
 import type { ToolDefinition } from "@opencode-ai/plugin"
-import type { McpCallToolResult, McpToolDefinition } from "./entities"
-import { jsonSchemaToZodRawShape } from "./schema"
+import { tool } from "@opencode-ai/plugin"
 import { SERVER_NAME } from "../core/constants"
 import type { WpmMcpClient } from "./client"
+import type { McpCallToolResult, McpToolDefinition } from "./entities"
+import { jsonSchemaToZodRawShape } from "./schema"
 
 // Dynamic bridge: every tool of the warm MCP server is re-exposed as a
 // plugin tool named `wpm_<tool>` (the name identity the permission rules,
@@ -19,7 +19,11 @@ export async function buildBridgedTools(
   const definitions = await client.toolsList()
   const bridged: Record<string, ToolDefinition> = {}
   for (const definition of definitions) {
-    bridged[`${SERVER_NAME}_${definition.name}`] = toPluginTool(client, definition, opts?.onQueryContext)
+    bridged[`${SERVER_NAME}_${definition.name}`] = toPluginTool(
+      client,
+      definition,
+      opts?.onQueryContext,
+    )
   }
   return bridged
 }
@@ -33,7 +37,9 @@ function toPluginTool(
     description: definition.description ?? "",
     args: jsonSchemaToZodRawShape(definition.inputSchema),
     execute: async (args, context) => {
-      const result = await client.callTool(definition.name, args as Record<string, unknown>, { signal: context.abort })
+      const result = await client.callTool(definition.name, args as Record<string, unknown>, {
+        signal: context.abort,
+      })
       if (definition.name === "query_context") {
         onQueryContext?.(context.sessionID)
       }
